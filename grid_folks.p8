@@ -32,18 +32,19 @@ function _init()
 
 	-- list of enemies, to be populated later
 	enemies = {}
+	make_enemy()
 
 	-- initial player position
-	local p_dest = random_empty_tile()
-	set_tile(player, p_dest[1], p_dest[2])
+	deploy(player)
 
 	-- initial enemy position
-	make_enemy()
-	foreach(enemies, enemy.deploy)
+	foreach(enemies, deploy)
 end
 
 function _update()
+	-- move player
 	player:update()
+	-- move enemies
 	if (btnp(⬆️) or btnp(⬇️) or btnp(⬅️) or btnp(➡️)) then
 		for next in all(enemies) do
 			next:step()
@@ -54,7 +55,6 @@ end
 function _draw()
 	-- clear the screen
 	cls()
-	rectfill(30,30,97,97,13)
 
 	for x = 1, rows do
 		for y = 1, cols do
@@ -75,9 +75,41 @@ function _draw()
 	end
 end
 
--- returns an empty tile represented as an array, e.g. {x,y}
+--[[
+  helper functions
+--]]
+
+-- get the col that a thing is in
+function x(thing)
+	for x = 1, rows do
+		for y = 1, cols do
+			local tile = board[x][y]
+			for next in all(tile) do
+				if next == thing then
+					return x
+				end
+			end
+		end
+	end
+end
+
+-- get the row that a thing is in
+function y(thing)
+	for x = 1, rows do
+		for y = 1, cols do
+			local tile = board[x][y]
+			for next in all(tile) do
+				if next == thing then
+					return y
+				end
+			end
+		end
+	end
+end
+
+-- returns an empty tile
 function random_empty_tile()
-	-- create an array of empty tiles
+	-- create an array of all empty tiles
 	local empty_tiles = {}
 	for x = 1, rows do
 		for y = 1, cols do
@@ -90,37 +122,16 @@ function random_empty_tile()
 	return empty_tiles[index]
 end
 
--- get the row that a thing is in
-function y(thing)
-	for x = 1, rows do
-		for y = 1, cols do
-			-- todo: update to support multiple things in a tile
-			if board[x][y][1] == thing then
-				return y
-			end
-		end
-	end
-end
-
--- get the col that a thing is in
-function x(thing)
-	for x = 1, rows do
-		for y = 1, cols do
-			-- todo: update to support multiple things in a tile
-			if board[x][y][1] == thing then
-				return x
-			end
-		end
-	end
-end
-
 -- move a thing to a tile
 function set_tile(thing, dest_x, dest_y)
 	-- remove it from its current tile
 	for x = 1, rows do
 		for y = 1, cols do
-			if board[x][y][1] == thing then
-				del(board[x][y], thing)
+			local tile = board[x][y]
+			for next in all(tile) do
+				if next == thing then
+					del(tile, thing)
+				end
 			end
 		end
 	end
@@ -128,6 +139,13 @@ function set_tile(thing, dest_x, dest_y)
 	add(board[dest_x][dest_y], thing)
 end
 
+-- put a thing at a random empty tile
+function deploy(thing)
+	dest = random_empty_tile()
+	set_tile(thing, dest[1], dest[2])
+end
+
+-- check if a tile is in a list of tiles
 function is_in_tile_array(array, tile)
 	for next in all(array) do
 		if tile[1] == next[1] and tile[2] == next[2] then
@@ -137,46 +155,45 @@ function is_in_tile_array(array, tile)
 	return false
 end
 
+--[[
+  enemy stuff
+--]]
+
+-- create an enemy and add it to the array of enemies
 function make_enemy()
 	enemy = {
 		sprite = 002,
-		deploy = function(self)
-			dest = random_empty_tile()
-			set_tile(self, dest[1], dest[2])
-		end,
 		step = function(self)
 			local self_x = x(self)
 			local self_y = y(self)
 			local self_tile = {self_x, self_y}
 			local goal_tile = {x(player), y(player)}
-
 			local distance_map = create_distance_map(goal_tile)
-
 			local current_dist = distance(distance_map, self_tile)
 			local closer_tiles = {}
 
-			-- check up tile
+			-- check if up is closer
 			if self_y != 1 then
 				local up = {self_x, self_y - 1}
 				if (distance(distance_map, up) < current_dist) then
 					add(closer_tiles, up)
 				end
 			end
-			-- check down tile
+			-- check if down is closer
 			if self_y != rows then
 				local down = {self_x, self_y + 1}
 				if (distance(distance_map, down) < current_dist) then
 					add(closer_tiles, down)
 				end
 			end
-			-- check left tile
+			-- check if left is closer
 			if self_x != 1 then
 				local left = {self_x - 1, self_y}
 				if (distance(distance_map, left) < current_dist) then
 					add(closer_tiles, left)
 				end
 			end
-			-- check right tile
+			-- check if right is closer
 			if self_x != cols then
 				local right = {self_x + 1, self_y}
 				if (distance(distance_map, right) < current_dist) then
@@ -184,6 +201,7 @@ function make_enemy()
 				end
 			end
 
+			-- pick a random closer tile and move to it
 			index = flr(rnd(#closer_tiles)) + 1
 			selected_tile = closer_tiles[index]
 			set_tile(self, selected_tile[1], selected_tile[2])
@@ -200,6 +218,7 @@ function create_distance_map(goal)
 	for x = 1, rows do
 		distance_map[x] = {}
 		for y = 1, cols do
+			-- this is a hack but it's easier than using a different type
 			distance_map[x][y] = 1000
 		end
 	end
@@ -211,25 +230,27 @@ function create_distance_map(goal)
 			local tile_y = frontier[i][2]
 			distance_map[tile_x][tile_y] = steps
 
-			-- check up tile
+			-- check up tile, if it exists
 			if tile_y != 1 then
 				local up = {tile_x, tile_y - 1}
+				-- if the distance hasn't been set, then the tile hasn't been reached yet
 				if distance_map[up[1]][up[2]] == 1000 then
 					if is_in_tile_array(next_frontier, up) == false then
 						add(next_frontier, up)
 					end
 				end
 			end
-			-- check down tile
+			-- check down tile, if it exists
 			if tile_y != rows then
 				local down = {tile_x, tile_y + 1}
 				if distance_map[down[1]][down[2]] == 1000 then
+					-- make sure it wasn't already added by a different check in the same step
 					if is_in_tile_array(next_frontier, down) == false then
 						add(next_frontier, down)
 					end
 				end
 			end
-			-- check left tile
+			-- check left tile, if it exists
 			if tile_x != 1 then
 				local left = {tile_x - 1, tile_y}
 				if distance_map[left[1]][left[2]] == 1000 then
@@ -238,7 +259,7 @@ function create_distance_map(goal)
 					end
 				end
 			end
-			-- check right tile
+			-- check right tile, if it exists
 			if tile_x != cols then
 				local right = {tile_x + 1, tile_y}
 				if distance_map[right[1]][right[2]] == 1000 then
@@ -259,9 +280,6 @@ end
 function distance(distance_map, tile)
 	return distance_map[tile[1]][tile[2]]
 end
-
--->8
--- hmm
 
 __gfx__
 000000000070070000077000dddddddd000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
