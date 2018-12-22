@@ -4,13 +4,25 @@ __lua__
 -- grid folks
 -- taylor d
 
+-- todo
+-- [ ] prevent the player from stepping off the edge of the board
+-- [ ] add walls
+-- [ ] avoid walls
+-- [ ] make a `thing` object that other things inherit from
+-- [ ] make a sprite dictionary
+-- [ ] add health for the player
+-- [ ] allow the player to hit enemies
+-- [ ] use objects instead of arrays for locations
+-- [ ] move enemies randomly if there are no valid moves
+-- [ ] prevent wall generation from creating closed areas
+
 function _init()
 
-	-- set board size
+	-- board size
 	rows = 8
 	cols = 8
 
-	-- set up a 2d array for the board
+	-- 2d array for the board
 	board = {}
 	for x = 1, rows do
 		board[x] = {}
@@ -19,20 +31,42 @@ function _init()
 		end
 	end
 
+  -- some game state
+	game_over = false
+
 	-- player object
 	player = {
-		sprite = 001,
+		type = "player",
 		update = function(self)
-			if (btnp(⬅️)) set_tile(player, x(player) - 1, y(player))
-			if (btnp(➡️)) set_tile(player, x(player) + 1, y(player))
-			if (btnp(⬆️)) set_tile(player, x(player), y(player) - 1)
-			if (btnp(⬇️)) set_tile(player, x(player), y(player) + 1)
+      local location = find(player)
+      local self_x = location.x
+      local self_y = location.y
+			if (btnp(⬅️)) set_tile(player, self_x - 1, self_y)
+			if (btnp(➡️)) set_tile(player, self_x + 1, self_y)
+			if (btnp(⬆️)) set_tile(player, self_x,     self_y - 1)
+			if (btnp(⬇️)) set_tile(player, self_x,     self_y + 1)
 		end
 	}
 
-	-- list of enemies, to be populated later
+  -- sprite dictionary
+  sprites = {
+    player = "001",
+    enemy = "002",
+    floor = "006",
+    wall = "005",
+  }
+
+  -- create some walls
+  for i = 1, 5 do
+    local wall = {
+      type = "wall"
+    }
+    deploy(wall)
+  end
+
+	-- list of enemies
 	enemies = {}
-	make_enemy()
+	create_enemy()
 
 	-- initial player position
 	deploy(player)
@@ -42,36 +76,52 @@ function _init()
 end
 
 function _update()
+
 	-- move player
 	player:update()
+
 	-- move enemies
 	if (btnp(⬆️) or btnp(⬇️) or btnp(⬅️) or btnp(➡️)) then
 		for next in all(enemies) do
 			next:step()
 		end
 	end
+
+  -- game end test
+  local pl = find(player)
+  if (#board[pl.x][pl.y] > 1) then
+    game_over = true
+  end
 end
 
 function _draw()
-	-- clear the screen
+
+  -- clear the screen
 	cls()
 
 	for x = 1, rows do
 		for y = 1, cols do
-			-- this centers the drawing based on the number of rows and cols
+			-- center the drawing based on the number of rows and cols
 			local x_offset = (128 - 8 * rows) / 2 - 8
 			local y_offset = (128 - 8 * cols) / 2 - 8
 			local x_position = x * 8 + x_offset
 			local y_position = y * 8 + y_offset
 			-- draw a floor sprite
-			spr(003, x_position, y_position)
+			spr(sprites.floor, x_position, y_position)
 			-- draw the sprite for anything at the current position
 			if #board[x][y] > 0 then
-				for i = 1, #board[x][y] do
-					spr(board[x][y][i].sprite, x_position, y_position)
+				for next in all(board[x][y]) do
+          local sprite = sprites[next.type]
+					spr(sprite, x_position, y_position)
 				end
 			end
 		end
+	end
+
+  if game_over then
+		local msg = "dead"
+		local msg_x = 64-(#msg * 4)/2
+		print(msg, msg_x, 62, 8)
 	end
 end
 
@@ -79,7 +129,23 @@ end
   helper functions
 --]]
 
--- get the col that a thing is in
+-- get the location of a thing
+function find(thing)
+	for x = 1, rows do
+		for y = 1, cols do
+			for next in all(board[x][y]) do
+				if next == thing then
+					local location = {}
+					location.x = x
+					location.y = y
+					return location
+				end
+			end
+		end
+	end
+end
+
+-- get the col of a thing
 function x(thing)
 	for x = 1, rows do
 		for y = 1, cols do
@@ -93,7 +159,7 @@ function x(thing)
 	end
 end
 
--- get the row that a thing is in
+-- get the row of a thing
 function y(thing)
 	for x = 1, rows do
 		for y = 1, cols do
@@ -124,14 +190,22 @@ end
 
 -- move a thing to a tile
 function set_tile(thing, dest_x, dest_y)
+
+  -- do nothing if dest is off the board
+	if (
+    dest_x < 1    or
+    dest_x > rows or
+    dest_y < 1    or
+    dest_y > cols
+  ) then
+	  return
+	end
+
 	-- remove it from its current tile
 	for x = 1, rows do
 		for y = 1, cols do
-			local tile = board[x][y]
-			for next in all(tile) do
-				if next == thing then
-					del(tile, thing)
-				end
+			if board[x][y][1] == thing then
+				del(board[x][y], thing)
 			end
 		end
 	end
@@ -155,14 +229,25 @@ function is_in_tile_array(array, tile)
 	return false
 end
 
+function is_type_in_tile(type, tile)
+  local x = tile[1]
+  local y = tile[2]
+  for next in all(board[x][y]) do
+    if next.type == type then
+      return true
+    end
+  end
+  return false
+end
+
 --[[
   enemy stuff
 --]]
 
 -- create an enemy and add it to the array of enemies
-function make_enemy()
+function create_enemy()
 	enemy = {
-		sprite = 002,
+    type = "enemy",
 		step = function(self)
 			local self_x = x(self)
 			local self_y = y(self)
@@ -235,7 +320,10 @@ function create_distance_map(goal)
 				local up = {tile_x, tile_y - 1}
 				-- if the distance hasn't been set, then the tile hasn't been reached yet
 				if distance_map[up[1]][up[2]] == 1000 then
-					if is_in_tile_array(next_frontier, up) == false then
+					if
+            is_in_tile_array(next_frontier, up) == false and
+            is_type_in_tile("wall", up) == false
+          then
 						add(next_frontier, up)
 					end
 				end
@@ -245,7 +333,10 @@ function create_distance_map(goal)
 				local down = {tile_x, tile_y + 1}
 				if distance_map[down[1]][down[2]] == 1000 then
 					-- make sure it wasn't already added by a different check in the same step
-					if is_in_tile_array(next_frontier, down) == false then
+					if
+            is_in_tile_array(next_frontier, down) == false and
+            is_type_in_tile("wall", down) == false
+          then
 						add(next_frontier, down)
 					end
 				end
@@ -254,7 +345,10 @@ function create_distance_map(goal)
 			if tile_x != 1 then
 				local left = {tile_x - 1, tile_y}
 				if distance_map[left[1]][left[2]] == 1000 then
-					if is_in_tile_array(next_frontier, left) == false then
+					if
+            is_in_tile_array(next_frontier, left) == false and
+            is_type_in_tile("wall", left) == false
+          then
 						add(next_frontier, left)
 					end
 				end
@@ -263,7 +357,10 @@ function create_distance_map(goal)
 			if tile_x != cols then
 				local right = {tile_x + 1, tile_y}
 				if distance_map[right[1]][right[2]] == 1000 then
-					if is_in_tile_array(next_frontier, right) == false then
+					if
+            is_in_tile_array(next_frontier, right) == false and
+            is_type_in_tile("wall", right) == false
+          then
 						add(next_frontier, right)
 					end
 				end
@@ -282,14 +379,14 @@ function distance(distance_map, tile)
 end
 
 __gfx__
-000000000070070000077000dddddddd000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-000000000077770000777700dddddddd000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-0000000000766700007b7700dddddddd000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-000000000627726066666666dddddddd000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-000000000627726000000000dddddddd000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-000000000622226000077000dddddddd000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-000000000020020000000000dddddddd000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-000000000020020000777700dddddddd000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+000000000070070000077000dddddddd0ffffff033440003ffffffff000000000000000000000000000000000000000000000000000000000000000000000000
+000000000077770000777700ddddddddff4f444f43488333ffffffff000000000000000000000000000000000000000000000000000000000000000000000000
+0000000000766700007b7700ddddddddffffffff84444404ffffffff000000000000000000000000000000000000000000000000000000000000000000000000
+000000000627726066666666ddddddddf4f4ffff44484484ffffffff000000000000000000000000000000000000000000000000000000000000000000000000
+000000000627726000000000ddddddddf4ffffff44044448ffffffff000000000000000000000000000000000000000000000000000000000000000000000000
+000000000622226000077000ddddddddffffff0f88444844ffffffff000000000000000000000000000000000000000000000000000000000000000000000000
+000000000020020000000000ddddddddff0fffff44834443ffffffff000000000000000000000000000000000000000000000000000000000000000000000000
+000000000020020000777700dddddddd0fff0ff033333343ffffffff000000000000000000000000000000000000000000000000000000000000000000000000
 __label__
 00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
@@ -421,4 +518,4 @@ __label__
 00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 
 __sfx__
-00010000000001c050130401c0701e050200402105022070220702006018050130400c0400b0300b0300e0401307024050300501f050250502805022150221502315023150241502415027150000000000000000
+00010000000001c050230302605016060180601a060280701b0702307024070250701904027070280700e0702807028070280702705026070280702a070221702a07023170241702417027170000700007000070
