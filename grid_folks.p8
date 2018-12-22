@@ -5,14 +5,15 @@ __lua__
 -- taylor d
 
 -- todo
--- [ ] prevent the player from stepping off the edge of the board
--- [ ] add walls
--- [ ] avoid walls
--- [ ] make a `thing` object that other things inherit from
--- [ ] make a sprite dictionary
+-- [x] prevent the player from stepping off the edge of the board
+-- [x] add walls
+-- [x] make a sprite dictionary
+-- [x] prevent the player from stepping into walls
+-- [x] prevent enemies from moving the the player attempts an invalid move
+-- [ ] make a `thing` class that other things inherit from
 -- [ ] add health for the player
 -- [ ] allow the player to hit enemies
--- [ ] use objects instead of arrays for locations
+-- [ ] use objects instead of arrays for locations?
 -- [ ] move enemies randomly if there are no valid moves
 -- [ ] prevent wall generation from creating closed areas
 
@@ -41,10 +42,50 @@ function _init()
       local location = find(player)
       local self_x = location.x
       local self_y = location.y
-			if (btnp(⬅️)) set_tile(player, self_x - 1, self_y)
-			if (btnp(➡️)) set_tile(player, self_x + 1, self_y)
-			if (btnp(⬆️)) set_tile(player, self_x,     self_y - 1)
-			if (btnp(⬇️)) set_tile(player, self_x,     self_y + 1)
+      -- move up
+			if btnp(⬆️) then
+        local up = {self_x, self_y - 1}
+        if
+          location_exists(up) and
+          is_type_in_tile("wall", up) == false
+        then
+          set_tile(player, up)
+          foreach(enemies, enemy.step)
+        end
+      end
+      -- move down
+			if btnp(⬇️) then
+        local down = {self_x, self_y + 1}
+        if
+          location_exists(down) and
+          is_type_in_tile("wall", down) == false
+        then
+          set_tile(player, down)
+          foreach(enemies, enemy.step)
+        end
+      end
+      -- move left
+			if btnp(⬅️) then
+        local left = {self_x - 1, self_y}
+        if
+          location_exists(left) and
+          is_type_in_tile("wall", left) == false
+        then
+          set_tile(player, left)
+          foreach(enemies, enemy.step)
+        end
+      end
+      -- move right
+			if btnp(➡️) then
+        local right = {self_x + 1, self_y}
+        if
+          location_exists(right) and
+          is_type_in_tile("wall", right) == false
+        then
+          set_tile(player, right)
+          foreach(enemies, enemy.step)
+        end
+      end
 		end
 	}
 
@@ -77,15 +118,8 @@ end
 
 function _update()
 
-	-- move player
+	-- move player and enemies
 	player:update()
-
-	-- move enemies
-	if (btnp(⬆️) or btnp(⬇️) or btnp(⬅️) or btnp(➡️)) then
-		for next in all(enemies) do
-			next:step()
-		end
-	end
 
   -- game end test
   local pl = find(player)
@@ -188,16 +222,29 @@ function random_empty_tile()
 	return empty_tiles[index]
 end
 
+-- check if a location is on the board
+function location_exists(tile)
+  local x = tile[1]
+  local y = tile[2]
+  if
+    x < 1 or
+    x > cols or
+    y < 1 or
+    y > rows
+  then
+	  return false
+	end
+  return true
+end
+
 -- move a thing to a tile
-function set_tile(thing, dest_x, dest_y)
+function set_tile(thing, dest)
+
+  local dest_x = dest[1]
+  local dest_y = dest[2]
 
   -- do nothing if dest is off the board
-	if (
-    dest_x < 1    or
-    dest_x > rows or
-    dest_y < 1    or
-    dest_y > cols
-  ) then
+	if location_exists(dest) == false then
 	  return
 	end
 
@@ -216,7 +263,7 @@ end
 -- put a thing at a random empty tile
 function deploy(thing)
 	dest = random_empty_tile()
-	set_tile(thing, dest[1], dest[2])
+	set_tile(thing, dest)
 end
 
 -- check if a tile is in a list of tiles
@@ -248,7 +295,7 @@ end
 function create_enemy()
 	enemy = {
     type = "enemy",
-		step = function(self)
+    step = function(self)
 			local self_x = x(self)
 			local self_y = y(self)
 			local self_tile = {self_x, self_y}
@@ -289,7 +336,7 @@ function create_enemy()
 			-- pick a random closer tile and move to it
 			index = flr(rnd(#closer_tiles)) + 1
 			selected_tile = closer_tiles[index]
-			set_tile(self, selected_tile[1], selected_tile[2])
+			set_tile(self, selected_tile)
 		end
 	}
 	add(enemies, enemy)
