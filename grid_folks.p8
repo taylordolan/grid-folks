@@ -10,9 +10,13 @@ __lua__
 -- [x] make a sprite dictionary
 -- [x] prevent the player from stepping into walls
 -- [x] prevent enemies from moving the the player attempts an invalid move
+-- [x] add and render health for the player
+-- [x] implement bump hits for enemies
+-- [x] implement bump hits for player
+-- [x] make enemies avoid other enemies
 -- [ ] make a `thing` class that other things inherit from
--- [ ] add health for the player
--- [ ] allow the player to hit enemies
+-- [ ] clean up player movement
+-- [ ] clean up enemy movement
 -- [ ] use objects instead of arrays for locations?
 -- [ ] move enemies randomly if there are no valid moves
 -- [ ] prevent wall generation from creating closed areas
@@ -38,6 +42,7 @@ function _init()
 	-- player object
 	player = {
 		type = "player",
+    health = 3,
 		update = function(self)
       local location = find(player)
       local self_x = location.x
@@ -47,9 +52,9 @@ function _init()
         local up = {self_x, self_y - 1}
         if
           location_exists(up) and
-          is_type_in_tile("wall", up) == false
+          find_type_in_tile("wall", up) == false
         then
-          set_tile(player, up)
+          attempt_player_move(up)
           foreach(enemies, enemy.step)
         end
       end
@@ -58,9 +63,9 @@ function _init()
         local down = {self_x, self_y + 1}
         if
           location_exists(down) and
-          is_type_in_tile("wall", down) == false
+          find_type_in_tile("wall", down) == false
         then
-          set_tile(player, down)
+          attempt_player_move(down)
           foreach(enemies, enemy.step)
         end
       end
@@ -69,9 +74,9 @@ function _init()
         local left = {self_x - 1, self_y}
         if
           location_exists(left) and
-          is_type_in_tile("wall", left) == false
+          find_type_in_tile("wall", left) == false
         then
-          set_tile(player, left)
+          attempt_player_move(left)
           foreach(enemies, enemy.step)
         end
       end
@@ -80,9 +85,9 @@ function _init()
         local right = {self_x + 1, self_y}
         if
           location_exists(right) and
-          is_type_in_tile("wall", right) == false
+          find_type_in_tile("wall", right) == false
         then
-          set_tile(player, right)
+          attempt_player_move(right)
           foreach(enemies, enemy.step)
         end
       end
@@ -93,8 +98,8 @@ function _init()
   sprites = {
     player = "001",
     enemy = "002",
-    floor = "006",
-    wall = "005",
+    floor = "003",
+    wall = "004",
   }
 
   -- create some walls
@@ -108,6 +113,7 @@ function _init()
 	-- list of enemies
 	enemies = {}
 	create_enemy()
+  create_enemy()
 
 	-- initial player position
 	deploy(player)
@@ -122,8 +128,7 @@ function _update()
 	player:update()
 
   -- game end test
-  local pl = find(player)
-  if (#board[pl.x][pl.y] > 1) then
+  if player.health == 0 then
     game_over = true
   end
 end
@@ -147,6 +152,12 @@ function _draw()
 				for next in all(board[x][y]) do
           local sprite = sprites[next.type]
 					spr(sprite, x_position, y_position)
+          -- show health bar for things with health
+          if (next.health) then
+            for i = 0, next.health - 1 do
+              pset(x_position + 7, y_position + i, 8)
+            end
+          end
 				end
 			end
 		end
@@ -154,9 +165,20 @@ function _draw()
 
   if game_over then
 		local msg = "dead"
-		local msg_x = 64-(#msg * 4)/2
+		local msg_x = 64 - (#msg * 4) / 2
 		print(msg, msg_x, 62, 8)
 	end
+end
+
+function attempt_player_move(tile)
+  local index = find_type_in_tile("enemy", tile)
+  local x = tile[1]
+  local y = tile[2]
+  if index != false then
+    board[x][y][index].hit(board[x][y][index])
+  else
+    set_tile(player, tile)
+  end
 end
 
 --[[
@@ -256,6 +278,7 @@ function set_tile(thing, dest)
 			end
 		end
 	end
+
 	-- add it to the dest tile
 	add(board[dest_x][dest_y], thing)
 end
@@ -276,12 +299,13 @@ function is_in_tile_array(array, tile)
 	return false
 end
 
-function is_type_in_tile(type, tile)
+function find_type_in_tile(type, tile)
   local x = tile[1]
   local y = tile[2]
-  for next in all(board[x][y]) do
+  for i = 1, #board[x][y] do
+    local next = board[x][y][i]
     if next.type == type then
-      return true
+      return i
     end
   end
   return false
@@ -298,46 +322,116 @@ function create_enemy()
     step = function(self)
 			local self_x = x(self)
 			local self_y = y(self)
-			local self_tile = {self_x, self_y}
+      local self_tile = {self_x, self_y}
 			local goal_tile = {x(player), y(player)}
 			local distance_map = create_distance_map(goal_tile)
 			local current_dist = distance(distance_map, self_tile)
 			local closer_tiles = {}
 
+      local up = {self_x, self_y - 1}
+      local down = {self_x, self_y + 1}
+      local left = {self_x - 1, self_y}
+      local right = {self_x + 1, self_y}
+
 			-- check if up is closer
 			if self_y != 1 then
-				local up = {self_x, self_y - 1}
-				if (distance(distance_map, up) < current_dist) then
+				if
+          distance(distance_map, up) < current_dist and
+          find_type_in_tile("enemy", up) == false
+        then
 					add(closer_tiles, up)
 				end
 			end
 			-- check if down is closer
 			if self_y != rows then
-				local down = {self_x, self_y + 1}
-				if (distance(distance_map, down) < current_dist) then
+				if
+          distance(distance_map, down) < current_dist and
+          find_type_in_tile("enemy", down) == false
+        then
 					add(closer_tiles, down)
 				end
 			end
 			-- check if left is closer
 			if self_x != 1 then
-				local left = {self_x - 1, self_y}
-				if (distance(distance_map, left) < current_dist) then
+				if
+          distance(distance_map, left) < current_dist and
+          find_type_in_tile("enemy", left) == false
+        then
 					add(closer_tiles, left)
 				end
 			end
 			-- check if right is closer
 			if self_x != cols then
-				local right = {self_x + 1, self_y}
-				if (distance(distance_map, right) < current_dist) then
+				if
+          distance(distance_map, right) < current_dist and
+          find_type_in_tile("enemy", right) == false
+        then
 					add(closer_tiles, right)
 				end
 			end
 
-			-- pick a random closer tile and move to it
-			index = flr(rnd(#closer_tiles)) + 1
-			selected_tile = closer_tiles[index]
-			set_tile(self, selected_tile)
-		end
+      local valid_moves = closer_tiles
+
+      -- if there are no available options, move randomly
+      if #closer_tiles == 0 then
+
+        local empty_adjacent_tiles = {}
+
+        -- check if up is closer
+        if self_y != 1 then
+          if
+            find_type_in_tile("enemy", up) == false and
+            find_type_in_tile("wall", up) == false
+          then
+            add(empty_adjacent_tiles, up)
+          end
+        end
+        -- check if down is closer
+        if self_y != rows then
+          if
+            find_type_in_tile("enemy", down) == false and
+            find_type_in_tile("wall", down) == false
+          then
+            add(empty_adjacent_tiles, down)
+          end
+        end
+        -- check if left is closer
+        if self_x != 1 then
+          if
+            find_type_in_tile("enemy", left) == false and
+            find_type_in_tile("wall", left) == false
+          then
+            add(empty_adjacent_tiles, left)
+          end
+        end
+        -- check if right is closer
+        if self_x != cols then
+          if
+            find_type_in_tile("enemy", right) == false and
+            find_type_in_tile("wall", right) == false
+          then
+            add(empty_adjacent_tiles, right)
+          end
+        end
+
+        printh(#empty_adjacent_tiles)
+        valid_moves = empty_adjacent_tiles
+      end
+
+			-- hit the player, or pick a closer tile and move to it
+			index = flr(rnd(#valid_moves)) + 1
+			selected_tile = valid_moves[index]
+      if find_type_in_tile("player", selected_tile) != false then
+        player.health -= 1
+      else set_tile(self, selected_tile)
+      end
+		end,
+    hit = function(self)
+      local self_x = x(self)
+			local self_y = y(self)
+      del(enemies, self)
+      del(board[self_x][self_y], self)
+    end
 	}
 	add(enemies, enemy)
 end
@@ -367,10 +461,10 @@ function create_distance_map(goal)
 				local up = {tile_x, tile_y - 1}
 				-- if the distance hasn't been set, then the tile hasn't been reached yet
 				if distance_map[up[1]][up[2]] == 1000 then
-					if
+					if (
             is_in_tile_array(next_frontier, up) == false and
-            is_type_in_tile("wall", up) == false
-          then
+            find_type_in_tile("wall", up) == false
+          ) then
 						add(next_frontier, up)
 					end
 				end
@@ -380,10 +474,10 @@ function create_distance_map(goal)
 				local down = {tile_x, tile_y + 1}
 				if distance_map[down[1]][down[2]] == 1000 then
 					-- make sure it wasn't already added by a different check in the same step
-					if
+					if (
             is_in_tile_array(next_frontier, down) == false and
-            is_type_in_tile("wall", down) == false
-          then
+            find_type_in_tile("wall", down) == false
+          ) then
 						add(next_frontier, down)
 					end
 				end
@@ -392,10 +486,10 @@ function create_distance_map(goal)
 			if tile_x != 1 then
 				local left = {tile_x - 1, tile_y}
 				if distance_map[left[1]][left[2]] == 1000 then
-					if
+					if (
             is_in_tile_array(next_frontier, left) == false and
-            is_type_in_tile("wall", left) == false
-          then
+            find_type_in_tile("wall", left) == false
+          ) then
 						add(next_frontier, left)
 					end
 				end
@@ -404,15 +498,14 @@ function create_distance_map(goal)
 			if tile_x != cols then
 				local right = {tile_x + 1, tile_y}
 				if distance_map[right[1]][right[2]] == 1000 then
-					if
+					if (
             is_in_tile_array(next_frontier, right) == false and
-            is_type_in_tile("wall", right) == false
-          then
+            find_type_in_tile("wall", right) == false
+          ) then
 						add(next_frontier, right)
 					end
 				end
 			end
-			printh(#next_frontier)
 		end
 		steps += 1
 		frontier = next_frontier
@@ -565,4 +658,4 @@ __label__
 00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 
 __sfx__
-00010000000001c050230302605016060180601a060280701b0702307024070250701904027070280700e0702807028070280702705026070280702a070221702a07023170241702417027170000700007000070
+00010000000001c05023030180501e0602106024060270701e0702807028070280702704024070210701d0701a07018070170701605016070180701a070230703107023170241702417027170000700007000070
