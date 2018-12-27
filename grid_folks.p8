@@ -320,10 +320,14 @@ function create_enemy()
 	enemy = {
     type = "enemy",
     step = function(self)
-			local self_x = x(self)
-			local self_y = y(self)
+      local found_self = find(self)
+			local self_x = found_self.x
+			local self_y = found_self.y
       local self_tile = {self_x, self_y}
-			local goal_tile = {x(player), y(player)}
+
+      local found_player = find(player)
+			local goal_tile = {found_player.x, found_player.y}
+
 			local distance_map = create_distance_map(goal_tile)
 			local current_dist = distance(distance_map, self_tile)
 			local closer_tiles = {}
