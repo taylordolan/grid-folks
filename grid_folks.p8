@@ -175,6 +175,7 @@ function attempt_player_move(tile)
   local x = tile[1]
   local y = tile[2]
   if index != false then
+    -- todo: clean this up
     board[x][y][index].hit(board[x][y][index])
   else
     set_tile(player, tile)
@@ -311,6 +312,26 @@ function find_type_in_tile(type, tile)
   return false
 end
 
+-- returns an array of all existing adjacent tiles
+function get_adjacent_tiles(tile)
+
+  local self_x = tile[1]
+  local self_y = tile[2]
+  local adjacent_tiles = {}
+
+  local up = {self_x, self_y - 1}
+  local down = {self_x, self_y + 1}
+  local left = {self_x - 1, self_y}
+  local right = {self_x + 1, self_y}
+
+  if location_exists(up) then add(adjacent_tiles, up) end
+  if location_exists(down) then add(adjacent_tiles, down) end
+  if location_exists(left) then add(adjacent_tiles, left) end
+  if location_exists(right) then add(adjacent_tiles, right) end
+
+  return adjacent_tiles
+end
+
 --[[
   enemy stuff
 --]]
@@ -332,47 +353,16 @@ function create_enemy()
 			local current_dist = distance(distance_map, self_tile)
 			local closer_tiles = {}
 
-      local up = {self_x, self_y - 1}
-      local down = {self_x, self_y + 1}
-      local left = {self_x - 1, self_y}
-      local right = {self_x + 1, self_y}
+      adjacent_tiles = get_adjacent_tiles(self_tile)
 
-			-- check if up is closer
-			if self_y != 1 then
-				if
-          distance(distance_map, up) < current_dist and
-          find_type_in_tile("enemy", up) == false
+      for next in all(adjacent_tiles) do
+        if
+          distance(distance_map, next) < current_dist and
+          find_type_in_tile("enemy", next) == false
         then
-					add(closer_tiles, up)
+					add(closer_tiles, next)
 				end
-			end
-			-- check if down is closer
-			if self_y != rows then
-				if
-          distance(distance_map, down) < current_dist and
-          find_type_in_tile("enemy", down) == false
-        then
-					add(closer_tiles, down)
-				end
-			end
-			-- check if left is closer
-			if self_x != 1 then
-				if
-          distance(distance_map, left) < current_dist and
-          find_type_in_tile("enemy", left) == false
-        then
-					add(closer_tiles, left)
-				end
-			end
-			-- check if right is closer
-			if self_x != cols then
-				if
-          distance(distance_map, right) < current_dist and
-          find_type_in_tile("enemy", right) == false
-        then
-					add(closer_tiles, right)
-				end
-			end
+      end
 
       local valid_moves = closer_tiles
 
@@ -380,45 +370,15 @@ function create_enemy()
       if #closer_tiles == 0 then
 
         local empty_adjacent_tiles = {}
-
-        -- check if up is closer
-        if self_y != 1 then
+        for next in all(adjacent_tiles) do
           if
-            find_type_in_tile("enemy", up) == false and
-            find_type_in_tile("wall", up) == false
+            find_type_in_tile("enemy", next) == false and
+            find_type_in_tile("wall", next) == false
           then
-            add(empty_adjacent_tiles, up)
-          end
-        end
-        -- check if down is closer
-        if self_y != rows then
-          if
-            find_type_in_tile("enemy", down) == false and
-            find_type_in_tile("wall", down) == false
-          then
-            add(empty_adjacent_tiles, down)
-          end
-        end
-        -- check if left is closer
-        if self_x != 1 then
-          if
-            find_type_in_tile("enemy", left) == false and
-            find_type_in_tile("wall", left) == false
-          then
-            add(empty_adjacent_tiles, left)
-          end
-        end
-        -- check if right is closer
-        if self_x != cols then
-          if
-            find_type_in_tile("enemy", right) == false and
-            find_type_in_tile("wall", right) == false
-          then
-            add(empty_adjacent_tiles, right)
+            add(empty_adjacent_tiles, next)
           end
         end
 
-        printh(#empty_adjacent_tiles)
         valid_moves = empty_adjacent_tiles
       end
 
@@ -456,60 +416,23 @@ function create_distance_map(goal)
 
 	while #frontier > 0 do
 		for i = 1, #frontier do
+      local adjacent_tiles = get_adjacent_tiles(frontier[i])
 			local tile_x = frontier[i][1]
 			local tile_y = frontier[i][2]
 			distance_map[tile_x][tile_y] = steps
 
-			-- check up tile, if it exists
-			if tile_y != 1 then
-				local up = {tile_x, tile_y - 1}
-				-- if the distance hasn't been set, then the tile hasn't been reached yet
-				if distance_map[up[1]][up[2]] == 1000 then
+      for next in all(adjacent_tiles) do
+        -- if the distance hasn't been set, then the tile hasn't been reached yet
+        if distance_map[next[1]][next[2]] == 1000 then
 					if (
-            is_in_tile_array(next_frontier, up) == false and
-            find_type_in_tile("wall", up) == false
+            -- make sure it wasn't already added by a different check in the same step
+            is_in_tile_array(next_frontier, next) == false and
+            find_type_in_tile("wall", next) == false
           ) then
-						add(next_frontier, up)
+						add(next_frontier, next)
 					end
 				end
-			end
-			-- check down tile, if it exists
-			if tile_y != rows then
-				local down = {tile_x, tile_y + 1}
-				if distance_map[down[1]][down[2]] == 1000 then
-					-- make sure it wasn't already added by a different check in the same step
-					if (
-            is_in_tile_array(next_frontier, down) == false and
-            find_type_in_tile("wall", down) == false
-          ) then
-						add(next_frontier, down)
-					end
-				end
-			end
-			-- check left tile, if it exists
-			if tile_x != 1 then
-				local left = {tile_x - 1, tile_y}
-				if distance_map[left[1]][left[2]] == 1000 then
-					if (
-            is_in_tile_array(next_frontier, left) == false and
-            find_type_in_tile("wall", left) == false
-          ) then
-						add(next_frontier, left)
-					end
-				end
-			end
-			-- check right tile, if it exists
-			if tile_x != cols then
-				local right = {tile_x + 1, tile_y}
-				if distance_map[right[1]][right[2]] == 1000 then
-					if (
-            is_in_tile_array(next_frontier, right) == false and
-            find_type_in_tile("wall", right) == false
-          ) then
-						add(next_frontier, right)
-					end
-				end
-			end
+      end
 		end
 		steps += 1
 		frontier = next_frontier
