@@ -14,12 +14,13 @@ __lua__
 -- [x] implement bump hits for enemies
 -- [x] implement bump hits for player
 -- [x] make enemies avoid other enemies
+-- [x] clean up player movement
+-- [x] move enemies randomly if there are no valid moves
+-- [x] clean up enemy movement
 -- [ ] make a `thing` class that other things inherit from
--- [ ] clean up player movement
--- [ ] clean up enemy movement
 -- [ ] use objects instead of arrays for locations?
--- [ ] move enemies randomly if there are no valid moves
 -- [ ] prevent wall generation from creating closed areas
+-- [ ] maybe do away with the whole distance_map thing
 
 function _init()
 
@@ -47,47 +48,43 @@ function _init()
       local location = find(player)
       local self_x = location.x
       local self_y = location.y
+      local dest = {}
+
       -- move up
 			if btnp(⬆️) then
-        local up = {self_x, self_y - 1}
-        if
-          location_exists(up) and
-          find_type_in_tile("wall", up) == false
-        then
-          attempt_player_move(up)
-          foreach(enemies, enemy.step)
-        end
+        dest = {self_x, self_y - 1}
+        attempt_player_move(dest)
       end
       -- move down
 			if btnp(⬇️) then
-        local down = {self_x, self_y + 1}
-        if
-          location_exists(down) and
-          find_type_in_tile("wall", down) == false
-        then
-          attempt_player_move(down)
-          foreach(enemies, enemy.step)
-        end
+        dest = {self_x, self_y + 1}
+        attempt_player_move(dest)
       end
       -- move left
 			if btnp(⬅️) then
-        local left = {self_x - 1, self_y}
-        if
-          location_exists(left) and
-          find_type_in_tile("wall", left) == false
-        then
-          attempt_player_move(left)
-          foreach(enemies, enemy.step)
-        end
+        dest = {self_x - 1, self_y}
+        attempt_player_move(dest)
       end
       -- move right
 			if btnp(➡️) then
-        local right = {self_x + 1, self_y}
+        dest = {self_x + 1, self_y}
+        attempt_player_move(dest)
+      end
+
+      function attempt_player_move(dest)
+        local x = dest[1]
+        local y = dest[2]
         if
-          location_exists(right) and
-          find_type_in_tile("wall", right) == false
+          location_exists(dest) and
+          find_type_in_tile("wall", dest) == false
         then
-          attempt_player_move(right)
+          local index = find_type_in_tile("enemy", dest)
+          if index != false then
+            -- todo: clean this up
+            board[x][y][index].hit(board[x][y][index])
+          else
+            set_tile(player, dest)
+          end
           foreach(enemies, enemy.step)
         end
       end
@@ -168,18 +165,6 @@ function _draw()
 		local msg_x = 64 - (#msg * 4) / 2
 		print(msg, msg_x, 62, 8)
 	end
-end
-
-function attempt_player_move(tile)
-  local index = find_type_in_tile("enemy", tile)
-  local x = tile[1]
-  local y = tile[2]
-  if index != false then
-    -- todo: clean this up
-    board[x][y][index].hit(board[x][y][index])
-  else
-    set_tile(player, tile)
-  end
 end
 
 --[[
@@ -351,23 +336,22 @@ function create_enemy()
 
 			local distance_map = create_distance_map(goal_tile)
 			local current_dist = distance(distance_map, self_tile)
-			local closer_tiles = {}
+      local adjacent_tiles = get_adjacent_tiles(self_tile)
+      local valid_moves = {}
 
-      adjacent_tiles = get_adjacent_tiles(self_tile)
-
+      -- populate valid_moves with tiles that are closer and don't contain enemies
       for next in all(adjacent_tiles) do
         if
           distance(distance_map, next) < current_dist and
           find_type_in_tile("enemy", next) == false
         then
-					add(closer_tiles, next)
+					add(valid_moves, next)
 				end
       end
 
-      local valid_moves = closer_tiles
-
-      -- if there are no available options, move randomly
-      if #closer_tiles == 0 then
+      -- if there are no valid moves based on the above criteria,
+      -- then any adjacent tile that's not an enemy or a wall is valid
+      if #valid_moves == 0 then
 
         local empty_adjacent_tiles = {}
         for next in all(adjacent_tiles) do
@@ -382,12 +366,17 @@ function create_enemy()
         valid_moves = empty_adjacent_tiles
       end
 
-			-- hit the player, or pick a closer tile and move to it
-			index = flr(rnd(#valid_moves)) + 1
-			selected_tile = valid_moves[index]
-      if find_type_in_tile("player", selected_tile) != false then
-        player.health -= 1
-      else set_tile(self, selected_tile)
+      -- if there are any valid moves…
+      if #valid_moves > 0 then
+        -- pick a tile in valid_moves and attempt to move to it
+        -- this will either move to it or hit the player
+        index = flr(rnd(#valid_moves)) + 1
+        selected_tile = valid_moves[index]
+        if find_type_in_tile("player", selected_tile) != false then
+          player.health -= 1
+        else
+          set_tile(self, selected_tile)
+        end
       end
 		end,
     hit = function(self)
