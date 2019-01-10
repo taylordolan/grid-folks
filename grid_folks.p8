@@ -17,8 +17,8 @@ __lua__
 -- [x] clean up player movement
 -- [x] move enemies randomly if there are no valid moves
 -- [x] clean up enemy movement
--- [ ] maybe do away with the whole distance_map thing
--- [ ] two heroes that the player can control
+-- [x] maybe do away with the whole distance_map thing
+-- [x] two heroes that the player can control
 -- [ ] enemies move toward the closest hero
 -- [ ] use objects instead of arrays for locations
 -- [ ] prevent wall generation from creating closed areas
@@ -39,62 +39,12 @@ function _init()
 	end
 
   -- some game state
+  player_turn = true
 	game_over = false
-
-	-- player object
-	player = {
-		type = "player",
-    health = 3,
-		update = function(self)
-      local location = find(player)
-      local self_x = location.x
-      local self_y = location.y
-      local dest = {}
-
-      -- move up
-			if btnp(⬆️) then
-        dest = {self_x, self_y - 1}
-        attempt_player_move(dest)
-      end
-      -- move down
-			if btnp(⬇️) then
-        dest = {self_x, self_y + 1}
-        attempt_player_move(dest)
-      end
-      -- move left
-			if btnp(⬅️) then
-        dest = {self_x - 1, self_y}
-        attempt_player_move(dest)
-      end
-      -- move right
-			if btnp(➡️) then
-        dest = {self_x + 1, self_y}
-        attempt_player_move(dest)
-      end
-
-      function attempt_player_move(dest)
-        local x = dest[1]
-        local y = dest[2]
-        if
-          location_exists(dest) and
-          find_type_in_tile("wall", dest) == false
-        then
-          local index = find_type_in_tile("enemy", dest)
-          if index != false then
-            -- todo: clean this up
-            board[x][y][index].hit(board[x][y][index])
-          else
-            set_tile(player, dest)
-          end
-          foreach(enemies, enemy.step)
-        end
-      end
-		end
-	}
 
   -- sprite dictionary
   sprites = {
-    player = "001",
+    hero = "001",
     enemy = "002",
     floor = "003",
     wall = "004",
@@ -108,13 +58,16 @@ function _init()
     deploy(wall)
   end
 
+  -- heroes
+  hero_a = create_hero()
+  hero_b = create_hero()
+  deploy(hero_a)
+  deploy(hero_b)
+
 	-- list of enemies
 	enemies = {}
 	create_enemy()
   create_enemy()
-
-	-- initial player position
-	deploy(player)
 
 	-- initial enemy position
 	foreach(enemies, deploy)
@@ -122,11 +75,22 @@ end
 
 function _update()
 
-	-- move player and enemies
-	player:update()
+	-- move heroes
+  if (btn(5)) then
+    hero_a.sprite = 17
+    hero_a:update()
+  else
+    hero_b.sprite = 17
+    hero_b:update()
+  end
+
+  -- move enemies
+  if player_turn == false then
+    foreach(enemies, enemy.update)
+  end
 
   -- game end test
-  if player.health == 0 then
+  if hero_a.health == 0 or hero_b.health == 0 then
     game_over = true
   end
 end
@@ -319,6 +283,63 @@ function get_adjacent_tiles(tile)
 end
 
 --[[
+  hero stuff
+--]]
+
+function create_hero()
+  local hero = {
+		type = "hero",
+    health = 3,
+    expected_modifier_value = 0,
+		update = function(self)
+      local location = find(self)
+      local self_x = location.x
+      local self_y = location.y
+
+      -- move up
+			if btnp(⬆️) then
+        local dest = {self_x, self_y - 1}
+        attempt_hero_move(dest)
+      end
+      -- move down
+			if btnp(⬇️) then
+        local dest = {self_x, self_y + 1}
+        attempt_hero_move(dest)
+      end
+      -- move left
+			if btnp(⬅️) then
+        local dest = {self_x - 1, self_y}
+        attempt_hero_move(dest)
+      end
+      -- move right
+			if btnp(➡️) then
+        local dest = {self_x + 1, self_y}
+        attempt_hero_move(dest)
+      end
+
+      function attempt_hero_move(dest)
+        local x = dest[1]
+        local y = dest[2]
+        if
+          location_exists(dest) and
+          find_type_in_tile("wall", dest) == false
+        then
+          local index = find_type_in_tile("enemy", dest)
+          if index != false then
+            -- todo: clean this up
+            board[x][y][index].hit(board[x][y][index])
+          else
+            set_tile(self, dest)
+          end
+          player_turn = false
+        end
+      end
+		end
+	}
+  return hero
+end
+
+--[[
   enemy stuff
 --]]
 
@@ -326,24 +347,44 @@ end
 function create_enemy()
 	enemy = {
     type = "enemy",
-    step = function(self)
+    update = function(self)
       local found_self = find(self)
 			local self_x = found_self.x
 			local self_y = found_self.y
       local self_tile = {self_x, self_y}
 
-      local found_player = find(player)
-			local goal_tile = {found_player.x, found_player.y}
+      local a = find(hero_a)
+			local a_tile = {a.x, a.y}
+			local a_dist = distance(self_tile, a_tile)
 
-			local distance_map = create_distance_map(goal_tile)
-			local current_dist = distance(distance_map, self_tile)
+      local b = find(hero_b)
+			local b_tile = {b.x, b.y}
+			local b_dist = distance(self_tile, b_tile)
+
+      -- target the closer hero
+      -- or a random one if they're equidistant
+      local current_dist
+      local goal_tile
+      if a_dist < b_dist then
+        current_dist = a_dist
+        goal_tile = a_tile
+      elseif b_dist < a_dist then
+        current_dist = b_dist
+        goal_tile = b_tile
+      else
+        local hero_tiles = {a_tile, b_tile}
+        local index = flr(rnd(#hero_tiles)) + 1
+        current_dist = b_dist
+        goal_tile = hero_tiles[index]
+      end
+
       local adjacent_tiles = get_adjacent_tiles(self_tile)
       local valid_moves = {}
 
       -- populate valid_moves with tiles that are closer and don't contain enemies
       for next in all(adjacent_tiles) do
         if
-          distance(distance_map, next) < current_dist and
+          distance(next, goal_tile) < current_dist and
           find_type_in_tile("enemy", next) == false
         then
 					add(valid_moves, next)
@@ -370,15 +411,16 @@ function create_enemy()
       -- if there are any valid moves…
       if #valid_moves > 0 then
         -- pick a tile in valid_moves and attempt to move to it
-        -- this will either move to it or hit the player
+        -- this will either move to it or hit a hero
         index = flr(rnd(#valid_moves)) + 1
         selected_tile = valid_moves[index]
-        if find_type_in_tile("player", selected_tile) != false then
-          player.health -= 1
+        if find_type_in_tile("hero", selected_tile) != false then
+          hero_a.health -= 1
         else
           set_tile(self, selected_tile)
         end
       end
+      player_turn = true
 		end,
     hit = function(self)
       local self_x = x(self)
@@ -390,20 +432,21 @@ function create_enemy()
 	add(enemies, enemy)
 end
 
--- creates a map where the value at [x][y] is the distance from that position to the goal
-function create_distance_map(goal)
-	local frontier = {goal}
+function distance(start, goal)
+  local frontier = {goal}
 	local next_frontier = {}
 	local distance_map = {}
 	for x = 1, rows do
 		distance_map[x] = {}
 		for y = 1, cols do
 			-- this is a hack but it's easier than using a different type
+      -- todo: actually i think i can use ~= here
 			distance_map[x][y] = 1000
 		end
 	end
 	local steps = 0
 
+  -- todo: stop building the map once start is reached
 	while #frontier > 0 do
 		for i = 1, #frontier do
       local adjacent_tiles = get_adjacent_tiles(frontier[i])
@@ -428,11 +471,7 @@ function create_distance_map(goal)
 		frontier = next_frontier
 		next_frontier = {}
 	end
-	return distance_map
-end
-
-function distance(distance_map, tile)
-	return distance_map[tile[1]][tile[2]]
+	return distance_map[start[1]][start[2]]
 end
 
 __gfx__
@@ -444,6 +483,14 @@ __gfx__
 000000000622226000077000ddddddddffffff0f88444844ffffffff000000000000000000000000000000000000000000000000000000000000000000000000
 000000000020020000000000ddddddddff0fffff44834443ffffffff000000000000000000000000000000000000000000000000000000000000000000000000
 000000000020020000777700dddddddd0fff0ff033333343ffffffff000000000000000000000000000000000000000000000000000000000000000000000000
+00000000007007000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00000000007777000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00000000007667000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00000000063773600000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00000000063773600000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00000000063333600000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00000000003003000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00000000003003000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 __label__
 00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
