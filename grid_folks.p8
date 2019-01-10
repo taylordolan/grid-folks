@@ -403,11 +403,13 @@ function create_enemy()
         -- pick a tile in valid_moves and attempt to move to it
         -- this will either move to it or hit a hero
         index = flr(rnd(#valid_moves)) + 1
-        selected_tile = valid_moves[index]
-        if find_type_in_tile("hero", selected_tile) != false then
-          hero_a.health -= 1
+        dest = valid_moves[index]
+        local hero_in_dest = find_type_in_tile("hero", dest)
+        if hero_in_dest != false then
+          local target = board[dest[1]][dest[2]][hero_in_dest]
+          target.health -= 1
         else
-          set_tile(self, selected_tile)
+          set_tile(self, dest)
         end
       end
       player_turn = true
