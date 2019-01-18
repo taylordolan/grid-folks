@@ -5,7 +5,10 @@ __lua__
 -- taylor d
 
 -- todo
+-- [x] walls between tiles
 -- [ ] prevent wall generation from creating closed areas
+-- [ ] health for enemies
+-- [ ] power tiles for melee damage
 -- [ ] use objects instead of arrays for locations
 
 function _init()
@@ -37,11 +40,11 @@ function _init()
 
   -- create some walls
   for i = 1, 5 do
-    local wall = {
-      type = "wall",
-      sprite = "004"
+    local wall_right = {
+      type = "wall_right",
+      sprite = "005"
     }
-    deploy(wall)
+    deploy(wall_right)
   end
 
   -- heroes
@@ -168,7 +171,7 @@ function y(thing)
 	end
 end
 
--- returns an empty tile
+-- returns an empty tile from the board
 function random_empty_tile()
 	-- create an array of all empty tiles
 	local empty_tiles = {}
@@ -212,9 +215,12 @@ function set_tile(thing, dest)
 	-- remove it from its current tile
 	for x = 1, rows do
 		for y = 1, cols do
-			if board[x][y][1] == thing then
-				del(board[x][y], thing)
-			end
+      local here = board[x][y]
+      for next in all(here) do
+        if next == thing then
+          del(here, thing)
+        end
+      end
 		end
 	end
 
@@ -226,6 +232,32 @@ end
 function deploy(thing)
 	dest = random_empty_tile()
 	set_tile(thing, dest)
+end
+
+-- check if there's a wall between two tiles
+function is_wall_between(tile_a, tile_b)
+
+  local a_x = tile_a[1]
+  local a_y = tile_a[2]
+  local b_x = tile_b[1]
+  local b_y = tile_b[2]
+
+  -- if B is above A
+  if b_x == a_x and b_y == a_y - 1 then
+    return false
+  -- if B is below A
+  elseif b_x == a_x and b_y == a_y + 1 then
+    return false
+  -- if B is left of A
+  elseif b_x == a_x - 1 and b_y == a_y then
+    -- this is a bit weird but it works
+    return find_type_in_tile("wall_right", tile_b) and true or false
+  -- if B is right of A
+  elseif b_x == a_x + 1 and b_y == a_y then
+    return find_type_in_tile("wall_right", tile_a) and true or false
+  else
+    -- todo can I throw an error here?
+  end
 end
 
 -- check if a tile is in a list of tiles
@@ -250,7 +282,7 @@ function find_type_in_tile(type, tile)
   return false
 end
 
--- returns an array of all existing adjacent tiles
+-- returns an array of all existing adjacent tiles that don't have walls in the way
 function get_adjacent_tiles(tile)
 
   local self_x = tile[1]
@@ -262,10 +294,16 @@ function get_adjacent_tiles(tile)
   local left = {self_x - 1, self_y}
   local right = {self_x + 1, self_y}
 
-  if location_exists(up) then add(adjacent_tiles, up) end
-  if location_exists(down) then add(adjacent_tiles, down) end
-  if location_exists(left) then add(adjacent_tiles, left) end
-  if location_exists(right) then add(adjacent_tiles, right) end
+  local maybe_adjacent_tiles = {up, down, left, right}
+
+  for next in all(maybe_adjacent_tiles) do
+    if
+      location_exists(next) and
+      is_wall_between(tile, next) == false
+    then
+      add(adjacent_tiles, next)
+    end
+  end
 
   return adjacent_tiles
 end
@@ -382,20 +420,19 @@ function create_enemy()
       end
 
       -- if there are no valid moves based on the above criteria,
-      -- then any adjacent tile that's not an enemy or a wall is valid
+      -- then any adjacent tile that's not an enemy and doesn't have a wall in the way is valid
       if #valid_moves == 0 then
 
-        local empty_adjacent_tiles = {}
+        local available_adjacent_tiles = {}
         for next in all(adjacent_tiles) do
           if
-            find_type_in_tile("enemy", next) == false and
-            find_type_in_tile("wall", next) == false
+            find_type_in_tile("enemy", next) == false
           then
-            add(empty_adjacent_tiles, next)
+            add(available_adjacent_tiles, next)
           end
         end
 
-        valid_moves = empty_adjacent_tiles
+        valid_moves = available_adjacent_tiles
       end
 
       -- if there are any valid moves…
@@ -438,21 +475,21 @@ function distance(start, goal)
 	end
 	local steps = 0
 
-  -- todo: stop building the map once start is reached
+  -- todo: stop building the map once `start` is reached
 	while #frontier > 0 do
 		for i = 1, #frontier do
-      local adjacent_tiles = get_adjacent_tiles(frontier[i])
-			local tile_x = frontier[i][1]
-			local tile_y = frontier[i][2]
-			distance_map[tile_x][tile_y] = steps
+      local here = frontier[i]
+      local adjacent_tiles = get_adjacent_tiles(here)
+			local here_x = here[1]
+			local here_y = here[2]
+			distance_map[here_x][here_y] = steps
 
       for next in all(adjacent_tiles) do
         -- if the distance hasn't been set, then the tile hasn't been reached yet
         if distance_map[next[1]][next[2]] == 1000 then
 					if (
             -- make sure it wasn't already added by a different check in the same step
-            is_in_tile_array(next_frontier, next) == false and
-            find_type_in_tile("wall", next) == false
+            is_in_tile_array(next_frontier, next) == false
           ) then
 						add(next_frontier, next)
 					end
@@ -467,14 +504,14 @@ function distance(start, goal)
 end
 
 __gfx__
-00000000000550000000000066666666dddddddd0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-00000000000550000777777066666666dddddddd0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-00000000000000000757577066666666dddddddd0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-00000000055555500757577066666666dddddddd0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-00000000000550000777777066666666dddddddd0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-00000000000550000075570066666666dddddddd0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-00000000005005000077770066666666dddddddd0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-00000000005005000000000066666666dddddddd0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00000000000550000000000066666666dddddddd0000000d00000000000000000000000000000000000000000000000000000000000000000000000000000000
+00000000000550000777777066666666dddddddd0000000d00000000000000000000000000000000000000000000000000000000000000000000000000000000
+00000000000000000757577066666666dddddddd0000000d00000000000000000000000000000000000000000000000000000000000000000000000000000000
+00000000055555500757577066666666dddddddd0000000d00000000000000000000000000000000000000000000000000000000000000000000000000000000
+00000000000550000777777066666666dddddddd0000000d00000000000000000000000000000000000000000000000000000000000000000000000000000000
+00000000000550000075570066666666dddddddd0000000d00000000000000000000000000000000000000000000000000000000000000000000000000000000
+00000000005005000077770066666666dddddddd0000000d00000000000000000000000000000000000000000000000000000000000000000000000000000000
+00000000005005000000000066666666dddddddd0000000d00000000000000000000000000000000000000000000000000000000000000000000000000000000
 00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 00000000000550000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 00000000000550000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
