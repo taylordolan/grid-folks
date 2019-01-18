@@ -44,7 +44,12 @@ function _init()
       type = "wall_right",
       sprite = "005"
     }
+    local wall_down = {
+      type = "wall_down",
+      sprite = "006"
+    }
     deploy(wall_right)
+    deploy(wall_down)
   end
 
   -- heroes
@@ -242,17 +247,17 @@ function is_wall_between(tile_a, tile_b)
   local b_x = tile_b[1]
   local b_y = tile_b[2]
 
-  -- if B is above A
+  -- if b is above a
   if b_x == a_x and b_y == a_y - 1 then
-    return false
-  -- if B is below A
-  elseif b_x == a_x and b_y == a_y + 1 then
-    return false
-  -- if B is left of A
-  elseif b_x == a_x - 1 and b_y == a_y then
     -- this is a bit weird but it works
+    return find_type_in_tile("wall_down", tile_b) and true or false
+  -- if b is below a
+  elseif b_x == a_x and b_y == a_y + 1 then
+    return find_type_in_tile("wall_down", tile_a) and true or false
+  -- if b is left of a
+  elseif b_x == a_x - 1 and b_y == a_y then
     return find_type_in_tile("wall_right", tile_b) and true or false
-  -- if B is right of A
+  -- if b is right of a
   elseif b_x == a_x + 1 and b_y == a_y then
     return find_type_in_tile("wall_right", tile_a) and true or false
   else
@@ -469,7 +474,6 @@ function distance(start, goal)
 		distance_map[x] = {}
 		for y = 1, cols do
 			-- this is a hack but it's easier than using a different type
-      -- todo: actually i think i can use ~= here
 			distance_map[x][y] = 1000
 		end
 	end
@@ -511,7 +515,7 @@ __gfx__
 00000000000550000777777066666666dddddddd0000000d00000000000000000000000000000000000000000000000000000000000000000000000000000000
 00000000000550000075570066666666dddddddd0000000d00000000000000000000000000000000000000000000000000000000000000000000000000000000
 00000000005005000077770066666666dddddddd0000000d00000000000000000000000000000000000000000000000000000000000000000000000000000000
-00000000005005000000000066666666dddddddd0000000d00000000000000000000000000000000000000000000000000000000000000000000000000000000
+00000000005005000000000066666666dddddddd00000000ddddddd0000000000000000000000000000000000000000000000000000000000000000000000000
 00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 00000000000550000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 00000000000550000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
