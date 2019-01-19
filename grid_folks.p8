@@ -7,11 +7,9 @@ __lua__
 -- todo
 -- [x] walls between tiles
 -- [x] prevent wall generation from creating closed areas
--- [ ] tiles with walls should count as empty for the purpose of deploying enemies and heroes
--- [ ] health for enemies
+-- [x] tiles with walls should count as empty for the purpose of deploying enemies and heroes
+-- [x] health for enemies
 -- [ ] power tiles for melee damage
--- [ ] don't generate walls in pointless spots
--- [ ] use objects instead of arrays for locations
 
 function _init()
 
@@ -48,8 +46,6 @@ function _init()
 	-- list of enemies
 	enemies = {}
 	create_enemy()
-  create_enemy()
-  create_enemy()
   create_enemy()
 
 	-- initial enemy positions
@@ -386,6 +382,7 @@ function create_enemy()
 	enemy = {
     type = "enemy",
     sprite = "002",
+    health = 2,
     update = function(self)
       local found_self = find(self)
 			local self_x = found_self.x
@@ -465,8 +462,12 @@ function create_enemy()
     hit = function(self)
       local self_x = x(self)
 			local self_y = y(self)
-      del(enemies, self)
-      del(board[self_x][self_y], self)
+      self.health -= 1
+
+      if (self.health == 0) then
+        del(enemies, self)
+        del(board[self_x][self_y], self)
+      end
     end
 	}
 	add(enemies, enemy)
