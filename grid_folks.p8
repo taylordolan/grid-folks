@@ -10,6 +10,8 @@ __lua__
 -- [x] tiles with walls should count as empty for the purpose of deploying enemies and heroes
 -- [x] health for enemies
 -- [ ] power tiles for melee damage
+-- [ ] don't generate walls in pointless spots
+-- [ ] use objects instead of arrays for locations
 
 function _init()
 
@@ -540,7 +542,7 @@ function is_wall_between(tile_a, tile_b)
   elseif b_x == a_x + 1 and b_y == a_y then
     return find_type_in_tile("wall_right", tile_a) and true or false
   else
-    -- todo can I throw an error here?
+    -- todo: can i throw an error here?
   end
 end
 
@@ -563,7 +565,7 @@ end
 
 function generate_walls()
 
-  for i = 1, 12 do
+  for i = 1, 16 do
     local wall_right = {
       type = "wall_right",
       sprite = "005"
@@ -577,50 +579,46 @@ function generate_walls()
   end
 end
 
--- todo: clean this up
+-- checks if the map is contiguous by starting in one tile and seeing if all other tiles can be reached from there
 function is_map_contiguous()
 
+  -- we can start in any tile
   local frontier = {{1,1}}
 	local next_frontier = {}
-	local distance_map = {}
+
+  -- this will be a map where the value of x,y is a bool that says whether we've reached that position yet
+	local reached_map = {}
 	for x = 1, rows do
-		distance_map[x] = {}
+		reached_map[x] = {}
 		for y = 1, cols do
-			-- this is a hack but it's easier than using a different type
-			distance_map[x][y] = 1000
+			reached_map[x][y] = false
 		end
 	end
-	local steps = 0
 
-  -- todo: stop building the map once `start` is reached
 	while #frontier > 0 do
-		for i = 1, #frontier do
-      local here = frontier[i]
+		for here in all(frontier) do
       local adjacent_tiles = get_adjacent_tiles(here)
 			local here_x = here[1]
 			local here_y = here[2]
-			distance_map[here_x][here_y] = steps
+			reached_map[here_x][here_y] = true
 
       for next in all(adjacent_tiles) do
-        -- if the distance hasn't been set, then the tile hasn't been reached yet
-        if distance_map[next[1]][next[2]] == 1000 then
-					if (
-            -- make sure it wasn't already added by a different check in the same step
-            is_in_tile_array(next_frontier, next) == false
-          ) then
+        if reached_map[next[1]][next[2]] == false then
+          -- make sure it wasn't already added by a different check in the same step
+					if is_in_tile_array(next_frontier, next) == false then
 						add(next_frontier, next)
 					end
 				end
       end
 		end
-		steps += 1
 		frontier = next_frontier
 		next_frontier = {}
 	end
 
+  -- if any position in reached_map is false, then the map isn't contiguous
   for x = 1, rows do
 		for y = 1, cols do
-      if distance_map[x][y] == 1000 then
+      if reached_map[x][y] == false then
         return false
       end
     end
