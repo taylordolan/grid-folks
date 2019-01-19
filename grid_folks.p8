@@ -32,7 +32,7 @@ function _init()
   player_turn = true
 	game_over = false
 
-  -- create wall
+  -- create walls
   generate_walls()
   while is_map_contiguous() == false do
     clear_all_walls()
@@ -42,16 +42,20 @@ function _init()
   -- heroes
   hero_a = create_hero()
   hero_b = create_hero()
-  set_to_random_empty_tile(hero_a)
-  set_to_random_empty_tile(hero_b)
+  deploy(hero_a, {"hero", "enemy"})
+  deploy(hero_b, {"hero", "enemy"})
 
 	-- list of enemies
 	enemies = {}
 	create_enemy()
   create_enemy()
+  create_enemy()
+  create_enemy()
 
-	-- initial enemy position
-	foreach(enemies, set_to_random_empty_tile)
+	-- initial enemy positions
+  for next in all(enemies) do
+    deploy(next, {"hero", "enemy"})
+  end
 end
 
 function _update()
@@ -235,19 +239,9 @@ function set_tile(thing, dest)
 	add(board[dest_x][dest_y], thing)
 end
 
--- put a thing at a random tile
-function set_to_random_tile(thing)
-	dest = random_tile()
-	set_tile(thing, dest)
-end
-
--- put a thing at a random empty tile
-function set_to_random_empty_tile(thing)
-	dest = random_empty_tile()
-	set_tile(thing, dest)
-end
-
-function new_set_to_random_tile(thing, avoid_list)
+-- deploys a thing to a random tile
+-- avoid_list is a list of types. tiles with things of that type will be avoided.
+function deploy(thing, avoid_list)
 
   local valid_tiles = {}
 
@@ -568,7 +562,7 @@ end
 
 function generate_walls()
 
-  for i = 1, 10 do
+  for i = 1, 12 do
     local wall_right = {
       type = "wall_right",
       sprite = "005"
@@ -577,11 +571,12 @@ function generate_walls()
       type = "wall_down",
       sprite = "006"
     }
-    new_set_to_random_tile(wall_right, {"wall_right"})
-    new_set_to_random_tile(wall_down, {"wall_down"})
+    deploy(wall_right, {"wall_right"})
+    deploy(wall_down, {"wall_down"})
   end
 end
 
+-- todo: clean this up
 function is_map_contiguous()
 
   local frontier = {{1,1}}
