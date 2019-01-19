@@ -6,9 +6,11 @@ __lua__
 
 -- todo
 -- [x] walls between tiles
--- [ ] prevent wall generation from creating closed areas
+-- [x] prevent wall generation from creating closed areas
+-- [ ] tiles with walls should count as empty for the purpose of deploying enemies and heroes
 -- [ ] health for enemies
 -- [ ] power tiles for melee damage
+-- [ ] don't generate walls in pointless spots
 -- [ ] use objects instead of arrays for locations
 
 function _init()
@@ -30,33 +32,18 @@ function _init()
   player_turn = true
 	game_over = false
 
-  -- sprite dictionary
-  -- sprites = {
-  --   -- hero = "001",
-  --   -- enemy = "002",
-  --   -- floor = "003",
-  --   -- wall = "004",
-  -- }
-
-  -- create some walls
-  for i = 1, 5 do
-    local wall_right = {
-      type = "wall_right",
-      sprite = "005"
-    }
-    local wall_down = {
-      type = "wall_down",
-      sprite = "006"
-    }
-    deploy(wall_right)
-    deploy(wall_down)
+  -- create wall
+  generate_walls()
+  while is_map_contiguous() == false do
+    clear_all_walls()
+    generate_walls()
   end
 
   -- heroes
   hero_a = create_hero()
   hero_b = create_hero()
-  deploy(hero_a)
-  deploy(hero_b)
+  set_to_random_empty_tile(hero_a)
+  set_to_random_empty_tile(hero_b)
 
 	-- list of enemies
 	enemies = {}
@@ -64,7 +51,7 @@ function _init()
   create_enemy()
 
 	-- initial enemy position
-	foreach(enemies, deploy)
+	foreach(enemies, set_to_random_empty_tile)
 end
 
 function _update()
@@ -176,6 +163,20 @@ function y(thing)
 	end
 end
 
+-- returns a random tile from the board
+function random_tile()
+  -- create an array of all tiles
+	local all_tiles = {}
+	for x = 1, rows do
+		for y = 1, cols do
+      add(all_tiles, {x,y})
+		end
+	end
+  -- return one of them
+	local index = flr(rnd(#all_tiles)) + 1
+  return all_tiles[index]
+end
+
 -- returns an empty tile from the board
 function random_empty_tile()
 	-- create an array of all empty tiles
@@ -187,6 +188,7 @@ function random_empty_tile()
 			end
 		end
 	end
+  -- return one of them
 	local index = flr(rnd(#empty_tiles)) + 1
 	return empty_tiles[index]
 end
@@ -233,36 +235,46 @@ function set_tile(thing, dest)
 	add(board[dest_x][dest_y], thing)
 end
 
+-- put a thing at a random tile
+function set_to_random_tile(thing)
+	dest = random_tile()
+	set_tile(thing, dest)
+end
+
 -- put a thing at a random empty tile
-function deploy(thing)
+function set_to_random_empty_tile(thing)
 	dest = random_empty_tile()
 	set_tile(thing, dest)
 end
 
--- check if there's a wall between two tiles
-function is_wall_between(tile_a, tile_b)
+function new_set_to_random_tile(thing, avoid_list)
 
-  local a_x = tile_a[1]
-  local a_y = tile_a[2]
-  local b_x = tile_b[1]
-  local b_y = tile_b[2]
+  local valid_tiles = {}
 
-  -- if b is above a
-  if b_x == a_x and b_y == a_y - 1 then
-    -- this is a bit weird but it works
-    return find_type_in_tile("wall_down", tile_b) and true or false
-  -- if b is below a
-  elseif b_x == a_x and b_y == a_y + 1 then
-    return find_type_in_tile("wall_down", tile_a) and true or false
-  -- if b is left of a
-  elseif b_x == a_x - 1 and b_y == a_y then
-    return find_type_in_tile("wall_right", tile_b) and true or false
-  -- if b is right of a
-  elseif b_x == a_x + 1 and b_y == a_y then
-    return find_type_in_tile("wall_right", tile_a) and true or false
-  else
-    -- todo can I throw an error here?
+  for x = 1, rows do
+		for y = 1, cols do
+      local tile_is_valid = true
+      local tile = board[x][y]
+      for tile_item in all(tile) do
+        for avoid_item in all(avoid_list) do
+          -- check everything in the tile to see if it matches anything in the avoid list
+          if tile_item.type == avoid_item then
+            tile_is_valid = false
+          end
+        end
+      end
+      if tile_is_valid then
+        add(valid_tiles, {x,y})
+      end
+    end
   end
+
+  printh(#valid_tiles)
+
+  local index = flr(rnd(#valid_tiles)) + 1
+  local dest = valid_tiles[index]
+
+  set_tile(thing, dest)
 end
 
 -- check if a tile is in a list of tiles
@@ -354,7 +366,7 @@ function create_hero()
         local y = dest[2]
         if
           location_exists(dest) and
-          find_type_in_tile("wall", dest) == false
+          is_wall_between({self_x, self_y}, dest) == false
         then
           local index = find_type_in_tile("enemy", dest)
           if index != false then
@@ -505,6 +517,120 @@ function distance(start, goal)
 		next_frontier = {}
 	end
 	return distance_map[start[1]][start[2]]
+end
+
+--[[
+  wall stuff
+--]]
+
+-- check if there's a wall between two tiles
+function is_wall_between(tile_a, tile_b)
+
+  local a_x = tile_a[1]
+  local a_y = tile_a[2]
+  local b_x = tile_b[1]
+  local b_y = tile_b[2]
+
+  -- if b is above a
+  if b_x == a_x and b_y == a_y - 1 then
+    -- this is a bit weird but it works
+    return find_type_in_tile("wall_down", tile_b) and true or false
+  -- if b is below a
+  elseif b_x == a_x and b_y == a_y + 1 then
+    return find_type_in_tile("wall_down", tile_a) and true or false
+  -- if b is left of a
+  elseif b_x == a_x - 1 and b_y == a_y then
+    return find_type_in_tile("wall_right", tile_b) and true or false
+  -- if b is right of a
+  elseif b_x == a_x + 1 and b_y == a_y then
+    return find_type_in_tile("wall_right", tile_a) and true or false
+  else
+    -- todo can I throw an error here?
+  end
+end
+
+function clear_all_walls()
+
+  for x = 1, rows do
+		for y = 1, cols do
+      here = board[x][y]
+      wall_right_index = find_type_in_tile("wall_right", {x,y})
+      wall_down_index = find_type_in_tile("wall_down", {x,y})
+      if wall_right_index then
+        del(here, here[wall_right_index])
+      end
+      if wall_down_index then
+        del(here, here[wall_down_index])
+      end
+    end
+  end
+end
+
+function generate_walls()
+
+  for i = 1, 10 do
+    local wall_right = {
+      type = "wall_right",
+      sprite = "005"
+    }
+    local wall_down = {
+      type = "wall_down",
+      sprite = "006"
+    }
+    new_set_to_random_tile(wall_right, {"wall_right"})
+    new_set_to_random_tile(wall_down, {"wall_down"})
+  end
+end
+
+function is_map_contiguous()
+
+  local frontier = {{1,1}}
+	local next_frontier = {}
+	local distance_map = {}
+	for x = 1, rows do
+		distance_map[x] = {}
+		for y = 1, cols do
+			-- this is a hack but it's easier than using a different type
+			distance_map[x][y] = 1000
+		end
+	end
+	local steps = 0
+
+  -- todo: stop building the map once `start` is reached
+	while #frontier > 0 do
+		for i = 1, #frontier do
+      local here = frontier[i]
+      local adjacent_tiles = get_adjacent_tiles(here)
+			local here_x = here[1]
+			local here_y = here[2]
+			distance_map[here_x][here_y] = steps
+
+      for next in all(adjacent_tiles) do
+        -- if the distance hasn't been set, then the tile hasn't been reached yet
+        if distance_map[next[1]][next[2]] == 1000 then
+					if (
+            -- make sure it wasn't already added by a different check in the same step
+            is_in_tile_array(next_frontier, next) == false
+          ) then
+						add(next_frontier, next)
+					end
+				end
+      end
+		end
+		steps += 1
+		frontier = next_frontier
+		next_frontier = {}
+	end
+
+  for x = 1, rows do
+		for y = 1, cols do
+      if distance_map[x][y] == 1000 then
+        return false
+      end
+    end
+  end
+
+  return true
 end
 
 __gfx__
