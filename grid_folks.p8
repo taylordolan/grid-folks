@@ -390,13 +390,15 @@ function create_hero()
 
       -- move up
 			if btnp(⬆️) then
-        -- local shoot_target = get_shoot_target(self_tile, {0, -1})
-        -- if self.power_shoot and shoot_target then
-        --   hit_target(shoot_target)
-        -- else
+        local target = get_shoot_target(self_tile, {0, -1})
+        local target_exists = target and true or false
+        if self.power_shoot and target_exists then
+          shoot_target(target)
+          player_turn = false
+        else
           local dest = {self_x, self_y - 1}
           attempt_hero_move(dest)
-        -- end
+        end
       end
       -- move down
 			if btnp(⬇️) then
@@ -443,32 +445,52 @@ function create_hero()
       end
 
       -- explain
-      -- function get_shoot_target(start, velocity)
+      function get_shoot_target(start, velocity)
 
-      --   -- local start_x = start[1]
-      --   -- local start_y = s tart[2]
+        local x_vel = velocity[1]
+        local y_vel = velocity[2]
 
-      --   local x_vel = velocity[1]
-      --   local y_vel = velocity[2]
+        local target = false
+        local done = false
+        local current = start
 
-      --   local target = false
-      --   local done = false
-      --   local current = {start}
+        while done == false do
 
-      --   while done == false do
-      --     local next = {current[1] + x_vel, current[2] + y_vel}
-      --     if is_wall_between(current, next) then
-      --       return false
-      --     elseif find_type_in_tile(next, "enemy") then
-      --       -- local index = find_type_in_tile(next, "enemy")
+          -- define the current target
+          local next = {current[1] + x_vel, current[2] + y_vel}
 
-      --     end
-      --   end
-      -- end
+          -- if `next` is off the map, return false
+          if location_exists(next) == false then
+            return false
+          end
 
-      -- function shoot(start, x_dir, y_dir)
+          -- if there's a wall in the way, return false
+          if is_wall_between(current, next) then
+            return false
+          end
 
-      -- end
+          -- if there's an enemy in the target, return it
+          local enemy = find_type_in_tile("enemy", next)
+          local enemy_exists = enemy and true or false
+          if enemy_exists then
+            return enemy
+          end
+
+          -- set `current` to `next` and keep going
+          current = next
+        end
+      end
+
+      function shoot_target(enemy)
+        local x = x(enemy)
+        local y = y(enemy)
+        enemy.health -= 1
+        -- if the enemy is out of health, then it dies
+        if (enemy.health <= 0) then
+          del(enemies, enemy)
+          del(board[x][y], enemy)
+        end
+      end
 		end
 	}
   return hero
