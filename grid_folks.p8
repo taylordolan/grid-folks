@@ -298,7 +298,7 @@ function find_type_in_tile(type, tile)
   for i = 1, #board[x][y] do
     local next = board[x][y][i]
     if next.type == type then
-      return i
+      return next
     end
   end
   return false
@@ -359,11 +359,10 @@ function create_hero()
       local here = {x_here, y_here}
       local here_tile = board[x_here][y_here]
 
-      local index
       -- check if this hero's tile is a power tile
-      index = find_type_in_tile("power", here)
-      if index then
-        local power = here_tile[index]
+      local power = find_type_in_tile("power", here)
+      local power_exists = power and true or false
+      if power_exists then
         -- apply the power's effect to the companion hero
         -- todo: clean this up. maybe the deets should be stored in the power tile?
         if power.effect == "melee" then
@@ -422,9 +421,9 @@ function create_hero()
           location_exists(dest) and
           is_wall_between({self_x, self_y}, dest) == false
         then
-          local index = find_type_in_tile("enemy", dest)
-          if index != false then
-            local target = board[x][y][index]
+          local target = find_type_in_tile("enemy", dest)
+          local target_exists = target and true or false
+          if target_exists then
             if self.power_melee then
               target.health -= 4
             else
@@ -521,9 +520,10 @@ function create_enemy()
 
       -- populate valid_moves with tiles that are closer and don't contain enemies
       for next in all(adjacent_tiles) do
+        local enemy_exists = find_type_in_tile("enemy", next) and true or false
         if
           distance(next, goal_tile) < current_dist and
-          find_type_in_tile("enemy", next) == false
+          enemy_exists == false
         then
 					add(valid_moves, next)
 				end
@@ -535,9 +535,8 @@ function create_enemy()
 
         local available_adjacent_tiles = {}
         for next in all(adjacent_tiles) do
-          if
-            find_type_in_tile("enemy", next) == false
-          then
+          local enemy_exists = find_type_in_tile("enemy", next) and true or false
+          if enemy_exists == false then
             add(available_adjacent_tiles, next)
           end
         end
@@ -551,9 +550,9 @@ function create_enemy()
         -- this will either move to it or hit a hero
         index = flr(rnd(#valid_moves)) + 1
         dest = valid_moves[index]
-        local hero_in_dest = find_type_in_tile("hero", dest)
-        if hero_in_dest != false then
-          local target = board[dest[1]][dest[2]][hero_in_dest]
+        local target = find_type_in_tile("hero", dest)
+        local target_exists = target and true or false
+        if target_exists then
           target.health -= 1
         else
           set_tile(self, dest)
@@ -640,14 +639,19 @@ function clear_all_walls()
 
   for x = 1, rows do
 		for y = 1, cols do
-      here = board[x][y]
-      wall_right_index = find_type_in_tile("wall_right", {x,y})
-      wall_down_index = find_type_in_tile("wall_down", {x,y})
-      if wall_right_index then
-        del(here, here[wall_right_index])
+      local here = board[x][y]
+
+      local wall_right = find_type_in_tile("wall_right", {x,y})
+      local wall_right_exists = wall_right and true or false
+
+      local wall_down = find_type_in_tile("wall_down", {x,y})
+      local wall_down_exists = wall_down and true or false
+
+      if wall_right_exists then
+        del(here, wall_right)
       end
-      if wall_down_index then
-        del(here, here[wall_down_index])
+      if wall_down_exists then
+        del(here, wall_down)
       end
     end
   end
