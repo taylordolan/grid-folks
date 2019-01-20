@@ -385,14 +385,19 @@ function create_hero()
 
     -- update hero
 		update = function(self)
-      local here = find(self)
-      local self_x = here.x
-      local self_y = here.y
+      local self_x = x(self)
+      local self_y = y(self)
+      local self_tile = {self_x, self_y}
 
       -- move up
 			if btnp(⬆️) then
-        local dest = {self_x, self_y - 1}
-        attempt_hero_move(dest)
+        -- local shoot_target = get_shoot_target(self_tile, {0, -1})
+        -- if self.power_shoot and shoot_target then
+        --   hit_target(shoot_target)
+        -- else
+          local dest = {self_x, self_y - 1}
+          attempt_hero_move(dest)
+        -- end
       end
       -- move down
 			if btnp(⬇️) then
@@ -437,6 +442,34 @@ function create_hero()
           player_turn = false
         end
       end
+
+      -- explain
+      -- function get_shoot_target(start, velocity)
+
+      --   -- local start_x = start[1]
+      --   -- local start_y = s tart[2]
+
+      --   local x_vel = velocity[1]
+      --   local y_vel = velocity[2]
+
+      --   local target = false
+      --   local done = false
+      --   local current = {start}
+
+      --   while done == false do
+      --     local next = {current[1] + x_vel, current[2] + y_vel}
+      --     if is_wall_between(current, next) then
+      --       return false
+      --     elseif find_type_in_tile(next, "enemy") then
+      --       -- local index = find_type_in_tile(next, "enemy")
+
+      --     end
+      --   end
+      -- end
+
+      -- function shoot(start, x_dir, y_dir)
+
+      -- end
 		end
 	}
   return hero
