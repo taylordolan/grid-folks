@@ -9,6 +9,9 @@ __lua__
 -- [x] prevent wall generation from creating closed areas
 -- [x] tiles with walls should count as empty for the purpose of deploying enemies and heroes
 -- [x] health for enemies
+-- [ ] clean up power stuff
+-- [ ] update deploy function to optionally accept a specific target
+-- [ ] press 'x' to switch heroes (instead of holding)
 -- [ ] power tiles for melee damage
 -- [ ] don't generate walls in pointless spots
 -- [ ] use objects instead of arrays for locations
@@ -59,12 +62,14 @@ function _init()
   local melee_tile = {
     type = "power",
     effect = "melee",
-    sprite = "007"
+    sprite = 007,
+    companion_sprite = 019
   }
   local shoot_tile = {
     type = "power",
     effect = "shoot",
-    sprite = "008"
+    sprite = 008,
+    companion_sprite = 021
   }
   deploy(melee_tile, {"hero", "enemy"})
   deploy(shoot_tile, {"hero", "enemy"})
@@ -341,11 +346,18 @@ function create_hero()
     base_sprite = 17,
     sprite = null,
     health = 4,
-    power_melee = false,
-    power_shoot = false,
+
+    -- powers
+    melee = false,
+    shoot = false,
 
     -- set companion's power based on current tile
     update_companion_power = function(self)
+      local x_here = x(self)
+      local y_here = y(self)
+      local here = {x_here, y_here}
+      local here_tile = board[x_here][y_here]
+
       -- find the other hero
       local companion
       if heroes[1] == self then
@@ -354,31 +366,21 @@ function create_hero()
         companion = heroes[1]
       end
 
-      local x_here = x(self)
-      local y_here = y(self)
-      local here = {x_here, y_here}
-      local here_tile = board[x_here][y_here]
+      -- set companion deets to their defaults
+      companion.melee = false
+      companion.shoot = false
+      companion.base_sprite = 017
 
       -- check if this hero's tile is a power tile
       local power = find_type_in_tile("power", here)
-      local power_exists = power and true or false
-      if power_exists then
+      if power then
+        companion.base_sprite = power.companion_sprite
         -- apply the power's effect to the companion hero
-        -- todo: clean this up. maybe the deets should be stored in the power tile?
         if power.effect == "melee" then
-          companion.power_melee = true
-          companion.power_shoot = false
-          companion.base_sprite = 19
+          companion.melee = true
+        elseif power.effect == "shoot" then
+          companion.shoot = true
         end
-        if power.effect == "shoot" then
-          companion.power_melee = false
-          companion.power_shoot = true
-          companion.base_sprite = 21
-        end
-      else
-        companion.power_melee = false
-        companion.power_shoot = false
-        companion.base_sprite = 17
       end
     end,
 
@@ -392,7 +394,7 @@ function create_hero()
 			if btnp(⬆️) then
         local target = get_shoot_target(self_tile, {0, -1})
         local target_exists = target and true or false
-        if self.power_shoot and target_exists then
+        if self.shoot and target_exists then
           shoot_target(target)
           player_turn = false
         else
@@ -426,7 +428,7 @@ function create_hero()
           local target = find_type_in_tile("enemy", dest)
           local target_exists = target and true or false
           if target_exists then
-            if self.power_melee then
+            if self.melee then
               target.health -= 4
             else
               target.health -= 2
