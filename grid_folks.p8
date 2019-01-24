@@ -351,39 +351,6 @@ function create_hero()
     melee = false,
     shoot = false,
 
-    -- set companion's power based on current tile
-    update_companion_power = function(self)
-      local x_here = x(self)
-      local y_here = y(self)
-      local here = {x_here, y_here}
-      local here_tile = board[x_here][y_here]
-
-      -- find the other hero
-      local companion
-      if heroes[1] == self then
-        companion = heroes[2]
-      else
-        companion = heroes[1]
-      end
-
-      -- set companion deets to their defaults
-      companion.melee = false
-      companion.shoot = false
-      companion.base_sprite = 017
-
-      -- check if this hero's tile is a power tile
-      local power = find_type_in_tile("power", here)
-      if power then
-        companion.base_sprite = power.companion_sprite
-        -- apply the power's effect to the companion hero
-        if power.effect == "melee" then
-          companion.melee = true
-        elseif power.effect == "shoot" then
-          companion.shoot = true
-        end
-      end
-    end,
-
     -- update hero
 		update = function(self)
       local self_x = x(self)
@@ -392,106 +359,130 @@ function create_hero()
 
       -- move up
 			if btnp(⬆️) then
-        local target = get_shoot_target(self_tile, {0, -1})
-        local target_exists = target and true or false
-        if self.shoot and target_exists then
-          shoot_target(target)
-          player_turn = false
-        else
-          local dest = {self_x, self_y - 1}
-          attempt_hero_move(dest)
-        end
+        local direction = {0, -1}
+        act(direction)
       end
       -- move down
 			if btnp(⬇️) then
-        local dest = {self_x, self_y + 1}
-        attempt_hero_move(dest)
+        local direction = {0, 1}
+        act(direction)
       end
       -- move left
 			if btnp(⬅️) then
-        local dest = {self_x - 1, self_y}
-        attempt_hero_move(dest)
+        local direction = {-1, 0}
+        act(direction)
       end
       -- move right
 			if btnp(➡️) then
-        local dest = {self_x + 1, self_y}
-        attempt_hero_move(dest)
+        local direction = {1, 0}
+        act(direction)
       end
 
-      function attempt_hero_move(dest)
-        local x = dest[1]
-        local y = dest[2]
-        if
-          location_exists(dest) and
-          is_wall_between({self_x, self_y}, dest) == false
-        then
-          local target = find_type_in_tile("enemy", dest)
-          local target_exists = target and true or false
-          if target_exists then
-            if self.melee then
-              target.health -= 4
-            else
-              target.health -= 2
-            end
-            -- if the enemy is out of health, then it dies
-            if (target.health <= 0) then
-              del(enemies, target)
-              del(board[x][y], target)
-            end
-          else
-            set_tile(self, dest)
-          end
-          self.update_companion_power(self)
-          player_turn = false
+      function act(direction)
+        shoot_target = get_shoot_target(direction)
+        melee_target = get_melee_target(direction)
+        if self.shoot and shoot_target then
+          hit_enemy(shoot_target, 1)
+        elseif self.melee and melee_target then
+          hit_enemy(melee_target, 4)
+        elseif melee_target then
+          hit_enemy(melee_target, 2)
+        else
+          step(direction)
         end
       end
 
-      -- explain
-      function get_shoot_target(start, velocity)
+      function update_companion_power(self)
+        local here = {x(self), y(self)}
 
-        local x_vel = velocity[1]
-        local y_vel = velocity[2]
+        -- find the other hero
+        local companion
+        if heroes[1] == self then
+          companion = heroes[2]
+        else
+          companion = heroes[1]
+        end
 
-        local target = false
-        local done = false
-        local current = start
+        -- set companion deets to their defaults
+        companion.melee = false
+        companion.shoot = false
+        companion.base_sprite = 017
 
-        while done == false do
+        -- check if this hero's tile is a power tile
+        local power = find_type_in_tile("power", here)
+        if power then
+          companion.base_sprite = power.companion_sprite
+          -- apply the power's effect to the companion hero
+          if power.effect == "melee" then
+            companion.melee = true
+          elseif power.effect == "shoot" then
+            companion.shoot = true
+          end
+        end
+      end
 
+      function hit_enemy(enemy, damage)
+        enemy_x = x(enemy)
+        enemy_y = y(enemy)
+
+        enemy.health -= damage
+
+        if (enemy.health <= 0) then
+          del(enemies, enemy)
+          del(board[enemy_x][enemy_y], enemy)
+        end
+        end_turn()
+      end
+
+      function step(direction)
+        local next = {x(self) + direction[1], y(self) + direction[2]}
+        set_tile(self, next)
+        end_turn()
+      end
+
+      function end_turn()
+        update_companion_power(self)
+        player_turn = false
+      end
+
+      -- todo: explain this
+      function get_shoot_target(direction)
+
+        local x_vel = direction[1]
+        local y_vel = direction[2]
+        local current = {x(self), y(self)}
+
+        while true do
           -- define the current target
           local next = {current[1] + x_vel, current[2] + y_vel}
-
           -- if `next` is off the map, return false
           if location_exists(next) == false then
             return false
           end
-
           -- if there's a wall in the way, return false
           if is_wall_between(current, next) then
             return false
           end
-
           -- if there's an enemy in the target, return it
           local enemy = find_type_in_tile("enemy", next)
-          local enemy_exists = enemy and true or false
-          if enemy_exists then
+          -- local enemy_exists = enemy and true or false
+          if enemy then
             return enemy
           end
-
           -- set `current` to `next` and keep going
           current = next
         end
       end
 
-      function shoot_target(enemy)
-        local x = x(enemy)
-        local y = y(enemy)
-        enemy.health -= 1
-        -- if the enemy is out of health, then it dies
-        if (enemy.health <= 0) then
-          del(enemies, enemy)
-          del(board[x][y], enemy)
-        end
+      -- todo: explain this
+      function get_melee_target(direction)
+
+        local x_vel = direction[1]
+        local y_vel = direction[2]
+        local next = {x(self) + x_vel, y(self) + y_vel}
+
+        local target = find_type_in_tile("enemy", next)
+        return target
       end
 		end
 	}
