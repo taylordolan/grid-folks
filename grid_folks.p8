@@ -14,11 +14,9 @@ __lua__
 -- [x] press 'x' to switch heroes (instead of holding it)
 -- [x] power tiles for health
 -- [x] power tiles for score
--- [ ] rename power tiles to effect tiles
--- [ ] make a sprite dictionary again
--- [ ] update deploy function to optionally accept a specific target
--- [ ] have some power tiles by default
--- [ ] have some start locations for heroes
+-- [x] rename power tiles to effect tiles
+-- [x] have some power tiles by default
+-- [x] have some start locations for heroes
 -- [ ] add potential tiles for each type
     -- deploy 3 random ones at the beginning of the game
     -- include conditions for turning them into power tiles
@@ -26,6 +24,7 @@ __lua__
 -- [ ] have enemies appear on a fixed schedule
 -- [ ] telegraph enemy arrival a turn in advance
 -- [ ] have enemies appear on an increasing schedule
+-- [ ] make a sprite dictionary again
 
 function _init()
 
@@ -54,24 +53,6 @@ function _init()
     generate_walls()
   end
 
-  -- heroes
-  hero_a = create_hero()
-  hero_b = create_hero()
-  heroes = {hero_a, hero_b}
-  deploy(hero_a, {"hero", "enemy"})
-  deploy(hero_b, {"hero", "enemy"})
-  hero_a_active = true
-
-	-- list of enemies
-	enemies = {}
-	create_enemy()
-  create_enemy()
-
-	-- initial enemy positions
-  for next in all(enemies) do
-    deploy(next, {"hero", "enemy"})
-  end
-
   local melee_tile = {
     type = "power",
     name = "melee",
@@ -94,10 +75,28 @@ function _init()
     name = "score",
     sprite = 010,
   }
-  deploy(melee_tile, {"hero", "enemy"})
-  deploy(shoot_tile, {"hero", "enemy"})
-  deploy(health_tile, {"hero", "enemy"})
-  deploy(score_tile, {"hero", "enemy"})
+  set_tile(melee_tile, {3,3})
+  set_tile(shoot_tile, {6,6})
+  set_tile(health_tile, {3,6})
+  set_tile(score_tile, {6,3})
+
+  -- heroes
+  hero_a = create_hero()
+  hero_b = create_hero()
+  heroes = {hero_a, hero_b}
+  set_tile(hero_a, {4,4})
+  set_tile(hero_b, {5,5})
+  hero_a_active = true
+
+	-- list of enemies
+	enemies = {}
+	create_enemy()
+  create_enemy()
+
+	-- initial enemy positions
+  for next in all(enemies) do
+    deploy(next, {"hero", "enemy"})
+  end
 end
 
 function _update()
