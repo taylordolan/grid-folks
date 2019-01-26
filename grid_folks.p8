@@ -22,7 +22,7 @@ __lua__
     -- deploy 3 random ones at the beginning of the game
     -- include conditions for turning them into power tiles
 -- [x] when a potential tile is triggered, reset walls and deploy 3 more random ones
--- [ ] have enemies appear on a fixed schedule
+-- [x] have enemies appear on a fixed schedule
 -- [ ] telegraph enemy arrival a turn in advance
 -- [ ] have enemies appear on an increasing schedule
 
@@ -45,6 +45,7 @@ function _init()
   player_turn = true
 	game_over = false
   score = 0
+  turns = 0
 
   sprites = {
     hero = 017,
@@ -109,13 +110,13 @@ function _init()
 
 	-- list of enemies
 	enemies = {}
-	-- create_enemy()
+	create_enemy()
   -- create_enemy()
 
 	-- initial enemy positions
-  for next in all(enemies) do
-    deploy(next, {"hero", "enemy"})
-  end
+  -- for next in all(enemies) do
+  --   deploy(next, {"hero", "enemy"})
+  -- end
 end
 
 function _update()
@@ -565,6 +566,12 @@ function create_hero()
           end
 
           generate_potential_tiles()
+          clear_all_walls()
+          generate_walls()
+          while is_map_contiguous() == false do
+            clear_all_walls()
+            generate_walls()
+          end
         end
       end
 
@@ -580,7 +587,11 @@ function create_hero()
       -- does whatever needs to happen after a hero has done its thing
       function end_turn()
         update_companion_effect()
+        turns = turns + 1
         player_turn = false
+        if turns % 8 == 0 then
+          create_enemy()
+        end
       end
 		end
 	}
@@ -697,6 +708,7 @@ function create_enemy()
 		end
 	}
 	add(enemies, enemy)
+  deploy(enemy, {"hero", "enemy"})
 end
 
 function distance(start, goal)
