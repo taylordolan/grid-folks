@@ -18,10 +18,10 @@ __lua__
 -- [x] have some power tiles by default
 -- [x] have some start locations for heroes
 -- [x] make a sprite dictionary again
--- [ ] add potential tiles for each type
+-- [x] add potential tiles for each type
     -- deploy 3 random ones at the beginning of the game
     -- include conditions for turning them into power tiles
--- [ ] when a potential tile is triggered, reset walls and deploy 3 more random ones
+-- [x] when a potential tile is triggered, reset walls and deploy 3 more random ones
 -- [ ] have enemies appear on a fixed schedule
 -- [ ] telegraph enemy arrival a turn in advance
 -- [ ] have enemies appear on an increasing schedule
@@ -47,16 +47,20 @@ function _init()
   score = 0
 
   sprites = {
-    player = 017,
-    player_melee = 019,
-    player_shoot = 021,
+    hero = 017,
+    hero_melee = 019,
+    hero_shoot = 021,
     enemy = 002,
     wall_right = 005,
     wall_down = 006,
-    power_melee = 007,
-    power_shoot = 008,
-    effect_health = 009,
-    effect_score = 010
+    effect_melee = 023,
+    effect_shoot = 024,
+    effect_health = 025,
+    effect_score = 026,
+    potential_melee = 007,
+    potential_shoot = 008,
+    potential_health = 009,
+    potential_score = 010,
   }
 
   -- create walls
@@ -67,16 +71,16 @@ function _init()
   end
 
   local melee_tile = {
-    type = "power",
+    type = "effect",
     name = "melee",
-    sprite = sprites.power_melee,
-    hero_sprite = sprites.player_melee
+    sprite = sprites.effect_melee,
+    hero_sprite = sprites.hero_melee
   }
   local shoot_tile = {
-    type = "power",
+    type = "effect",
     name = "shoot",
-    sprite = sprites.power_shoot,
-    hero_sprite = sprites.player_shoot
+    sprite = sprites.effect_shoot,
+    hero_sprite = sprites.hero_shoot
   }
   local health_tile = {
     type = "effect",
@@ -93,6 +97,8 @@ function _init()
   set_tile(health_tile, {3,6})
   set_tile(score_tile, {6,3})
 
+  generate_potential_tiles()
+
   -- heroes
   hero_a = create_hero()
   hero_b = create_hero()
@@ -103,8 +109,8 @@ function _init()
 
 	-- list of enemies
 	enemies = {}
-	create_enemy()
-  create_enemy()
+	-- create_enemy()
+  -- create_enemy()
 
 	-- initial enemy positions
   for next in all(enemies) do
@@ -131,7 +137,9 @@ function _update()
 
   -- move enemies
   if player_turn == false then
-    foreach(enemies, enemy.update)
+    for next in all(enemies) do
+      next.update(next)
+    end
   end
 
   -- game end test
@@ -390,15 +398,24 @@ function create_hero()
     max_health = 4,
     health = 4,
 
-    -- powers
+    -- effects
     melee = false,
     shoot = false,
 
     -- update hero
 		update = function(self)
+
       local self_x = x(self)
       local self_y = y(self)
       local self_tile = {self_x, self_y}
+
+      -- find the other hero
+      local companion
+      if heroes[1] == self then
+        companion = heroes[2]
+      else
+        companion = heroes[1]
+      end
 
       -- move up
 			if btnp(⬆️) then
@@ -424,7 +441,7 @@ function create_hero()
       -- this is called when the player hits a direction on their turn.
       -- it determines which action should be taken and triggers it.
       function act(direction)
-        local self_tile = {x(self), y(self)}
+        -- local self_tile = {x(self), y(self)}
         local next_tile = {self_x + direction[1], self_y + direction[2]}
         if location_exists(next_tile) then
           shoot_target = get_shoot_target(direction)
@@ -493,30 +510,61 @@ function create_hero()
       end
 
       -- updates the *other* hero's ability and sprite
-      -- based on the power tile that *this* hero is standing on
-      function update_companion_power()
+      -- based on the effect tile that *this* hero is standing on
+      function update_companion_effect()
 
         local here = {x(self), y(self)}
 
-        -- find the other hero
-        local companion
-        if heroes[1] == self then
-          companion = heroes[2]
-        else
-          companion = heroes[1]
-        end
+        -- -- find the other hero
+        -- local companion
+        -- if heroes[1] == self then
+        --   companion = heroes[2]
+        -- else
+        --   companion = heroes[1]
+        -- end
 
         -- set companion deets to their defaults
         companion.melee = false
         companion.shoot = false
-        companion.base_sprite = sprites.player
+        companion.base_sprite = sprites.hero
 
-        -- check if this hero's tile is a power tile
-        local power = find_type_in_tile("power", here)
-        if power then
-          -- apply the power's effect to the companion hero
-          companion[power.name] = true
-          companion.base_sprite = power.hero_sprite
+        -- check if this hero's tile is a effect tile
+        local effect = find_type_in_tile("effect", here)
+        if effect then
+          if effect.name == "melee" or effect.name == "shoot" then
+            -- apply the effect's effect to the companion hero
+            companion[effect.name] = true
+            companion.base_sprite = effect.hero_sprite
+          end
+        end
+      end
+
+      function update_potential_tiles()
+
+        local companion_tile = {x(companion), y(companion)}
+        local self_tile = {x(self), y(self)}
+        self_potential_tile = find_type_in_tile("potential", self_tile)
+        companion_potential_tile = find_type_in_tile("potential", companion_tile)
+
+        if self_potential_tile and companion_potential_tile then
+
+          local to_destroy = {self_potential_tile, companion_potential_tile}
+          for next in all(to_destroy) do
+            del(board[x(next)][y(next)], next)
+          end
+
+          for x = 1, rows do
+            for y = 1, cols do
+              local potential_tile = find_type_in_tile("potential", {x,y})
+              if potential_tile then
+                potential_tile.type = "effect"
+                potential_tile.sprite = sprites["effect_" ..potential_tile.name]
+                potential_tile.hero_sprite = sprites["hero_" ..potential_tile.name]
+              end
+            end
+          end
+
+          generate_potential_tiles()
         end
       end
 
@@ -524,13 +572,14 @@ function create_hero()
       function step(next_tile)
         if is_wall_between(self_tile, next_tile) == false then
           set_tile(self, next_tile)
+          update_potential_tiles()
           end_turn()
         end
       end
 
       -- does whatever needs to happen after a hero has done its thing
       function end_turn()
-        update_companion_power()
+        update_companion_effect()
         player_turn = false
       end
 		end
@@ -692,7 +741,7 @@ function distance(start, goal)
 end
 
 --[[
-  wall stuff
+  board stuff
 --]]
 
 -- check if there's a wall between two tiles
@@ -807,6 +856,28 @@ function is_map_contiguous()
   return true
 end
 
+function generate_potential_tiles()
+
+  local current_types = {
+    "melee",
+    "shoot",
+    "health",
+    "score"
+  }
+  local index = flr(rnd(#current_types)) + 1
+  local to_remove = current_types[index]
+  del(current_types, to_remove)
+
+  for next in all(current_types) do
+    local tile = {
+      type = "potential",
+      name = next,
+      sprite = sprites["potential_" ..next]
+    }
+    deploy(tile, {"potential", "effect"})
+  end
+end
+
 __gfx__
 00000000000000000000000066666666dddddddd0000000d00000000000000000000000000000000000000000000000000000000000000000000000000000000
 00000000000000000777777066666666dddddddd0000000d00000000000000000000000000000000000000000000000000000000000000000000000000000000
@@ -818,10 +889,10 @@ __gfx__
 00000000000000000000000066666666dddddddd00000000ddddddd0000000000000000000000000000000000000000000000000000000000000000000000000
 00000000000000000005500000000000000220000000000000033000000000000000000000000000000000000000000000000000000000000000000000000000
 00000000000550000005500000022000000220000003300000033000000000000000000000000000000000000000000000000000000000000000000000000000
-00000000000550000000000000022000000000000003300000000000000000000000000000000000000000000000000000000000000000000000000000000000
-00000000000000000555555000000000022222200000000003333330000000000000000000000000000000000000000000000000000000000000000000000000
-00000000055555500005500002222220000220000333333000033000000000000000000000000000000000000000000000000000000000000000000000000000
-00000000000550000005500000022000000220000003300000033000000000000000000000000000000000000000000000000000000000000000000000000000
+00000000000550000000000000022000000000000003300000000000000220000003300000088000000aa0000000000000000000000000000000000000000000
+0000000000000000055555500000000002222220000000000333333000222200003333000088880000aaaa000000000000000000000000000000000000000000
+0000000005555550000550000222222000022000033333300003300000222200003333000088880000aaaa000000000000000000000000000000000000000000
+00000000000550000005500000022000000220000003300000033000000220000003300000088000000aa0000000000000000000000000000000000000000000
 00000000005555000050050000222200002002000033330000300300000000000000000000000000000000000000000000000000000000000000000000000000
 00000000005005000050050000200200002002000030030000300300000000000000000000000000000000000000000000000000000000000000000000000000
 __map__
