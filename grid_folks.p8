@@ -12,9 +12,10 @@ __lua__
 -- [x] clean up power stuff
 -- [x] power tiles for melee damage
 -- [x] press 'x' to switch heroes (instead of holding it)
--- [ ] power tiles for health
--- [ ] power tiles for score
+-- [x] power tiles for health
+-- [x] power tiles for score
 -- [ ] rename power tiles to effect tiles
+-- [ ] make a sprite dictionary again
 -- [ ] update deploy function to optionally accept a specific target
 -- [ ] have some power tiles by default
 -- [ ] have some start locations for heroes
@@ -44,6 +45,7 @@ function _init()
   -- some game state
   player_turn = true
 	game_over = false
+  score = 0
 
   -- create walls
   generate_walls()
@@ -87,9 +89,15 @@ function _init()
     name = "health",
     sprite = 009,
   }
+  local score_tile = {
+    type = "effect",
+    name = "score",
+    sprite = 010,
+  }
   deploy(melee_tile, {"hero", "enemy"})
   deploy(shoot_tile, {"hero", "enemy"})
   deploy(health_tile, {"hero", "enemy"})
+  deploy(score_tile, {"hero", "enemy"})
 end
 
 function _update()
@@ -124,6 +132,8 @@ function _draw()
 
   -- clear the screen
 	cls()
+
+  print("score: " ..score, 0, 0, 7)
 
 	for x = 1, rows do
 		for y = 1, cols do
@@ -548,6 +558,10 @@ function create_enemy()
         end
       end
 
+      function score_effect()
+        score = score + 1
+      end
+
       -- target the closer hero
       -- or a random one if they're equidistant
       local current_dist
@@ -611,6 +625,9 @@ function create_enemy()
           if effect then
             if effect.name == "health" then
               health_effect()
+            end
+            if effect.name == "score" then
+              score_effect()
             end
           end
         end
