@@ -11,7 +11,7 @@ __lua__
 -- [x] health for enemies
 -- [x] clean up power stuff
 -- [x] power tiles for melee damage
--- [ ] press 'x' to switch heroes (instead of holding it)
+-- [x] press 'x' to switch heroes (instead of holding it)
 -- [ ] update deploy function to optionally accept a specific target
 -- [ ] power tiles for health
 -- [ ] power tiles for score
@@ -57,6 +57,7 @@ function _init()
   heroes = {hero_a, hero_b}
   deploy(hero_a, {"hero", "enemy"})
   deploy(hero_b, {"hero", "enemy"})
+  hero_a_active = true
 
 	-- list of enemies
 	enemies = {}
@@ -86,8 +87,12 @@ end
 
 function _update()
 
+  if btnp(5) then
+    hero_a_active = not hero_a_active
+  end
+
 	-- move heroes
-  if (btn(5)) then
+  if hero_a_active then
     hero_a.sprite = hero_a.base_sprite + 1
     hero_b.sprite = hero_b.base_sprite
     hero_a:update()
