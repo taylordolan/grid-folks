@@ -365,6 +365,7 @@ function create_hero()
 		type = "hero",
     base_sprite = 17,
     sprite = null,
+    max_health = 4,
     health = 4,
 
     -- powers
@@ -539,6 +540,14 @@ function create_enemy()
 			local b_tile = {b.x, b.y}
 			local b_dist = distance(self_tile, b_tile)
 
+      function health_effect()
+        for next in all(heroes) do
+          if (next.health < next.max_health) then
+            next.health = next.health + 1
+          end
+        end
+      end
+
       -- target the closer hero
       -- or a random one if they're equidistant
       local current_dist
@@ -573,7 +582,6 @@ function create_enemy()
       -- if there are no valid moves based on the above criteria,
       -- then any adjacent tile that's not an enemy and doesn't have a wall in the way is valid
       if #valid_moves == 0 then
-
         local available_adjacent_tiles = {}
         for next in all(adjacent_tiles) do
           local enemy_exists = find_type_in_tile("enemy", next) and true or false
@@ -592,11 +600,19 @@ function create_enemy()
         index = flr(rnd(#valid_moves)) + 1
         dest = valid_moves[index]
         local target = find_type_in_tile("hero", dest)
-        local target_exists = target and true or false
-        if target_exists then
-          target.health -= 1
+        -- local target_exists = target and true or false
+        if target then
+          if target.health > 0 then
+            target.health -= 1
+          end
         else
           set_tile(self, dest)
+          local effect = find_type_in_tile("effect", dest)
+          if effect then
+            if effect.name == "health" then
+              health_effect()
+            end
+          end
         end
       end
       player_turn = true
