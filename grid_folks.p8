@@ -17,6 +17,7 @@ __lua__
 -- [x] rename power tiles to effect tiles
 -- [x] have some power tiles by default
 -- [x] have some start locations for heroes
+-- [x] make a sprite dictionary again
 -- [ ] add potential tiles for each type
     -- deploy 3 random ones at the beginning of the game
     -- include conditions for turning them into power tiles
@@ -24,7 +25,6 @@ __lua__
 -- [ ] have enemies appear on a fixed schedule
 -- [ ] telegraph enemy arrival a turn in advance
 -- [ ] have enemies appear on an increasing schedule
--- [ ] make a sprite dictionary again
 
 function _init()
 
@@ -46,6 +46,19 @@ function _init()
 	game_over = false
   score = 0
 
+  sprites = {
+    player = 017,
+    player_melee = 019,
+    player_shoot = 021,
+    enemy = 002,
+    wall_right = 005,
+    wall_down = 006,
+    power_melee = 007,
+    power_shoot = 008,
+    effect_health = 009,
+    effect_score = 010
+  }
+
   -- create walls
   generate_walls()
   while is_map_contiguous() == false do
@@ -56,24 +69,24 @@ function _init()
   local melee_tile = {
     type = "power",
     name = "melee",
-    sprite = 007,
-    hero_sprite = 019
+    sprite = sprites.power_melee,
+    hero_sprite = sprites.player_melee
   }
   local shoot_tile = {
     type = "power",
     name = "shoot",
-    sprite = 008,
-    hero_sprite = 021
+    sprite = sprites.power_shoot,
+    hero_sprite = sprites.player_shoot
   }
   local health_tile = {
     type = "effect",
     name = "health",
-    sprite = 009,
+    sprite = sprites.effect_health,
   }
   local score_tile = {
     type = "effect",
     name = "score",
-    sprite = 010,
+    sprite = sprites.effect_score,
   }
   set_tile(melee_tile, {3,3})
   set_tile(shoot_tile, {6,6})
@@ -496,7 +509,7 @@ function create_hero()
         -- set companion deets to their defaults
         companion.melee = false
         companion.shoot = false
-        companion.base_sprite = 017
+        companion.base_sprite = sprites.player
 
         -- check if this hero's tile is a power tile
         local power = find_type_in_tile("power", here)
@@ -533,7 +546,7 @@ end
 function create_enemy()
 	enemy = {
     type = "enemy",
-    sprite = "002",
+    sprite = sprites.enemy,
     health = 4,
     update = function(self)
       local found_self = find(self)
@@ -735,11 +748,11 @@ function generate_walls()
   for i = 1, 16 do
     local wall_right = {
       type = "wall_right",
-      sprite = "005"
+      sprite = sprites.wall_right
     }
     local wall_down = {
       type = "wall_down",
-      sprite = "006"
+      sprite = sprites.wall_down
     }
     deploy(wall_right, {"wall_right"})
     deploy(wall_down, {"wall_down"})
