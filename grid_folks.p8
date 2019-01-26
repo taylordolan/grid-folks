@@ -9,12 +9,21 @@ __lua__
 -- [x] prevent wall generation from creating closed areas
 -- [x] tiles with walls should count as empty for the purpose of deploying enemies and heroes
 -- [x] health for enemies
--- [ ] clean up power stuff
+-- [x] clean up power stuff
+-- [x] power tiles for melee damage
+-- [ ] press 'x' to switch heroes (instead of holding it)
 -- [ ] update deploy function to optionally accept a specific target
--- [ ] press 'x' to switch heroes (instead of holding)
--- [ ] power tiles for melee damage
--- [ ] don't generate walls in pointless spots
--- [ ] use objects instead of arrays for locations
+-- [ ] power tiles for health
+-- [ ] power tiles for score
+-- [ ] have some power tiles by default
+-- [ ] have some start locations for heroes
+-- [ ] add potential tiles for each type
+    -- deploy 3 random ones at the beginning of the game
+    -- include conditions for turning them into power tiles
+-- [ ] when a potential tile is triggered, reset walls and deploy 3 more random ones
+-- [ ] have enemies appear on a fixed schedule
+-- [ ] telegraph enemy arrival a turn in advance
+-- [ ] have enemies appear on an increasing schedule
 
 function _init()
 
@@ -73,7 +82,6 @@ function _init()
   }
   deploy(melee_tile, {"hero", "enemy"})
   deploy(shoot_tile, {"hero", "enemy"})
-
 end
 
 function _update()
@@ -121,7 +129,7 @@ function _draw()
 					spr(sprite, x_position, y_position)
           -- show health bar for things with health
           if (next.health) then
-            for i = 0, next.health - 1 do
+            for i = 1, next.health do
               pset(x_position + 7, y_position + i, 8)
             end
           end
@@ -378,21 +386,81 @@ function create_hero()
         act(direction)
       end
 
+      -- this is called when the player hits a direction on their turn.
+      -- it determines which action should be taken and triggers it.
       function act(direction)
-        shoot_target = get_shoot_target(direction)
-        melee_target = get_melee_target(direction)
-        if self.shoot and shoot_target then
-          hit_enemy(shoot_target, 1)
-        elseif self.melee and melee_target then
-          hit_enemy(melee_target, 4)
-        elseif melee_target then
-          hit_enemy(melee_target, 2)
-        else
-          step(direction)
+        local self_tile = {x(self), y(self)}
+        local next_tile = {self_x + direction[1], self_y + direction[2]}
+        if location_exists(next_tile) then
+          shoot_target = get_shoot_target(direction)
+          melee_target = get_melee_target(next_tile)
+          if self.shoot and shoot_target then
+            hit_enemy(shoot_target, 1)
+          elseif self.melee and melee_target then
+            hit_enemy(melee_target, 4)
+          elseif melee_target then
+            hit_enemy(melee_target, 2)
+          else
+            step(next_tile)
+          end
         end
       end
 
-      function update_companion_power(self)
+      -- given a direction, this returns the nearest enemy in line of sight
+      -- or `false` if there's not one
+      function get_shoot_target(direction)
+
+        local now_tile = self_tile
+        local x_vel = direction[1]
+        local y_vel = direction[2]
+
+        while true do
+          -- define the current target
+          local next_tile = {now_tile[1] + x_vel, now_tile[2] + y_vel}
+          -- if `next_tile` is off the map, or there's a wall in the way, return false
+          if location_exists(next_tile) == false or is_wall_between(now_tile, next_tile) then
+            return false
+          end
+          -- if there's an enemy in the target, return it
+          local enemy = find_type_in_tile("enemy", next_tile)
+          if enemy then
+            return enemy
+          end
+          -- set `current` to `next_tile` and keep going
+          now_tile = next_tile
+        end
+      end
+
+      -- given a direction, this returns an adjacent enemy to hit
+      -- or `false` if there's not one
+      function get_melee_target(next_tile)
+
+        if is_wall_between(self_tile, next_tile) == false then
+          local target = find_type_in_tile("enemy", next_tile)
+          return target
+        end
+        return false
+      end
+
+      -- given an enemy and an amount of damage,
+      -- hit it and then kill if it has no health
+      function hit_enemy(enemy, damage)
+        enemy_x = x(enemy)
+        enemy_y = y(enemy)
+
+        enemy.health -= damage
+
+        if (enemy.health <= 0) then
+          del(enemies, enemy)
+          del(board[enemy_x][enemy_y], enemy)
+        end
+        end_turn()
+      end
+
+      -- updates the *other* hero's ability and sprite
+      -- based on the power tile that *this* hero is standing on
+      function update_companion_power()
+
         local here = {x(self), y(self)}
 
         -- find the other hero
@@ -411,78 +479,24 @@ function create_hero()
         -- check if this hero's tile is a power tile
         local power = find_type_in_tile("power", here)
         if power then
-          companion.base_sprite = power.companion_sprite
           -- apply the power's effect to the companion hero
-          if power.effect == "melee" then
-            companion.melee = true
-          elseif power.effect == "shoot" then
-            companion.shoot = true
-          end
+          companion[power.effect] = true
+          companion.base_sprite = power.companion_sprite
         end
       end
 
-      function hit_enemy(enemy, damage)
-        enemy_x = x(enemy)
-        enemy_y = y(enemy)
-
-        enemy.health -= damage
-
-        if (enemy.health <= 0) then
-          del(enemies, enemy)
-          del(board[enemy_x][enemy_y], enemy)
+       -- moves the hero to an adjacent tile if there's not a wall in the way
+      function step(next_tile)
+        if is_wall_between(self_tile, next_tile) == false then
+          set_tile(self, next_tile)
+          end_turn()
         end
-        end_turn()
       end
 
-      function step(direction)
-        local next = {x(self) + direction[1], y(self) + direction[2]}
-        set_tile(self, next)
-        end_turn()
-      end
-
+      -- does whatever needs to happen after a hero has done its thing
       function end_turn()
-        update_companion_power(self)
+        update_companion_power()
         player_turn = false
-      end
-
-      -- todo: explain this
-      function get_shoot_target(direction)
-
-        local x_vel = direction[1]
-        local y_vel = direction[2]
-        local current = {x(self), y(self)}
-
-        while true do
-          -- define the current target
-          local next = {current[1] + x_vel, current[2] + y_vel}
-          -- if `next` is off the map, return false
-          if location_exists(next) == false then
-            return false
-          end
-          -- if there's a wall in the way, return false
-          if is_wall_between(current, next) then
-            return false
-          end
-          -- if there's an enemy in the target, return it
-          local enemy = find_type_in_tile("enemy", next)
-          -- local enemy_exists = enemy and true or false
-          if enemy then
-            return enemy
-          end
-          -- set `current` to `next` and keep going
-          current = next
-        end
-      end
-
-      -- todo: explain this
-      function get_melee_target(direction)
-
-        local x_vel = direction[1]
-        local y_vel = direction[2]
-        local next = {x(self) + x_vel, y(self) + y_vel}
-
-        local target = find_type_in_tile("enemy", next)
-        return target
       end
 		end
 	}
