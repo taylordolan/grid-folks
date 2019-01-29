@@ -449,6 +449,7 @@ function create_hero()
           shoot_target = get_shoot_target(direction)
           melee_target = get_melee_target(next_tile)
           if self.shoot and shoot_target then
+            shoot_target.stunned = true
             hit_enemy(shoot_target, 1)
           elseif self.melee and melee_target then
             hit_enemy(melee_target, 2)
