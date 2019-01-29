@@ -23,11 +23,12 @@ __lua__
     -- include conditions for turning them into power tiles
 -- [x] when a potential tile is triggered, reset walls and deploy 3 more random ones
 -- [x] have enemies appear on a fixed schedule
--- [ ] telegraph enemy arrival a turn in advance
+-- [x] telegraph enemy arrival a turn in advance
 -- [ ] enemies should trigger effect tiles when they spawn on them
 -- [ ] replace melee with dash ability
 -- [ ] rework _draw() so there's more space between tiles
 -- [ ] have enemies appear on an increasing schedule
+-- [ ] things should probably keep track of their own x and y locations
 
 function _init()
 
@@ -55,6 +56,7 @@ function _init()
     hero_melee = 019,
     hero_shoot = 021,
     enemy = 002,
+    pre_enemy = 004,
     wall_right = 005,
     wall_down = 006,
     effect_melee = 023,
@@ -113,13 +115,9 @@ function _init()
 
 	-- list of enemies
 	enemies = {}
-	create_enemy()
-  create_enemy()
-
-	-- initial enemy positions
-  -- for next in all(enemies) do
-  --   deploy(next, {"hero", "enemy"})
-  -- end
+  pre_enemies = {}
+  local new_pre_enemy = create_pre_enemy()
+  deploy(new_pre_enemy, {"hero", "enemy", "pre-enemy"})
 end
 
 function _update()
@@ -590,11 +588,20 @@ function create_hero()
       -- does whatever needs to happen after a hero has done its thing
       function end_turn()
         update_companion_effect()
+        for next in all(pre_enemies) do
+          local current_x = x(next)
+          local current_y = y(next)
+          del(pre_enemies, next)
+          del(board[current_x][current_y], next)
+          local new_enemy = create_enemy({current_x, current_y})
+          new_enemy.stunned = true
+        end
+        if turns > 0 and turns % 8 == 0 then
+          local new_pre_enemy = create_pre_enemy()
+          deploy(new_pre_enemy, {"hero", "enemy", "pre-enemy"})
+        end
         turns = turns + 1
         player_turn = false
-        if turns % 8 == 0 then
-          create_enemy()
-        end
       end
 		end
 	}
@@ -605,13 +612,30 @@ end
   enemy stuff
 --]]
 
+function create_pre_enemy()
+  pre_enemy = {
+    type = "pre_enemy",
+    sprite = sprites.pre_enemy
+  }
+  add(pre_enemies, pre_enemy)
+  return pre_enemy
+end
+
 -- create an enemy and add it to the array of enemies
-function create_enemy()
+function create_enemy(tile)
 	enemy = {
     type = "enemy",
     sprite = sprites.enemy,
     health = 3,
+    stunned = true,
     update = function(self)
+
+      if self.stunned == true then
+        self.stunned = false
+        player_turn = true
+        return
+      end
+
       local found_self = find(self)
 			local self_x = found_self.x
 			local self_y = found_self.y
@@ -678,7 +702,6 @@ function create_enemy()
             add(available_adjacent_tiles, next)
           end
         end
-
         valid_moves = available_adjacent_tiles
       end
 
@@ -711,7 +734,8 @@ function create_enemy()
 		end
 	}
 	add(enemies, enemy)
-  deploy(enemy, {"hero", "enemy"})
+  set_tile(enemy, tile)
+  return enemy
 end
 
 function distance(start, goal)
