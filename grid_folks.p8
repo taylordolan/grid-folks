@@ -578,7 +578,7 @@ function create_enemy(tile)
     y = null,
     type = "enemy",
     sprite = sprites.enemy,
-    health = 2,
+    health = 3,
     stunned = true,
     update = function(self)
 
@@ -630,10 +630,10 @@ function create_enemy(tile)
 
       -- populate valid_moves with tiles that are closer and don't contain enemies
       for next in all(adjacent_tiles) do
-        local enemy_exists = find_type_in_tile("enemy", next) and true or false
+        local enemy_exists = find_type_in_tile("enemy", next)
         if
           distance(next, goal_tile) < current_dist and
-          enemy_exists == false
+          not enemy_exists
         then
 					add(valid_moves, next)
 				end
@@ -644,8 +644,8 @@ function create_enemy(tile)
       if #valid_moves == 0 then
         local available_adjacent_tiles = {}
         for next in all(adjacent_tiles) do
-          local enemy_exists = find_type_in_tile("enemy", next) and true or false
-          if enemy_exists == false then
+          local enemy_exists = find_type_in_tile("enemy", next)
+          if not enemy_exists then
             add(available_adjacent_tiles, next)
           end
         end
@@ -659,7 +659,6 @@ function create_enemy(tile)
         index = flr(rnd(#valid_moves)) + 1
         dest = valid_moves[index]
         local target = find_type_in_tile("hero", dest)
-        -- local target_exists = target and true or false
         if target then
           if target.health > 0 then
             target.health -= 1
@@ -763,15 +762,12 @@ function clear_all_walls()
       local here = board[x][y]
 
       local wall_right = find_type_in_tile("wall_right", {x,y})
-      local wall_right_exists = wall_right and true or false
-
       local wall_down = find_type_in_tile("wall_down", {x,y})
-      local wall_down_exists = wall_down and true or false
 
-      if wall_right_exists then
+      if wall_right then
         del(here, wall_right)
       end
-      if wall_down_exists then
+      if wall_down then
         del(here, wall_down)
       end
     end
