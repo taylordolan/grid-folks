@@ -402,7 +402,6 @@ function create_hero()
       -- it determines which action should be taken and triggers it.
       function act(direction)
         local next_tile = {self.x + direction[1], self.y + direction[2]}
-        printh(location_exists(next_tile))
         if location_exists(next_tile) then
           shoot_target = get_shoot_target(direction)
           if self.shoot and shoot_target then
@@ -410,26 +409,37 @@ function create_hero()
             hit_enemy(shoot_target, 1)
             end_turn()
           elseif self.dash then
-            step_or_bump(direction)
-            step_or_bump(direction)
-            end_turn()
+            local acted = false
+            if not is_wall_between({self.x, self.y}, next_tile) then
+              step_or_bump(direction)
+              acted = true
+            end
+            next_tile = {self.x + direction[1], self.y + direction[2]}
+            if not is_wall_between({self.x, self.y}, next_tile) then
+              step_or_bump(direction)
+            end
+            if acted then
+              end_turn()
+            end
           else
-            step_or_bump(direction)
-            end_turn()
+            if not is_wall_between({self.x, self.y}, next_tile) then
+              step_or_bump(direction)
+              end_turn()
+            end
           end
         end
       end
 
       function step_or_bump(direction)
         local target_tile = {self.x + direction[1], self.y + direction[2]}
-        if not is_wall_between({self.x, self.y}, target_tile) then
-          local enemy = find_type_in_tile("enemy", target_tile)
-          if enemy then
-            hit_enemy(enemy, 1)
-          else
-            set_tile(self, target_tile)
-          end
+        -- if not is_wall_between({self.x, self.y}, target_tile) then
+        local enemy = find_type_in_tile("enemy", target_tile)
+        if enemy then
+          hit_enemy(enemy, 1)
+        else
+          set_tile(self, target_tile)
         end
+        -- end
       end
 
       -- given a direction, this returns the nearest enemy in line of sight
