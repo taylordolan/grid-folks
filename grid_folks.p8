@@ -24,11 +24,11 @@ __lua__
 -- [x] when a potential tile is triggered, reset walls and deploy 3 more random ones
 -- [x] have enemies appear on a fixed schedule
 -- [x] telegraph enemy arrival a turn in advance
+-- [x] things should probably keep track of their own x and y locations
 -- [ ] enemies should trigger effect tiles when they spawn on them
 -- [ ] replace melee with dash ability
 -- [ ] rework _draw() so there's more space between tiles
 -- [ ] have enemies appear on an increasing schedule
--- [ ] things should probably keep track of their own x and y locations
 
 function _init()
 
@@ -77,23 +77,31 @@ function _init()
   end
 
   local melee_tile = {
+    x = null,
+    y = null,
     type = "effect",
     name = "melee",
     sprite = sprites.effect_melee,
     hero_sprite = sprites.hero_melee
   }
   local shoot_tile = {
+    x = null,
+    y = null,
     type = "effect",
     name = "shoot",
     sprite = sprites.effect_shoot,
     hero_sprite = sprites.hero_shoot
   }
   local health_tile = {
+    x = null,
+    y = null,
     type = "effect",
     name = "health",
     sprite = sprites.effect_health,
   }
   local score_tile = {
+    x = null,
+    y = null,
     type = "effect",
     name = "score",
     sprite = sprites.effect_score,
@@ -193,50 +201,6 @@ end
   helper functions
 --]]
 
--- get the location of a thing
-function find(thing)
-	for x = 1, rows do
-		for y = 1, cols do
-			for next in all(board[x][y]) do
-				if next == thing then
-					local location = {}
-					location.x = x
-					location.y = y
-					return location
-				end
-			end
-		end
-	end
-end
-
--- get the col of a thing
-function x(thing)
-	for x = 1, rows do
-		for y = 1, cols do
-			local tile = board[x][y]
-			for next in all(tile) do
-				if next == thing then
-					return x
-				end
-			end
-		end
-	end
-end
-
--- get the row of a thing
-function y(thing)
-	for x = 1, rows do
-		for y = 1, cols do
-			local tile = board[x][y]
-			for next in all(tile) do
-				if next == thing then
-					return y
-				end
-			end
-		end
-	end
-end
-
 -- returns a random tile from the board
 function random_tile()
   -- create an array of all tiles
@@ -285,28 +249,22 @@ end
 -- move a thing to a tile
 function set_tile(thing, dest)
 
-  local dest_x = dest[1]
-  local dest_y = dest[2]
-
   -- do nothing if dest is off the board
 	if location_exists(dest) == false then
 	  return
 	end
 
 	-- remove it from its current tile
-	for x = 1, rows do
-		for y = 1, cols do
-      local here = board[x][y]
-      for next in all(here) do
-        if next == thing then
-          del(here, thing)
-        end
-      end
-		end
-	end
+  if thing.x and thing.y then
+    del(board[thing.x][thing.y], thing)
+  end
 
 	-- add it to the dest tile
-	add(board[dest_x][dest_y], thing)
+	add(board[dest[1]][dest[2]], thing)
+
+  -- set its x and y values
+  thing.x = dest[1]
+  thing.y = dest[2]
 end
 
 -- deploys a thing to a random tile
@@ -394,6 +352,8 @@ end
 function create_hero()
   local hero = {
 
+    x = null,
+    y = null,
 		type = "hero",
     base_sprite = 17,
     sprite = null,
@@ -407,9 +367,7 @@ function create_hero()
     -- update hero
 		update = function(self)
 
-      local self_x = x(self)
-      local self_y = y(self)
-      local self_tile = {self_x, self_y}
+      local self_tile = {self.x, self.y}
 
       -- find the other hero
       local companion
@@ -443,8 +401,7 @@ function create_hero()
       -- this is called when the player hits a direction on their turn.
       -- it determines which action should be taken and triggers it.
       function act(direction)
-        -- local self_tile = {x(self), y(self)}
-        local next_tile = {self_x + direction[1], self_y + direction[2]}
+        local next_tile = {self.x + direction[1], self.y + direction[2]}
         if location_exists(next_tile) then
           shoot_target = get_shoot_target(direction)
           melee_target = get_melee_target(next_tile)
@@ -500,14 +457,12 @@ function create_hero()
       -- given an enemy and an amount of damage,
       -- hit it and then kill if it has no health
       function hit_enemy(enemy, damage)
-        enemy_x = x(enemy)
-        enemy_y = y(enemy)
 
         enemy.health -= damage
 
         if (enemy.health <= 0) then
           del(enemies, enemy)
-          del(board[enemy_x][enemy_y], enemy)
+          del(board[enemy.x][enemy.y], enemy)
         end
         end_turn()
       end
@@ -516,15 +471,7 @@ function create_hero()
       -- based on the effect tile that *this* hero is standing on
       function update_companion_effect()
 
-        local here = {x(self), y(self)}
-
-        -- -- find the other hero
-        -- local companion
-        -- if heroes[1] == self then
-        --   companion = heroes[2]
-        -- else
-        --   companion = heroes[1]
-        -- end
+        local here = {self.x, self.y}
 
         -- set companion deets to their defaults
         companion.melee = false
@@ -544,8 +491,7 @@ function create_hero()
 
       function update_potential_tiles()
 
-        local companion_tile = {x(companion), y(companion)}
-        local self_tile = {x(self), y(self)}
+        local companion_tile = {companion.x, companion.y}
         self_potential_tile = find_type_in_tile("potential", self_tile)
         companion_potential_tile = find_type_in_tile("potential", companion_tile)
 
@@ -553,7 +499,7 @@ function create_hero()
 
           local to_destroy = {self_potential_tile, companion_potential_tile}
           for next in all(to_destroy) do
-            del(board[x(next)][y(next)], next)
+            del(board[next.x][next.y], next)
           end
 
           for x = 1, rows do
@@ -590,12 +536,12 @@ function create_hero()
       function end_turn()
         update_companion_effect()
         for next in all(pre_enemies) do
-          local current_x = x(next)
-          local current_y = y(next)
           del(pre_enemies, next)
-          del(board[current_x][current_y], next)
-          local new_enemy = create_enemy({current_x, current_y})
-          new_enemy.stunned = true
+          del(board[next.x][next.y], next)
+          if not find_type_in_tile("hero", {next.x, next.y}) and not find_type_in_tile("enemy", {next.x, next.y}) then
+            local new_enemy = create_enemy({next.x, next.y})
+            new_enemy.stunned = true
+          end
         end
         if turns > 0 and turns % 8 == 0 then
           local new_pre_enemy = create_pre_enemy()
@@ -615,6 +561,8 @@ end
 
 function create_pre_enemy()
   pre_enemy = {
+    x = null,
+    y = null,
     type = "pre_enemy",
     sprite = sprites.pre_enemy
   }
@@ -625,6 +573,8 @@ end
 -- create an enemy and add it to the array of enemies
 function create_enemy(tile)
 	enemy = {
+    x = null,
+    y = null,
     type = "enemy",
     sprite = sprites.enemy,
     health = 3,
@@ -637,17 +587,12 @@ function create_enemy(tile)
         return
       end
 
-      local found_self = find(self)
-			local self_x = found_self.x
-			local self_y = found_self.y
-      local self_tile = {self_x, self_y}
+      local self_tile = {self.x, self.y}
 
-      local a = find(hero_a)
-			local a_tile = {a.x, a.y}
+			local a_tile = {hero_a.x, hero_a.y}
 			local a_dist = distance(self_tile, a_tile)
 
-      local b = find(hero_b)
-			local b_tile = {b.x, b.y}
+			local b_tile = {hero_b.x, hero_b.y}
 			local b_dist = distance(self_tile, b_tile)
 
       function health_effect()
@@ -836,10 +781,14 @@ function generate_walls()
 
   for i = 1, 16 do
     local wall_right = {
+      x = null,
+      y = null,
       type = "wall_right",
       sprite = sprites.wall_right
     }
     local wall_down = {
+      x = null,
+      y = null,
       type = "wall_down",
       sprite = sprites.wall_down
     }
