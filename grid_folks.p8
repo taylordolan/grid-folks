@@ -367,8 +367,6 @@ function create_hero()
     -- update hero
 		update = function(self)
 
-      local self_tile = {self.x, self.y}
-
       -- find the other hero
       local companion
       if heroes[1] == self then
@@ -415,7 +413,7 @@ function create_hero()
               acted = true
             end
             next_tile = {self.x + direction[1], self.y + direction[2]}
-            if not is_wall_between({self.x, self.y}, next_tile) then
+            if location_exists(next_tile) and not is_wall_between({self.x, self.y}, next_tile) then
               step_or_bump(direction)
             end
             if acted then
@@ -432,21 +430,19 @@ function create_hero()
 
       function step_or_bump(direction)
         local target_tile = {self.x + direction[1], self.y + direction[2]}
-        -- if not is_wall_between({self.x, self.y}, target_tile) then
         local enemy = find_type_in_tile("enemy", target_tile)
         if enemy then
           hit_enemy(enemy, 1)
         else
           set_tile(self, target_tile)
         end
-        -- end
       end
 
       -- given a direction, this returns the nearest enemy in line of sight
       -- or `false` if there's not one
       function get_shoot_target(direction)
 
-        local now_tile = self_tile
+        local now_tile = {self.x, self.y}
         local x_vel = direction[1]
         local y_vel = direction[2]
 
@@ -505,7 +501,7 @@ function create_hero()
       function update_potential_tiles()
 
         local companion_tile = {companion.x, companion.y}
-        self_potential_tile = find_type_in_tile("potential", self_tile)
+        self_potential_tile = find_type_in_tile("potential", {self.x, self.y})
         companion_potential_tile = find_type_in_tile("potential", companion_tile)
 
         if self_potential_tile and companion_potential_tile then
