@@ -27,9 +27,10 @@ __lua__
 -- [x] things should probably keep track of their own x and y locations
 -- [x] replace melee with dash ability
 -- [x] fix bug where sometimes enemies show up to fast
--- [ ] enemies should trigger effect tiles when they spawn on them
+-- [x] enemies should trigger effect tiles when they spawn on them
 -- [ ] rework _draw() so there's more space between tiles
 -- [ ] have enemies appear on an increasing schedule
+-- [ ] build the game end state
 
 function _init()
 
@@ -266,6 +267,12 @@ function set_tile(thing, dest)
   -- set its x and y values
   thing.x = dest[1]
   thing.y = dest[2]
+
+  -- trigger enemy effects if an enemy was deployed
+  -- todo: this should probably be like a special version of set_tile() in `enemy`
+  if (thing.type == "enemy") then
+    trigger_enemy_effects(dest)
+  end
 end
 
 -- deploys a thing to a random tile
@@ -296,6 +303,31 @@ function deploy(thing, avoid_list)
   local dest = valid_tiles[index]
 
   set_tile(thing, dest)
+end
+
+function trigger_enemy_effects(enemy_tile)
+
+  function health_effect()
+    for next in all(heroes) do
+      if (next.health < next.max_health) then
+        next.health = next.health + 1
+      end
+    end
+  end
+
+  function score_effect()
+    score = score + 1
+  end
+
+  local effect = find_type_in_tile("effect", enemy_tile)
+  if effect then
+    if effect.name == "health" then
+      health_effect()
+    end
+    if effect.name == "score" then
+      score_effect()
+    end
+  end
 end
 
 -- check if a tile is in a list of tiles
@@ -510,6 +542,7 @@ function create_hero()
             del(board[next.x][next.y], next)
           end
 
+          -- todo: optimize this
           for x = 1, rows do
             for y = 1, cols do
               local potential_tile = find_type_in_tile("potential", {x,y})
@@ -543,7 +576,7 @@ function create_hero()
             new_enemy.stunned = true
           end
         end
-        if turns > 0 and turns % 8 == 0 then
+        if turns > 0 and turns % 10 == 0 then
           local new_pre_enemy = create_pre_enemy()
           deploy(new_pre_enemy, {"hero", "enemy", "pre-enemy"})
         end
@@ -594,18 +627,6 @@ function create_enemy(tile)
 
 			local b_tile = {hero_b.x, hero_b.y}
 			local b_dist = distance(self_tile, b_tile)
-
-      function health_effect()
-        for next in all(heroes) do
-          if (next.health < next.max_health) then
-            next.health = next.health + 1
-          end
-        end
-      end
-
-      function score_effect()
-        score = score + 1
-      end
 
       -- target the closer hero
       -- or a random one if they're equidistant
@@ -664,15 +685,7 @@ function create_enemy(tile)
           end
         else
           set_tile(self, dest)
-          local effect = find_type_in_tile("effect", dest)
-          if effect then
-            if effect.name == "health" then
-              health_effect()
-            end
-            if effect.name == "score" then
-              score_effect()
-            end
-          end
+          trigger_enemy_effects(dest)
         end
       end
       player_turn = true
