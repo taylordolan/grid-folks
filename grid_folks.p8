@@ -400,30 +400,22 @@ function create_hero()
       -- it determines which action should be taken and triggers it.
       function act(direction)
         local next_tile = {self.x + direction[1], self.y + direction[2]}
-        if location_exists(next_tile) then
+        if location_exists(next_tile) and not is_wall_between({self.x, self.y}, next_tile) then
           shoot_target = get_shoot_target(direction)
           if self.shoot and shoot_target then
             shoot_target.stunned = true
             hit_enemy(shoot_target, 1)
             end_turn()
           elseif self.dash then
-            local acted = false
-            if not is_wall_between({self.x, self.y}, next_tile) then
-              step_or_bump(direction)
-              acted = true
-            end
+            step_or_bump(direction)
             next_tile = {self.x + direction[1], self.y + direction[2]}
             if location_exists(next_tile) and not is_wall_between({self.x, self.y}, next_tile) then
               step_or_bump(direction)
             end
-            if acted then
-              end_turn()
-            end
+            end_turn()
           else
-            if not is_wall_between({self.x, self.y}, next_tile) then
-              step_or_bump(direction)
-              end_turn()
-            end
+            step_or_bump(direction)
+            end_turn()
           end
         end
       end
@@ -578,7 +570,7 @@ function create_enemy(tile)
     y = null,
     type = "enemy",
     sprite = sprites.enemy,
-    health = 3,
+    health = 2,
     stunned = true,
     update = function(self)
 
