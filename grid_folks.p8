@@ -26,6 +26,7 @@ __lua__
 -- [x] telegraph enemy arrival a turn in advance
 -- [x] things should probably keep track of their own x and y locations
 -- [x] replace melee with dash ability
+-- [x] fix bug where sometimes enemies show up to fast
 -- [ ] enemies should trigger effect tiles when they spawn on them
 -- [ ] rework _draw() so there's more space between tiles
 -- [ ] have enemies appear on an increasing schedule
@@ -468,12 +469,10 @@ function create_hero()
       function hit_enemy(enemy, damage)
 
         enemy.health -= damage
-
         if (enemy.health <= 0) then
           del(enemies, enemy)
           del(board[enemy.x][enemy.y], enemy)
         end
-        end_turn()
       end
 
       -- updates the *other* hero's ability and sprite
