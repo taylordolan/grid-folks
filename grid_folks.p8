@@ -25,8 +25,8 @@ __lua__
 -- [x] have enemies appear on a fixed schedule
 -- [x] telegraph enemy arrival a turn in advance
 -- [x] things should probably keep track of their own x and y locations
+-- [x] replace melee with dash ability
 -- [ ] enemies should trigger effect tiles when they spawn on them
--- [ ] replace melee with dash ability
 -- [ ] rework _draw() so there's more space between tiles
 -- [ ] have enemies appear on an increasing schedule
 
@@ -53,17 +53,17 @@ function _init()
 
   sprites = {
     hero = 017,
-    hero_melee = 019,
+    hero_dash = 019,
     hero_shoot = 021,
     enemy = 002,
     pre_enemy = 004,
     wall_right = 005,
     wall_down = 006,
-    effect_melee = 023,
+    effect_dash = 023,
     effect_shoot = 024,
     effect_health = 025,
     effect_score = 026,
-    potential_melee = 007,
+    potential_dash = 007,
     potential_shoot = 008,
     potential_health = 009,
     potential_score = 010,
@@ -76,13 +76,13 @@ function _init()
     generate_walls()
   end
 
-  local melee_tile = {
+  local dash_tile = {
     x = null,
     y = null,
     type = "effect",
-    name = "melee",
-    sprite = sprites.effect_melee,
-    hero_sprite = sprites.hero_melee
+    name = "dash",
+    sprite = sprites.effect_dash,
+    hero_sprite = sprites.hero_dash
   }
   local shoot_tile = {
     x = null,
@@ -106,7 +106,7 @@ function _init()
     name = "score",
     sprite = sprites.effect_score,
   }
-  set_tile(melee_tile, {3,3})
+  set_tile(dash_tile, {3,3})
   set_tile(shoot_tile, {6,6})
   set_tile(health_tile, {3,6})
   set_tile(score_tile, {6,3})
@@ -233,13 +233,13 @@ end
 
 -- check if a location is on the board
 function location_exists(tile)
-  local x = tile[1]
-  local y = tile[2]
+  local tile_x = tile[1]
+  local tile_y = tile[2]
   if
-    x < 1 or
-    x > cols or
-    y < 1 or
-    y > rows
+    tile_x < 1 or
+    tile_x > cols or
+    tile_y < 1 or
+    tile_y > rows
   then
 	  return false
 	end
@@ -361,7 +361,7 @@ function create_hero()
     health = 4,
 
     -- effects
-    melee = false,
+    dash = false,
     shoot = false,
 
     -- update hero
@@ -402,18 +402,32 @@ function create_hero()
       -- it determines which action should be taken and triggers it.
       function act(direction)
         local next_tile = {self.x + direction[1], self.y + direction[2]}
+        printh(location_exists(next_tile))
         if location_exists(next_tile) then
           shoot_target = get_shoot_target(direction)
-          melee_target = get_melee_target(next_tile)
           if self.shoot and shoot_target then
             shoot_target.stunned = true
             hit_enemy(shoot_target, 1)
-          elseif self.melee and melee_target then
-            hit_enemy(melee_target, 2)
-          elseif melee_target then
-            hit_enemy(melee_target, 1)
+            end_turn()
+          elseif self.dash then
+            step_or_bump(direction)
+            step_or_bump(direction)
+            end_turn()
           else
-            step(next_tile)
+            step_or_bump(direction)
+            end_turn()
+          end
+        end
+      end
+
+      function step_or_bump(direction)
+        local target_tile = {self.x + direction[1], self.y + direction[2]}
+        if not is_wall_between({self.x, self.y}, target_tile) then
+          local enemy = find_type_in_tile("enemy", target_tile)
+          if enemy then
+            hit_enemy(enemy, 1)
+          else
+            set_tile(self, target_tile)
           end
         end
       end
@@ -443,19 +457,8 @@ function create_hero()
         end
       end
 
-      -- given a direction, this returns an adjacent enemy to hit
-      -- or `false` if there's not one
-      function get_melee_target(next_tile)
-
-        if is_wall_between(self_tile, next_tile) == false then
-          local target = find_type_in_tile("enemy", next_tile)
-          return target
-        end
-        return false
-      end
-
-      -- given an enemy and an amount of damage,
-      -- hit it and then kill if it has no health
+      -- -- given an enemy and an amount of damage,
+      -- -- hit it and then kill if it has no health
       function hit_enemy(enemy, damage)
 
         enemy.health -= damage
@@ -474,14 +477,14 @@ function create_hero()
         local here = {self.x, self.y}
 
         -- set companion deets to their defaults
-        companion.melee = false
+        companion.dash = false
         companion.shoot = false
         companion.base_sprite = sprites.hero
 
         -- check if this hero's tile is a effect tile
         local effect = find_type_in_tile("effect", here)
         if effect then
-          if effect.name == "melee" or effect.name == "shoot" then
+          if effect.name == "dash" or effect.name == "shoot" then
             -- apply the effect's effect to the companion hero
             companion[effect.name] = true
             companion.base_sprite = effect.hero_sprite
@@ -523,17 +526,9 @@ function create_hero()
         end
       end
 
-       -- moves the hero to an adjacent tile if there's not a wall in the way
-      function step(next_tile)
-        if is_wall_between(self_tile, next_tile) == false then
-          set_tile(self, next_tile)
-          update_potential_tiles()
-          end_turn()
-        end
-      end
-
       -- does whatever needs to happen after a hero has done its thing
       function end_turn()
+        update_potential_tiles()
         update_companion_effect()
         for next in all(pre_enemies) do
           del(pre_enemies, next)
@@ -848,7 +843,7 @@ end
 function generate_potential_tiles()
 
   local current_types = {
-    "melee",
+    "dash",
     "shoot",
     "health",
     "score"
