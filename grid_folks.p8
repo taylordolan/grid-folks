@@ -400,7 +400,11 @@ function create_hero()
       -- it determines which action should be taken and triggers it.
       function act(direction)
         local next_tile = {self.x + direction[1], self.y + direction[2]}
-        if location_exists(next_tile) and not is_wall_between({self.x, self.y}, next_tile) then
+        if
+          location_exists(next_tile) and
+          not is_wall_between({self.x, self.y}, next_tile) and
+          not find_type_in_tile("hero", next_tile)
+        then
           shoot_target = get_shoot_target(direction)
           if self.shoot and shoot_target then
             shoot_target.stunned = true
@@ -409,7 +413,11 @@ function create_hero()
           elseif self.dash then
             step_or_bump(direction)
             next_tile = {self.x + direction[1], self.y + direction[2]}
-            if location_exists(next_tile) and not is_wall_between({self.x, self.y}, next_tile) then
+            if
+              location_exists(next_tile) and
+              not is_wall_between({self.x, self.y}, next_tile) and
+              not find_type_in_tile("hero", next_tile)
+            then
               step_or_bump(direction)
             end
             end_turn()
@@ -856,7 +864,7 @@ function generate_potential_tiles()
       name = next,
       sprite = sprites["potential_" ..next]
     }
-    deploy(tile, {"potential", "effect"})
+    deploy(tile, {"potential", "effect", "hero"})
   end
 end
 
