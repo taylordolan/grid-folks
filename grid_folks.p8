@@ -35,7 +35,7 @@ __lua__
 function _init()
 
 	-- board size
-	rows = 6
+	rows = 8
 	cols = 6
 
 	-- 2d array for the board
@@ -166,40 +166,62 @@ function _draw()
   -- clear the screen
 	cls()
 
+  local screen_size = 128
+  local sprite_size = 8
+  local margin = 3
+  local margin_offset = flr(margin / 2)
+
+  local total_sprites_width = sprite_size * cols
+  local total_margins_width = margin * (cols - 1)
+  local total_map_width = total_sprites_width + total_margins_width
+
+  local total_sprites_height = sprite_size * rows
+  local total_margins_height = margin * (rows - 1)
+  local total_map_height = total_sprites_height + total_margins_height
+
+  local padding_left = flr((screen_size - total_map_width) / 2)
+  local padding_top = flr((screen_size - total_map_height) / 2)
+
+  local rect_origin = {padding_left - margin_offset, padding_top - margin_offset}
+  local rect_opposite = {padding_left + total_map_width - 1 + margin_offset, padding_top + total_map_height - 1 + margin_offset}
+  local floor_color = 6
+  local wall_color = 13
+
+  -- draw the floor
+  rectfill(rect_origin[1], rect_origin[2], rect_opposite[1], rect_opposite[2], floor_color)
+
   print("score: " ..score, 0, 0, 7)
 
 	for x = 1, cols do
 		for y = 1, rows do
 
-      local screen_size = 128
-      local sprite_size = 8
-      local margin = 5
-
-      local total_sprites_width = sprite_size * cols
-      local total_margins_width = margin * (cols - 1)
-      local total_map_width = total_sprites_width + total_margins_width
-
-      local total_sprites_height = sprite_size * rows
-      local total_margins_height = margin * (rows - 1)
-      local total_map_height = total_sprites_height + total_margins_height
-
-      local padding_left = flr((screen_size - total_map_width) / 2)
-      local padding_top = flr((screen_size - total_map_height) / 2)
-
 			local x_position = (x - 1) * sprite_size + (x - 1) * margin + padding_left
 			local y_position = (y - 1) * sprite_size + (y - 1) * margin + padding_top
 
-			-- draw a floor sprite
-			spr(sprites.floor, x_position, y_position)
 			-- draw the sprite for everything at the current position
 			if #board[x][y] > 0 then
 				for next in all(board[x][y]) do
-          local sprite = next.sprite
-					spr(sprite, x_position, y_position)
-          -- show health bar for things with health
-          if (next.health) then
-            for i = 1, next.health do
-              pset(x_position + 7, y_position + i, 8)
+
+          if next.type == "wall_right" then
+            local x1 = x_position + sprite_size + margin_offset
+            local y1 = y_position - margin_offset
+            local x2 = x_position + sprite_size + margin_offset
+            local y2 = y_position + sprite_size + margin_offset
+            rectfill(x1, y1, x2, y2, wall_color)
+          elseif next.type == "wall_down" then
+            local x1 = x_position - margin_offset
+            local y1 = y_position + sprite_size + margin_offset
+            local x2 = x_position + sprite_size + margin_offset
+            local y2 = y_position + sprite_size + margin_offset
+            rectfill(x1, y1, x2, y2, wall_color)
+          else
+            local sprite = next.sprite
+            spr(sprite, x_position, y_position)
+            -- show health bar for things with health
+            if (next.health) then
+              for i = 1, next.health do
+                pset(x_position + 8, y_position + i, 8)
+              end
             end
           end
 				end
