@@ -35,14 +35,14 @@ __lua__
 function _init()
 
 	-- board size
-	rows = 8
-	cols = 8
+	rows = 6
+	cols = 6
 
 	-- 2d array for the board
 	board = {}
-	for x = 1, rows do
+	for x = 1, cols do
 		board[x] = {}
-		for y = 1, cols do
+		for y = 1, rows do
 			board[x][y] = {}
 		end
 	end
@@ -54,6 +54,7 @@ function _init()
   turns = 0
 
   sprites = {
+    floor = 003,
     hero = 017,
     hero_dash = 019,
     hero_shoot = 021,
@@ -167,16 +168,30 @@ function _draw()
 
   print("score: " ..score, 0, 0, 7)
 
-	for x = 1, rows do
-		for y = 1, cols do
-			-- center the drawing based on the number of rows and cols
-			local x_offset = (128 - 8 * rows) / 2 - 8
-			local y_offset = (128 - 8 * cols) / 2 - 8
-			local x_position = x * 8 + x_offset
-			local y_position = y * 8 + y_offset
+	for x = 1, cols do
+		for y = 1, rows do
+
+      local screen_size = 128
+      local sprite_size = 8
+      local margin = 5
+
+      local total_sprites_width = sprite_size * cols
+      local total_margins_width = margin * (cols - 1)
+      local total_map_width = total_sprites_width + total_margins_width
+
+      local total_sprites_height = sprite_size * rows
+      local total_margins_height = margin * (rows - 1)
+      local total_map_height = total_sprites_height + total_margins_height
+
+      local padding_left = flr((screen_size - total_map_width) / 2)
+      local padding_top = flr((screen_size - total_map_height) / 2)
+
+			local x_position = (x - 1) * sprite_size + (x - 1) * margin + padding_left
+			local y_position = (y - 1) * sprite_size + (y - 1) * margin + padding_top
+
 			-- draw a floor sprite
-			spr("003", x_position, y_position)
-			-- draw the sprite for anything at the current position
+			spr(sprites.floor, x_position, y_position)
+			-- draw the sprite for everything at the current position
 			if #board[x][y] > 0 then
 				for next in all(board[x][y]) do
           local sprite = next.sprite
@@ -207,8 +222,8 @@ end
 function random_tile()
   -- create an array of all tiles
 	local all_tiles = {}
-	for x = 1, rows do
-		for y = 1, cols do
+	for x = 1, cols do
+		for y = 1, rows do
       add(all_tiles, {x,y})
 		end
 	end
@@ -221,8 +236,8 @@ end
 function random_empty_tile()
 	-- create an array of all empty tiles
 	local empty_tiles = {}
-	for x = 1, rows do
-		for y = 1, cols do
+	for x = 1, cols do
+		for y = 1, rows do
 			if #board[x][y] == 0 then
 				add(empty_tiles, {x,y})
 			end
@@ -281,8 +296,8 @@ function deploy(thing, avoid_list)
 
   local valid_tiles = {}
 
-  for x = 1, rows do
-		for y = 1, cols do
+  for x = 1, cols do
+		for y = 1, rows do
       local tile_is_valid = true
       local tile = board[x][y]
       for tile_item in all(tile) do
@@ -543,8 +558,8 @@ function create_hero()
           end
 
           -- todo: optimize this
-          for x = 1, rows do
-            for y = 1, cols do
+          for x = 1, cols do
+            for y = 1, rows do
               local potential_tile = find_type_in_tile("potential", {x,y})
               if potential_tile then
                 potential_tile.type = "effect"
@@ -700,9 +715,9 @@ function distance(start, goal)
   local frontier = {goal}
 	local next_frontier = {}
 	local distance_map = {}
-	for x = 1, rows do
+	for x = 1, cols do
 		distance_map[x] = {}
-		for y = 1, cols do
+		for y = 1, rows do
 			-- this is a hack but it's easier than using a different type
 			distance_map[x][y] = 1000
 		end
@@ -769,8 +784,8 @@ end
 
 function clear_all_walls()
 
-  for x = 1, rows do
-		for y = 1, cols do
+  for x = 1, cols do
+		for y = 1, rows do
       local here = board[x][y]
 
       local wall_right = find_type_in_tile("wall_right", {x,y})
@@ -788,7 +803,7 @@ end
 
 function generate_walls()
 
-  for i = 1, 16 do
+  for i = 1, 12 do
     local wall_right = {
       x = null,
       y = null,
@@ -815,9 +830,9 @@ function is_map_contiguous()
 
   -- this will be a map where the value of x,y is a bool that says whether we've reached that position yet
 	local reached_map = {}
-	for x = 1, rows do
+	for x = 1, cols do
 		reached_map[x] = {}
-		for y = 1, cols do
+		for y = 1, rows do
 			reached_map[x][y] = false
 		end
 	end
@@ -843,8 +858,8 @@ function is_map_contiguous()
 	end
 
   -- if any position in reached_map is false, then the map isn't contiguous
-  for x = 1, rows do
-		for y = 1, cols do
+  for x = 1, cols do
+		for y = 1, rows do
       if reached_map[x][y] == false then
         return false
       end
