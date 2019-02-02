@@ -35,7 +35,7 @@ __lua__
 function _init()
 
 	-- board size
-	rows = 8
+	rows = 6
 	cols = 6
 
 	-- 2d array for the board
@@ -79,40 +79,40 @@ function _init()
     generate_walls()
   end
 
-  local dash_tile = {
-    x = null,
-    y = null,
-    type = "effect",
-    name = "dash",
-    sprite = sprites.effect_dash,
-    hero_sprite = sprites.hero_dash
-  }
-  local shoot_tile = {
-    x = null,
-    y = null,
-    type = "effect",
-    name = "shoot",
-    sprite = sprites.effect_shoot,
-    hero_sprite = sprites.hero_shoot
-  }
-  local health_tile = {
-    x = null,
-    y = null,
-    type = "effect",
-    name = "health",
-    sprite = sprites.effect_health,
-  }
-  local score_tile = {
-    x = null,
-    y = null,
-    type = "effect",
-    name = "score",
-    sprite = sprites.effect_score,
-  }
-  set_tile(dash_tile, {3,3})
-  set_tile(shoot_tile, {6,6})
-  set_tile(health_tile, {3,6})
-  set_tile(score_tile, {6,3})
+  -- local dash_tile = {
+  --   x = null,
+  --   y = null,
+  --   type = "effect",
+  --   name = "dash",
+  --   sprite = sprites.effect_dash,
+  --   hero_sprite = sprites.hero_dash
+  -- }
+  -- local shoot_tile = {
+  --   x = null,
+  --   y = null,
+  --   type = "effect",
+  --   name = "shoot",
+  --   sprite = sprites.effect_shoot,
+  --   hero_sprite = sprites.hero_shoot
+  -- }
+  -- local health_tile = {
+  --   x = null,
+  --   y = null,
+  --   type = "effect",
+  --   name = "health",
+  --   sprite = sprites.effect_health,
+  -- }
+  -- local score_tile = {
+  --   x = null,
+  --   y = null,
+  --   type = "effect",
+  --   name = "score",
+  --   sprite = sprites.effect_score,
+  -- }
+  -- set_tile(dash_tile, {3,3})
+  -- set_tile(shoot_tile, {6,6})
+  -- set_tile(health_tile, {3,6})
+  -- set_tile(score_tile, {6,3})
 
   generate_potential_tiles()
 
@@ -163,13 +163,12 @@ end
 
 function _draw()
 
-  -- clear the screen
 	cls()
+  rect(0, 0, 127, 127, 5)
 
   local screen_size = 128
   local sprite_size = 8
   local margin = 3
-  local margin_offset = flr(margin / 2)
 
   local total_sprites_width = sprite_size * cols
   local total_margins_width = margin * (cols - 1)
@@ -182,46 +181,68 @@ function _draw()
   local padding_left = flr((screen_size - total_map_width) / 2)
   local padding_top = flr((screen_size - total_map_height) / 2)
 
-  local rect_origin = {padding_left - margin_offset, padding_top - margin_offset}
-  local rect_opposite = {padding_left + total_map_width - 1 + margin_offset, padding_top + total_map_height - 1 + margin_offset}
-  local floor_color = 6
-  local wall_color = 13
+  function draw_background()
+    local rect_origin = {padding_left - ceil(margin / 2), padding_top - ceil(margin / 2)}
+    local rect_opposite = {padding_left + total_map_width - 1 + ceil(margin / 2), padding_top + total_map_height - 1 + ceil(margin / 2)}
+    rectfill(rect_origin[1], rect_origin[2], rect_opposite[1], rect_opposite[2], 6)
+  end
 
-  -- draw the floor
-  rectfill(rect_origin[1], rect_origin[2], rect_opposite[1], rect_opposite[2], floor_color)
+  function draw_score()
+    print("score: "..score, padding_left - ceil(margin / 2), 20, 7)
+  end
 
-  print("score: " ..score, 0, 0, 7)
+  function draw_wall_right(x_pos, y_pos)
+    local x1 = x_pos + sprite_size + flr(margin / 2)
+    local y1 = y_pos - ceil(margin / 2)
+    local x2 = x_pos + sprite_size + flr(margin / 2)
+    local y2 = y_pos + sprite_size + flr(margin / 2)
+    rectfill(x1, y1, x2, y2, 13)
+  end
+
+  function draw_wall_down(x_pos, y_pos)
+    local x1 = x_pos - ceil(margin / 2)
+    local y1 = y_pos + sprite_size + flr(margin / 2)
+    local x2 = x_pos + sprite_size + flr(margin / 2)
+    local y2 = y_pos + sprite_size + flr(margin / 2)
+    rectfill(x1, y1, x2, y2, 13)
+  end
+
+  function draw_health(x_pos, y_pos, amount)
+    for i = 1, amount do
+      pset(x_pos + 8, y_pos + 8 - i, 8)
+    end
+  end
+
+  draw_background()
+  draw_score()
 
 	for x = 1, cols do
 		for y = 1, rows do
 
-			local x_position = (x - 1) * sprite_size + (x - 1) * margin + padding_left
-			local y_position = (y - 1) * sprite_size + (y - 1) * margin + padding_top
+			local x_pos = (x - 1) * sprite_size + (x - 1) * margin + padding_left
+			local y_pos = (y - 1) * sprite_size + (y - 1) * margin + padding_top
+
+      -- draw floor sprites
+      spr(sprites.floor, x_pos, y_pos)
 
 			-- draw the sprite for everything at the current position
 			if #board[x][y] > 0 then
 				for next in all(board[x][y]) do
 
-          if next.type == "wall_right" then
-            local x1 = x_position + sprite_size + margin_offset
-            local y1 = y_position - margin_offset
-            local x2 = x_position + sprite_size + margin_offset
-            local y2 = y_position + sprite_size + margin_offset
-            rectfill(x1, y1, x2, y2, wall_color)
-          elseif next.type == "wall_down" then
-            local x1 = x_position - margin_offset
-            local y1 = y_position + sprite_size + margin_offset
-            local x2 = x_position + sprite_size + margin_offset
-            local y2 = y_position + sprite_size + margin_offset
-            rectfill(x1, y1, x2, y2, wall_color)
-          else
+            -- draw walls
+            if next.type == "wall_right" then
+              draw_wall_right(x_pos, y_pos)
+            elseif next.type == "wall_down" then
+              draw_wall_down(x_pos, y_pos)
+            else
+
+            -- draw the thing's sprite
             local sprite = next.sprite
-            spr(sprite, x_position, y_position)
-            -- show health bar for things with health
+            spr(sprite, x_pos, y_pos)
+
+            -- draw a health bar for things with health
             if (next.health) then
-              for i = 1, next.health do
-                pset(x_position + 8, y_position + i, 8)
-              end
+              draw_health(x_pos, y_pos, next.health)
             end
           end
 				end
@@ -825,7 +846,7 @@ end
 
 function generate_walls()
 
-  for i = 1, 12 do
+  for i = 1, 10 do
     local wall_right = {
       x = null,
       y = null,
@@ -921,7 +942,7 @@ __gfx__
 00000000000000000777777066666666077007700000000d0000000000200200003003000080080000a00a000000000000000000000000000000000000000000
 00000000000000000075570066666666007007000000000d00000000000220000003300000088000000aa0000000000000000000000000000000000000000000
 00000000000000000077770066666666007777000000000d00000000000000000000000000000000000000000000000000000000000000000000000000000000
-000000000000000000000000666666660000000000000000ddddddd0000000000000000000000000000000000000000000000000000000000000000000000000
+00000000000000000000000066666666000000000000000ddddddddd000000000000000000000000000000000000000000000000000000000000000000000000
 00000000000000000005500000000000000220000000000000033000000000000000000000000000000000000000000000000000000000000000000000000000
 00000000000550000005500000022000000220000003300000033000000000000000000000000000000000000000000000000000000000000000000000000000
 00000000000550000000000000022000000000000003300000000000000220000003300000088000000aa0000000000000000000000000000000000000000000
@@ -930,5 +951,3 @@ __gfx__
 00000000000550000005500000022000000220000003300000033000000220000003300000088000000aa0000000000000000000000000000000000000000000
 00000000005555000050050000222200002002000033330000300300000000000000000000000000000000000000000000000000000000000000000000000000
 00000000005005000050050000200200002002000030030000300300000000000000000000000000000000000000000000000000000000000000000000000000
-__map__
-0000000000000000000000000900000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
