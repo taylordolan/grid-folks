@@ -79,40 +79,40 @@ function _init()
     generate_walls()
   end
 
-  -- local dash_tile = {
-  --   x = null,
-  --   y = null,
-  --   type = "effect",
-  --   name = "dash",
-  --   sprite = sprites.effect_dash,
-  --   hero_sprite = sprites.hero_dash
-  -- }
-  -- local shoot_tile = {
-  --   x = null,
-  --   y = null,
-  --   type = "effect",
-  --   name = "shoot",
-  --   sprite = sprites.effect_shoot,
-  --   hero_sprite = sprites.hero_shoot
-  -- }
-  -- local health_tile = {
-  --   x = null,
-  --   y = null,
-  --   type = "effect",
-  --   name = "health",
-  --   sprite = sprites.effect_health,
-  -- }
-  -- local score_tile = {
-  --   x = null,
-  --   y = null,
-  --   type = "effect",
-  --   name = "score",
-  --   sprite = sprites.effect_score,
-  -- }
-  -- set_tile(dash_tile, {3,3})
-  -- set_tile(shoot_tile, {6,6})
-  -- set_tile(health_tile, {3,6})
-  -- set_tile(score_tile, {6,3})
+  local dash_tile = {
+    x = null,
+    y = null,
+    type = "effect",
+    name = "dash",
+    sprite = sprites.effect_dash,
+    hero_sprite = sprites.hero_dash
+  }
+  local shoot_tile = {
+    x = null,
+    y = null,
+    type = "effect",
+    name = "shoot",
+    sprite = sprites.effect_shoot,
+    hero_sprite = sprites.hero_shoot
+  }
+  local health_tile = {
+    x = null,
+    y = null,
+    type = "effect",
+    name = "health",
+    sprite = sprites.effect_health,
+  }
+  local score_tile = {
+    x = null,
+    y = null,
+    type = "effect",
+    name = "score",
+    sprite = sprites.effect_score,
+  }
+  set_tile(dash_tile, {5,2})
+  set_tile(shoot_tile, {5,4})
+  set_tile(health_tile, {6,3})
+  set_tile(score_tile, {4,3})
 
   generate_potential_tiles()
 
@@ -235,7 +235,7 @@ function _draw()
   end
 
   function draw_score()
-    local text = score.." gold"
+    local text = score.. " gold"
     print(smallcaps(text), 128 - padding_left + ceil(margin / 2) - (#text * 4) + 1, 06, 09)
     print(smallcaps("grid folks"), padding_left - ceil(margin / 2), 06, 07)
   end
@@ -414,7 +414,7 @@ function _draw()
   if game_over then
 		local msg = "dead"
 		local msg_x = 64 - (#msg * 4) / 2
-		print(msg, msg_x, 61, 8)
+		print(msg, msg_x, 47, 8)
 	end
 end
 
@@ -489,9 +489,9 @@ function set_tile(thing, dest)
 
   -- trigger enemy effects if an enemy was deployed
   -- todo: this should probably be like a special version of set_tile() in `enemy`
-  if (thing.type == "enemy") then
-    trigger_enemy_effects(dest)
-  end
+  -- if (thing.type == "enemy") then
+  --   trigger_enemy_effects(dest)
+  -- end
 end
 
 -- deploys a thing to a random tile
@@ -535,7 +535,7 @@ function trigger_enemy_effects(enemy_tile)
   end
 
   function score_effect()
-    score = score + 1
+    score += 1
   end
 
   local effect = find_type_in_tile("effect", enemy_tile)
@@ -618,6 +618,8 @@ function create_hero()
 
     -- update hero
 		update = function(self)
+
+      if game_over then return end
 
       -- find the other hero
       local companion
@@ -797,7 +799,7 @@ function create_hero()
             new_enemy.stunned = true
           end
         end
-        if turns > 0 and turns % 12 == 0 then
+        if turns > 0 and turns % 10 == 0 then
           local new_pre_enemy = create_pre_enemy()
           deploy(new_pre_enemy, {"hero", "enemy", "pre-enemy"})
         end
