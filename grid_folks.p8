@@ -28,15 +28,15 @@ __lua__
 -- [x] replace melee with dash ability
 -- [x] fix bug where sometimes enemies show up to fast
 -- [x] enemies should trigger effect tiles when they spawn on them
--- [ ] rework _draw() so there's more space between tiles
+-- [x] rework _draw() so there's more space between tiles
 -- [ ] have enemies appear on an increasing schedule
 -- [ ] build the game end state
 
 function _init()
 
 	-- board size
-	rows = 6
-	cols = 6
+	rows = 5
+	cols = 9
 
 	-- 2d array for the board
 	board = {}
@@ -120,8 +120,8 @@ function _init()
   hero_a = create_hero()
   hero_b = create_hero()
   heroes = {hero_a, hero_b}
-  set_tile(hero_a, {4,4})
-  set_tile(hero_b, {5,5})
+  set_tile(hero_a, {4,2})
+  set_tile(hero_b, {6,4})
   hero_a_active = true
 
 	-- list of enemies
@@ -129,12 +129,17 @@ function _init()
   pre_enemies = {}
   local new_pre_enemy = create_pre_enemy()
   deploy(new_pre_enemy, {"hero", "enemy", "pre-enemy"})
+
+  local has_switched = false
+  local has_killed = false
+  -- local has_advanced = false
 end
 
 function _update()
 
   if btnp(5) then
     hero_a_active = not hero_a_active
+    has_switched = true
   end
 
 	-- move heroes
@@ -161,10 +166,40 @@ function _update()
   end
 end
 
+function smallcaps(s)
+  local d=""
+  local l,c,t=false,false
+  for i=1,#s do
+    local a=sub(s,i,i)
+    if a=="^" then
+      if(c) d=d..a
+      c=not c
+    elseif a=="~" then
+      if(t) d=d..a
+      t,l=not t,not l
+    else
+      if c==l and a>="a" and a<="z" then
+        for j=1,26 do
+          if a==sub("abcdefghijklmnopqrstuvwxyz",j,j) then
+            a=sub("\65\66\67\68\69\70\71\72\73\74\75\76\77\78\79\80\81\82\83\84\85\86\87\88\89\90\91\92",j,j)
+            break
+          end
+        end
+      end
+      d=d..a
+      c,t=false,false
+    end
+  end
+  return d
+end
+
 function _draw()
 
 	cls()
-  rect(0, 0, 127, 127, 5)
+  local text_color = 07
+  local background_color = 00
+  local floor_color = 07
+  local wall_color = 07
 
   local screen_size = 128
   local sprite_size = 8
@@ -179,25 +214,103 @@ function _draw()
   local total_map_height = total_sprites_height + total_margins_height
 
   local padding_left = flr((screen_size - total_map_width) / 2)
-  local padding_top = flr((screen_size - total_map_height) / 2)
+  -- local padding_top = flr((screen_size - total_map_height) / 2)
+  local padding_top = 20
 
-  local floor_color = 07
-  local wall_color = 07
 
   local rect_origin = {padding_left - ceil(margin / 2), padding_top - ceil(margin / 2)}
   local rect_opposite = {padding_left + total_map_width - 1 + ceil(margin / 2), padding_top + total_map_height - 1 + ceil(margin / 2)}
 
-  function draw_background()
+  function draw_floor()
     rectfill(rect_origin[1] + 2, rect_origin[2] + 2, rect_opposite[1] - 2, rect_opposite[2] - 2, floor_color)
   end
 
-  function draw_outline()
+  function draw_background()
+    rectfill(0, 0, 127, 127, background_color)
+  end
+
+  function draw_outlines()
     rect(rect_origin[1], rect_origin[2], rect_opposite[1], rect_opposite[2], wall_color)
+    rect(rect_origin[1] - 1, rect_origin[2] - 1, rect_opposite[1] + 1, rect_opposite[2] + 1, background_color)
   end
 
   function draw_score()
-    print("gold: "..score, padding_left - ceil(margin / 2), 16, 9)
-    -- print(score, padding_left - ceil(margin / 2) + 26, 16, 9)
+    local text = score.." gold"
+    print(smallcaps(text), 128 - padding_left + ceil(margin / 2) - (#text * 4) + 1, 06, 09)
+    print(smallcaps("grid folks"), padding_left - ceil(margin / 2), 06, 07)
+  end
+
+  function draw_instructions()
+    if not has_switched or not has_killed then
+      draw_intro_instructions()
+    else
+      draw_button_instructions()
+    end
+  end
+
+  function draw_intro_instructions()
+    palt(0, false)
+    palt(15, true)
+    local x_pos = padding_left - ceil(margin / 2)
+    local y_pos = 90
+    local line_height = 11
+    print(smallcaps("press \151 to switch"), x_pos, y_pos)
+    spr(sprites.hero + 1, x_pos + 75, y_pos - 2)
+    y_pos += line_height
+
+    print(smallcaps("bump"), x_pos, y_pos)
+    spr(sprites.enemy, x_pos + 19, y_pos - 1)
+    print(smallcaps("to attack"), x_pos + 29, y_pos)
+    palt()
+  end
+
+  function draw_button_instructions()
+    palt(0, false)
+    palt(15, true)
+    local x_pos = padding_left - ceil(margin / 2) - 1
+    local y_pos = 90
+    local line_height = 11
+
+    -- advance
+    spr(sprites.hero + 1, x_pos, y_pos - 2)
+    spr(011, x_pos + 7, y_pos - 2)
+    print("+", x_pos + 18, y_pos, 06)
+    spr(sprites.hero + 1, x_pos + 23, y_pos - 2)
+    spr(011, x_pos + 30, y_pos - 2)
+    print("=", x_pos + 41, y_pos, 06)
+    spr(012, x_pos + 47, y_pos - 2)
+    y_pos += line_height
+
+    -- shoot
+    spr(sprites.hero + 1, x_pos, y_pos - 2)
+    spr(sprites.effect_shoot, x_pos + 7, y_pos - 2)
+    print("=", x_pos + 18, y_pos, 06)
+    print(smallcaps("shoot"), x_pos + 25, y_pos, text_color)
+    y_pos += line_height
+
+    -- dash
+    spr(sprites.hero + 1, x_pos, y_pos - 2)
+    spr(sprites.effect_dash, x_pos + 7, y_pos - 2)
+    print("=", x_pos + 18, y_pos, 06)
+    print(smallcaps("dash"), x_pos + 25, y_pos, text_color)
+
+    x_pos += 72
+    y_pos -= line_height
+
+    -- health
+    spr(sprites.enemy, x_pos, y_pos - 2)
+    spr(sprites.effect_health, x_pos + 7, y_pos - 2)
+    print("=", x_pos + 18, y_pos, 06)
+    print(smallcaps("heal"), x_pos + 25, y_pos, text_color)
+    y_pos += line_height
+
+    -- gold
+    spr(sprites.enemy, x_pos, y_pos - 2)
+    spr(sprites.effect_score, x_pos + 7, y_pos - 2)
+    print("=", x_pos + 18, y_pos, 06)
+    print(smallcaps("gold"), x_pos + 25, y_pos, text_color)
+
+    palt()
   end
 
   function draw_wall_right(x_pos, y_pos)
@@ -259,7 +372,11 @@ function _draw()
   end
 
   draw_background()
+  draw_floor()
   draw_score()
+  draw_instructions()
+  -- draw_switch_instructions()
+  -- draw_button_instructions()
 
 	for x = 1, cols do
 		for y = 1, rows do
@@ -278,7 +395,7 @@ function _draw()
           -- draw the thing's sprite
           else
             palt(0, false)
-            palt(5, true)
+            palt(15, true)
             local sprite = next.sprite
             spr(sprite, x_pos, y_pos)
               -- draw a health bar for things with health
@@ -292,7 +409,7 @@ function _draw()
 		end
 	end
 
-  draw_outline()
+  draw_outlines()
 
   if game_over then
 		local msg = "dead"
@@ -604,6 +721,7 @@ function create_hero()
 
         enemy.health -= damage
         if (enemy.health <= 0) then
+          has_killed = true
           del(enemies, enemy)
           del(board[enemy.x][enemy.y], enemy)
         end
@@ -639,6 +757,7 @@ function create_hero()
 
         if self_potential_tile and companion_potential_tile then
 
+          -- has_advanced = true
           local to_destroy = {self_potential_tile, companion_potential_tile}
           for next in all(to_destroy) do
             del(board[next.x][next.y], next)
@@ -979,22 +1098,22 @@ function generate_potential_tiles()
 end
 
 __gfx__
-00000000000000005555555555555555555555550000000d00000000555555555555555555555555555555555555555555555555555555550000000000000000
-00000000000000000000005555555555666666550000000d0000000055c55c5555b55b55558558555595595555aaaa5555cccc5555dddd550000000000000000
-00000000000000000777705555555555677776550000000d000000005cc55cc55bb55bb558855885599559955aa55aa55cc55cc55dd55dd50000000000000000
-00000000000000000070705555555555667676550000000d00000000555555555555555555555555555555555a5555a55c5555c55d5555d50000000000000000
-00000000000000000777705555555555677776550000000d00000000555555555555555555555555555555555a5555a55c5555c55d5555d50000000000000000
-00000000000000000077005555555555667766550000000d000000005cc55cc55bb55bb558855885599559955aa55aa55cc55cc55dd55dd50000000000000000
-00000000000000005000055555555555566665550000000d0000000055c55c5555b55b55558558555595595555aaaa5555cccc5555dddd550000000000000000
-00000000000000005555555555555555555555550000000ddddddddd555555555555555555555555555555555555555555555555555555550000000000000000
-00000000555555555500055555555555550005555555555555000555555555555555555555555555555555555555555555555555555555550000000000000000
-00000000555555555507055555555555550c055555555555550b055555cccc5555bbbb55558888555599995555aaaa5555cccc5555dddd550000000000000000
-00000000550005550007000555000555000c000555000555000b00055cccccc55bbbbbb558888885599999955aaaaaa55cccccc55dddddd50000000000000000
-000000000007000507777705000c00050ccccc05000b00050bbbbb055cccccc55bbbbbb558888885599999955aaaaaa55cccccc55dddddd50000000000000000
-0000000007777705000700050ccccc05000c00050bbbbb05000b000551cccc1553bbbb35528888255499994559aaaa9551cccc1551dddd150000000000000000
-000000000007000550707055000c000550c0c055000b000550b0b055511111155333333552222225544444455999999551111115511111150000000000000000
-00000000507070555070705550c0c05550c0c05550b0b05550b0b055551111555533335555222255554444555599995555111155551111550000000000000000
-00000000500000555000005550000055500000555000005550000055555555555555555555555555555555555555555555555555555555550000000000000000
+0000000000000000ffffffff55555555ffffffff0000000d00000000ffffffffffffffffffffffffffffffffffffffffffffffff555555558888888800000000
+0000000000000000000000ff55555555666666ff0000000d00000000ffcffcffffbffbffff8ff8ffff9ff9ffff7ff7ffff7777ff55dddd558888888800000000
+0000000000000000077770ff55555555677776ff0000000d00000000fccffccffbbffbbff88ff88ff99ff99ff77ff77ff777777f5dd55dd58888888800000000
+0000000000000000007070ff55555555667676ff0000000d00000000fffffffffffffffffffffffffffffffffffffffff777777f5d5555d58888888800000000
+0000000000000000077770ff55555555677776ff0000000d00000000fffffffffffffffffffffffffffffffffffffffff577775f5d5555d58888888800000000
+0000000000000000007700ff55555555667766ff0000000d00000000fccffccffbbffbbff88ff88ff99ff99ff77ff77ff555555f5dd55dd58888888800000000
+0000000000000000f0000fff55555555f6666fff0000000d00000000ffcffcffffbffbffff8ff8ffff9ff9ffff7ff7ffff5555ff55dddd558888888800000000
+0000000000000000ffffffff55555555ffffffff0000000dddddddddffffffffffffffffffffffffffffffffffffffffffffffff555555558888888800000000
+00000000ffffffffff000fffffffffffff000fffffffffffff000fffffffffffffffffffffffffffffffffff5555555555555555555555550000000000000000
+00000000ffffffffff070fffffffffffff0c0fffffffffffff0b0fffffccccffffbbbbffff8888ffff9999ff55aaaa5555cccc5555dddd550000000000000000
+00000000ff000fff0007000fff000fff000c000fff000fff000b000ffccccccffbbbbbbff888888ff999999f5aaaaaa55cccccc55dddddd50000000000000000
+000000000007000f0777770f000c000f0ccccc0f000b000f0bbbbb0ffccccccffbbbbbbff888888ff999999f5aaaaaa55cccccc55dddddd50000000000000000
+000000000777770f0007000f0ccccc0f000c000f0bbbbb0f000b000ff1cccc1ff3bbbb3ff288882ff499994f59aaaa9551cccc1551dddd150000000000000000
+000000000007000ff07070ff000c000ff0c0c0ff000b000ff0b0b0fff111111ff333333ff222222ff444444f5999999551111115511111150000000000000000
+00000000f07070fff07070fff0c0c0fff0c0c0fff0b0b0fff0b0b0ffff1111ffff3333ffff2222ffff4444ff5599995555111155551111550000000000000000
+00000000f00000fff00000fff00000fff00000fff00000fff00000ffffffffffffffffffffffffffffffffff5555555555555555555555550000000000000000
 00000000550005555500005555555555555555555555555500000000555555555555555555555555555555555555555555555555555555555555555500000000
 0000000055070555550770550000005500000555000000050000000055cccc5555888855558888555599995557777785577777b5588888855bbbbbb500000000
 000000000007000500077000077770550777055507777705000000005cccccc55888888558888885599999955788882557bbbb35585555855b5555b500000000
@@ -1011,3 +1130,5 @@ __gfx__
 0000000000000000000c000550c0c05500770055665556650009000551cccc1553bbbb35528888255499994557cccc1557aaaa955c5555c55a5555a500000000
 000000000000000050c0c05550c0c055500005555655565550909055551111555533335555222255554444555c1111155a9999955cccccc55aaaaaa500000000
 00000000000000005000005550000055555555555666665550000055555555555555555555555555555555555555555555555555555555555555555500000000
+__sfx__
+000a0000125703f3503f3303f3103f3003f3000230000300003000030000300003000030000300003000030000300003000030000300003000030000300003000030000300003000030000300003000030000300
