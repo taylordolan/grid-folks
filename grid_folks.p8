@@ -29,7 +29,8 @@ __lua__
 -- [x] fix bug where sometimes enemies show up to fast
 -- [x] enemies should trigger effect tiles when they spawn on them
 -- [x] rework _draw() so there's more space between tiles
--- [ ] have enemies appear on an increasing schedule
+-- [x] have enemies appear on an increasing schedule
+-- [ ] you shouldn't be able to shoot through players
 -- [ ] build the game end state
 
 function _init()
@@ -133,6 +134,38 @@ function _init()
   local has_switched = false
   local has_killed = false
   -- local has_advanced = false
+
+  -- this determines what the spawn rate is at the start of the game
+  initial_spawn_rate = 12
+
+  -- this determines the overall shape of the "spawn rate" curve
+  -- the higher this is, the flatter the curve
+  -- i think the lowest usable value for this is 4
+  spawn_base = 4
+
+  -- this determines how quickly we move through the curve throughout the game
+  spawn_increment = 0.1
+
+  -- this gets updated whenever an enemy spawns
+  last_spawned_turn = 0
+
+  -- this is just so I don't have to set the initial_spawn_rate in an abstract way
+  spawn_modifier = initial_spawn_rate + flr(sqrt(spawn_base))
+
+end
+
+function get_spawn_rate()
+  return spawn_modifier - flr(sqrt(spawn_base))
+end
+
+function maybe_spawn_enemy()
+  local spawn_rate = get_spawn_rate()
+  if turns - spawn_rate >= last_spawned_turn then
+    local new_pre_enemy = create_pre_enemy()
+    deploy(new_pre_enemy, {"hero", "enemy", "pre-enemy"})
+    printh(spawn_base)
+    last_spawned_turn = turns
+  end
 end
 
 function _update()
@@ -414,7 +447,7 @@ function _draw()
   if game_over then
 		local msg = "dead"
 		local msg_x = 64 - (#msg * 4) / 2
-		print(msg, msg_x, 47, 8)
+		print(smallcaps(msg), msg_x, 47, 8)
 	end
 end
 
@@ -609,8 +642,8 @@ function create_hero()
 		type = "hero",
     base_sprite = 17,
     sprite = null,
-    max_health = 4,
-    health = 4,
+    max_health = 5,
+    health = 5,
 
     -- effects
     dash = false,
@@ -619,7 +652,7 @@ function create_hero()
     -- update hero
 		update = function(self)
 
-      if game_over then return end
+      -- if game_over then return end
 
       -- find the other hero
       local companion
@@ -791,6 +824,7 @@ function create_hero()
       function end_turn()
         update_potential_tiles()
         update_companion_effect()
+        spawn_base += spawn_increment
         for next in all(pre_enemies) do
           del(pre_enemies, next)
           del(board[next.x][next.y], next)
@@ -799,11 +833,8 @@ function create_hero()
             new_enemy.stunned = true
           end
         end
-        if turns > 0 and turns % 10 == 0 then
-          local new_pre_enemy = create_pre_enemy()
-          deploy(new_pre_enemy, {"hero", "enemy", "pre-enemy"})
-        end
         turns = turns + 1
+        maybe_spawn_enemy()
         player_turn = false
       end
 		end
