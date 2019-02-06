@@ -755,17 +755,17 @@ function create_hero()
         end
       end
 
-      -- -- given an enemy and an amount of damage,
-      -- -- hit it and then kill if it has no health
-      function hit_enemy(enemy, damage)
+      -- -- -- given an enemy and an amount of damage,
+      -- -- -- hit it and then kill if it has no health
+      -- function hit_enemy(enemy, damage)
 
-        enemy.health -= damage
-        if (enemy.health <= 0) then
-          has_killed = true
-          del(enemies, enemy)
-          del(board[enemy.x][enemy.y], enemy)
-        end
-      end
+      --   enemy.health -= damage
+      --   if (enemy.health <= 0) then
+      --     has_killed = true
+      --     del(enemies, enemy)
+      --     del(board[enemy.x][enemy.y], enemy)
+      --   end
+      -- end
 
       -- updates the *other* hero's ability and sprite
       -- based on the effect tile that *this* hero is standing on
@@ -833,7 +833,15 @@ function create_hero()
         for next in all(pre_enemies) do
           del(pre_enemies, next)
           del(board[next.x][next.y], next)
-          if not find_type_in_tile("hero", {next.x, next.y}) and not find_type_in_tile("enemy", {next.x, next.y}) then
+
+          local found_hero = find_type_in_tile("hero", {next.x, next.y})
+          local found_enemy = find_type_in_tile("enemy", {next.x, next.y})
+
+          if found_hero then
+            found_hero.health -= 1
+          elseif found_enemy then
+            hit_enemy(found_enemy, 1)
+          else
             local new_enemy = create_enemy({next.x, next.y})
             new_enemy.stunned = true
           end
@@ -845,6 +853,18 @@ function create_hero()
 		end
 	}
   return hero
+end
+
+-- given an enemy and an amount of damage,
+-- hit it and then kill if it has no health
+function hit_enemy(enemy, damage)
+
+  enemy.health -= damage
+  if (enemy.health <= 0) then
+    has_killed = true
+    del(enemies, enemy)
+    del(board[enemy.x][enemy.y], enemy)
+  end
 end
 
 --[[
