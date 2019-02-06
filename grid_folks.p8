@@ -149,7 +149,7 @@ function _init()
   -- this gets updated whenever an enemy spawns
   last_spawned_turn = 0
 
-  -- this is just so I don't have to set the initial_spawn_rate in an abstract way
+  -- this is just so i don't have to set the initial_spawn_rate in an abstract way
   spawn_modifier = initial_spawn_rate + flr(sqrt(spawn_base))
 
 end
@@ -284,11 +284,13 @@ function _draw()
   function draw_intro_instructions()
     palt(0, false)
     palt(15, true)
-    local x_pos = padding_left - ceil(margin / 2)
+    local x_pos = padding_left - ceil(margin / 2) + 26
     local y_pos = 90
     local line_height = 11
-    print(smallcaps("press \151 to switch"), x_pos, y_pos)
-    spr(sprites.hero + 1, x_pos + 75, y_pos - 2)
+    print(smallcaps("\151"), x_pos, y_pos)
+    print(smallcaps("to switch"), x_pos + 12, y_pos)
+    spr(sprites.hero, x_pos + 51, y_pos - 2)
+    spr(sprites.hero + 1, x_pos + 59, y_pos - 2)
     y_pos += line_height
 
     print(smallcaps("bump"), x_pos, y_pos)
@@ -304,30 +306,35 @@ function _draw()
     local y_pos = 90
     local line_height = 11
 
-    -- advance
-    spr(sprites.hero + 1, x_pos, y_pos - 2)
-    spr(011, x_pos + 7, y_pos - 2)
-    print("+", x_pos + 18, y_pos, 06)
-    spr(sprites.hero + 1, x_pos + 23, y_pos - 2)
-    spr(011, x_pos + 30, y_pos - 2)
-    print("=", x_pos + 41, y_pos, 06)
-    spr(012, x_pos + 47, y_pos - 2)
-    y_pos += line_height
+
 
     -- shoot
-    spr(sprites.hero + 1, x_pos, y_pos - 2)
+    spr(sprites.hero, x_pos, y_pos - 2)
     spr(sprites.effect_shoot, x_pos + 7, y_pos - 2)
     print("=", x_pos + 18, y_pos, 06)
-    print(smallcaps("shoot"), x_pos + 25, y_pos, text_color)
+    spr(sprites.hero + 1, x_pos + 24, y_pos - 2)
+    print(smallcaps("shoot"), x_pos + 32, y_pos, text_color)
     y_pos += line_height
 
     -- dash
-    spr(sprites.hero + 1, x_pos, y_pos - 2)
+    spr(sprites.hero, x_pos, y_pos - 2)
     spr(sprites.effect_dash, x_pos + 7, y_pos - 2)
     print("=", x_pos + 18, y_pos, 06)
-    print(smallcaps("dash"), x_pos + 25, y_pos, text_color)
+    spr(sprites.hero + 1, x_pos + 24, y_pos - 2)
+    print(smallcaps("dash"), x_pos + 32, y_pos, text_color)
+    y_pos += line_height
 
-    x_pos += 72
+    -- advance
+    spr(sprites.hero, x_pos, y_pos - 2)
+    spr(011, x_pos + 7, y_pos - 2)
+    print("+", x_pos + 18, y_pos, 06)
+    spr(sprites.hero + 1, x_pos + 24, y_pos - 2)
+    spr(011, x_pos + 31, y_pos - 2)
+    print("=", x_pos + 42, y_pos, 06)
+    spr(012, x_pos + 48, y_pos - 2)
+
+    x_pos += 79
+    y_pos -= line_height
     y_pos -= line_height
 
     -- health
@@ -408,8 +415,6 @@ function _draw()
   draw_floor()
   draw_score()
   draw_instructions()
-  -- draw_switch_instructions()
-  -- draw_button_instructions()
 
 	for x = 1, cols do
 		for y = 1, rows do
