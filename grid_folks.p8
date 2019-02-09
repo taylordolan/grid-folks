@@ -5,33 +5,13 @@ __lua__
 -- taylor d
 
 -- todo
--- [x] walls between tiles
--- [x] prevent wall generation from creating closed areas
--- [x] tiles with walls should count as empty for the purpose of deploying enemies and heroes
--- [x] health for enemies
--- [x] clean up power stuff
--- [x] power tiles for melee damage
--- [x] press 'x' to switch heroes (instead of holding it)
--- [x] power tiles for health
--- [x] power tiles for score
--- [x] rename power tiles to effect tiles
--- [x] have some power tiles by default
--- [x] have some start locations for heroes
--- [x] make a sprite dictionary again
--- [x] add potential tiles for each type
-    -- deploy 3 random ones at the beginning of the game
-    -- include conditions for turning them into power tiles
--- [x] when a potential tile is triggered, reset walls and deploy 3 more random ones
--- [x] have enemies appear on a fixed schedule
--- [x] telegraph enemy arrival a turn in advance
--- [x] things should probably keep track of their own x and y locations
--- [x] replace melee with dash ability
--- [x] fix bug where sometimes enemies show up to fast
--- [x] enemies should trigger effect tiles when they spawn on them
--- [x] rework _draw() so there's more space between tiles
--- [x] have enemies appear on an increasing schedule
+-- [x] players still aren't gaining health when enemies spawn to health tiles
+-- [ ] write a function that prints a overview of the spawn rate throughout the game
+-- [ ] add a debug mode where spawn rate and turn count show while playing
 -- [ ] you shouldn't be able to shoot through players
 -- [ ] build the game end state
+-- [ ] clean up _init()
+-- [ ] allow restarting after game over by calling _init() again
 
 function _init()
 
@@ -525,11 +505,11 @@ function set_tile(thing, dest)
   thing.x = dest[1]
   thing.y = dest[2]
 
-  -- trigger enemy effects if an enemy was deployed
-  -- todo: this should probably be like a special version of set_tile() in `enemy`
-  -- if (thing.type == "enemy") then
-  --   trigger_enemy_effects(dest)
-  -- end
+  -- this is here for now because enemy effects need to be triggered when enemies step or are deployed
+  -- todo: this should probably be done differently somehow
+  if (thing.type == "enemy") then
+    trigger_enemy_effects(dest)
+  end
 end
 
 -- deploys a thing to a random tile
@@ -871,7 +851,7 @@ end
   enemy stuff
 --]]
 
-function create_pre_enemy()
+  function create_pre_enemy()
   pre_enemy = {
     x = null,
     y = null,
@@ -964,7 +944,7 @@ function create_enemy(tile)
           end
         else
           set_tile(self, dest)
-          trigger_enemy_effects(dest)
+          -- trigger_enemy_effects(dest)
         end
       end
       player_turn = true
