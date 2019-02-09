@@ -6,9 +6,9 @@ __lua__
 
 -- todo
 -- [x] players still aren't gaining health when enemies spawn to health tiles
+-- [x] you shouldn't be able to shoot through players
 -- [ ] write a function that prints a overview of the spawn rate throughout the game
 -- [ ] add a debug mode where spawn rate and turn count show while playing
--- [ ] you shouldn't be able to shoot through players
 -- [ ] build the game end state
 -- [ ] clean up _init()
 -- [ ] allow restarting after game over by calling _init() again
@@ -722,7 +722,11 @@ function create_hero()
           -- define the current target
           local next_tile = {now_tile[1] + x_vel, now_tile[2] + y_vel}
           -- if `next_tile` is off the map, or there's a wall in the way, return false
-          if location_exists(next_tile) == false or is_wall_between(now_tile, next_tile) then
+          if
+            location_exists(next_tile) == false or
+            is_wall_between(now_tile, next_tile) or
+            find_type_in_tile("hero", next_tile)
+          then
             return false
           end
           -- if there's an enemy in the target, return it
