@@ -9,7 +9,7 @@ __lua__
 -- [x] you shouldn't be able to shoot through players
 -- [x] implement a delay before enemy movement
 -- [x] allow restarting after game over by calling _init() again
--- [ ] clean up _init()
+-- [x] clean up _init()
 -- [ ] write a function that prints a overview of the spawn rate throughout the game
 -- [ ] add a debug mode where spawn rate and turn count show while playing
 -- [ ] build the game end state
@@ -30,13 +30,7 @@ function _init()
     end
   end
 
-  player_turn = true
-	game_over = false
-  score = 0
-  turns = 0
-  delay = 0
-
-  -- sound dictionary
+  -- sounds dictionary
   sounds = {
     music = 002,
     health = 026,
@@ -71,14 +65,28 @@ function _init()
     potential_score = 010,
   }
 
-  potential_tiles = {}
-  enemies = {}
-  pre_enemies = {}
-
+  -- some game state
+  score = 0
+  turns = 0
+  delay = 0
+  player_turn = true
+	game_over = false
+  hero_a_active = true
   has_switched = false
   has_killed = false
 
+  -- lists of things
+  heroes = {}
+  enemies = {}
+  pre_enemies = {}
+  potential_tiles = {}
+  effect_tiles = {}
+
+  -- initial walls
   refresh_walls()
+
+  -- initial potential tiles
+  refresh_potential_tiles()
 
   -- initial effect tiles
   local dash_tile = create_effect_tile("dash")
@@ -90,15 +98,12 @@ function _init()
   set_tile(health_tile, {6,3})
   set_tile(score_tile, {4,3})
 
-  refresh_potential_tiles()
-
   -- heroes
   hero_a = create_hero()
   hero_b = create_hero()
   heroes = {hero_a, hero_b}
   set_tile(hero_a, {4,2})
   set_tile(hero_b, {6,4})
-  hero_a_active = true
 
 	-- initial enemy
   local new_pre_enemy = create_pre_enemy()
@@ -106,18 +111,14 @@ function _init()
 
   -- this determines what the spawn rate is at the start of the game
   initial_spawn_rate = 12
-
   -- this determines the overall shape of the "spawn rate" curve
   -- the higher this is, the flatter the curve
   -- i think the lowest usable value for this is 4
   spawn_base = 4
-
   -- this determines how quickly we move through the curve throughout the game
   spawn_increment = 0.1
-
   -- this gets updated whenever an enemy spawns
   last_spawned_turn = 0
-
   -- this is just so i don't have to set the initial_spawn_rate in an abstract way
   spawn_modifier = initial_spawn_rate + flr(sqrt(spawn_base))
 
