@@ -14,6 +14,7 @@ __lua__
 -- [ ] clean up _init()
 -- [ ] allow restarting after game over by calling _init() again
 
+-- sound dictionary
 sounds = {
   music = 002,
   health = 026,
@@ -28,90 +29,63 @@ sounds = {
   hero_bump = 000
 }
 
+-- sprites dictionary
+sprites = {
+  floor = 003,
+  hero = 017,
+  hero_dash = 019,
+  hero_shoot = 021,
+  enemy = 002,
+  pre_enemy = 004,
+  wall_right = 005,
+  wall_down = 006,
+  effect_dash = 023,
+  effect_shoot = 024,
+  effect_health = 025,
+  effect_score = 026,
+  potential_dash = 007,
+  potential_shoot = 008,
+  potential_health = 009,
+  potential_score = 010,
+}
+
+-- board size
+rows = 5
+cols = 9
+
+-- 2d array for the board
+board = {}
+for x = 1, cols do
+  board[x] = {}
+  for y = 1, rows do
+    board[x][y] = {}
+  end
+end
+
+potential_tiles = {}
+
 function _init()
 
-	-- board size
-	rows = 5
-	cols = 9
-
-	-- 2d array for the board
-	board = {}
-	for x = 1, cols do
-		board[x] = {}
-		for y = 1, rows do
-			board[x][y] = {}
-		end
-	end
-
-  -- some game state
+  -- game state that gets refreshed on restart
   player_turn = true
 	game_over = false
   score = 0
   turns = 0
   delay = 0
 
-  sprites = {
-    floor = 003,
-    hero = 017,
-    hero_dash = 019,
-    hero_shoot = 021,
-    enemy = 002,
-    pre_enemy = 004,
-    wall_right = 005,
-    wall_down = 006,
-    effect_dash = 023,
-    effect_shoot = 024,
-    effect_health = 025,
-    effect_score = 026,
-    potential_dash = 007,
-    potential_shoot = 008,
-    potential_health = 009,
-    potential_score = 010,
-  }
+  refresh_walls()
 
-  -- create walls
-  generate_walls()
-  while is_map_contiguous() == false do
-    clear_all_walls()
-    generate_walls()
-  end
-
-  local dash_tile = {
-    x = null,
-    y = null,
-    type = "effect",
-    name = "dash",
-    sprite = sprites.effect_dash,
-    hero_sprite = sprites.hero_dash
-  }
-  local shoot_tile = {
-    x = null,
-    y = null,
-    type = "effect",
-    name = "shoot",
-    sprite = sprites.effect_shoot,
-    hero_sprite = sprites.hero_shoot
-  }
-  local health_tile = {
-    x = null,
-    y = null,
-    type = "effect",
-    name = "health",
-    sprite = sprites.effect_health,
-  }
-  local score_tile = {
-    x = null,
-    y = null,
-    type = "effect",
-    name = "score",
-    sprite = sprites.effect_score,
-  }
+  -- initial effect tiles
+  local dash_tile = create_effect_tile("dash")
+  local shoot_tile = create_effect_tile("shoot")
+  local health_tile = create_effect_tile("health")
+  local score_tile = create_effect_tile("score")
   set_tile(dash_tile, {5,2})
   set_tile(shoot_tile, {5,4})
   set_tile(health_tile, {6,3})
   set_tile(score_tile, {4,3})
 
-  generate_potential_tiles()
+  refresh_potential_tiles()
 
   -- heroes
   hero_a = create_hero()
@@ -790,18 +764,6 @@ function create_hero()
         end
       end
 
-      -- -- -- given an enemy and an amount of damage,
-      -- -- -- hit it and then kill if it has no health
-      -- function hit_enemy(enemy, damage)
-
-      --   enemy.health -= damage
-      --   if (enemy.health <= 0) then
-      --     has_killed = true
-      --     del(enemies, enemy)
-      --     del(board[enemy.x][enemy.y], enemy)
-      --   end
-      -- end
-
       -- updates the *other* hero's ability and sprite
       -- based on the effect tile that *this* hero is standing on
       function update_companion_effect()
@@ -826,39 +788,40 @@ function create_hero()
 
       function update_potential_tiles()
 
-        local companion_tile = {companion.x, companion.y}
-        self_potential_tile = find_type_in_tile("potential", {self.x, self.y})
-        companion_potential_tile = find_type_in_tile("potential", companion_tile)
+        -- get tiles for self and ally
+        local ally_xy = {companion.x, companion.y}
+        local self_xy = {self.x, self.y}
 
-        if self_potential_tile and companion_potential_tile then
+        -- find any potential tiles that heroes are occupying
+        local self_p = find_type_in_tile("potential", self_xy)
+        local ally_p = find_type_in_tile("potential", ally_xy)
 
-          -- has_advanced = true
-          local to_destroy = {self_potential_tile, companion_potential_tile}
-          for next in all(to_destroy) do
-            del(board[next.x][next.y], next)
-          end
+        -- if there are heroes occupying two potential tiles
+        if self_p and ally_p then
 
-          -- todo: optimize this
-          for x = 1, cols do
-            for y = 1, rows do
-              local potential_tile = find_type_in_tile("potential", {x,y})
-              if potential_tile then
-                potential_tile.type = "effect"
-                potential_tile.sprite = sprites["effect_" ..potential_tile.name]
-                potential_tile.hero_sprite = sprites["hero_" ..potential_tile.name]
-              end
+          -- identify the other one
+          local other_p
+          for next in all(potential_tiles) do
+            if next ~= self_p and next ~= ally_p then
+              other_p = next
             end
           end
 
-          generate_potential_tiles()
-          clear_all_walls()
-          generate_walls()
-          while is_map_contiguous() == false do
-            clear_all_walls()
-            generate_walls()
-          end
+          -- put an effect tile in its position
+          local effect_name = other_p.name
+          local effect_x = other_p.x
+          local effect_y = other_p.y
+          local new_effect_tile = create_effect_tile(effect_name)
+          set_tile(new_effect_tile, {effect_x, effect_y})
+
+          -- delete existing potential tiles and create new ones
+          refresh_potential_tiles()
+          -- delete existing walls and create new ones
+          refresh_walls()
+          -- make the advance sound
           sfx(sounds.advance, 3)
-        elseif self_potential_tile then
+
+        elseif self_p then
           sfx(sounds.potential_tile_step, 3)
         end
       end
@@ -1116,6 +1079,15 @@ function clear_all_walls()
   end
 end
 
+function refresh_walls()
+  clear_all_walls()
+  generate_walls()
+  while not is_map_contiguous() do
+    clear_all_walls()
+    generate_walls()
+  end
+end
+
 function generate_walls()
 
   for i = 1, 10 do
@@ -1184,7 +1156,13 @@ function is_map_contiguous()
   return true
 end
 
-function generate_potential_tiles()
+function refresh_potential_tiles()
+
+  -- delete all existing potential tiles
+  for next in all(potential_tiles) do
+    del(board[next.x][next.y], next)
+    del(potential_tiles, next)
+  end
 
   local current_types = {
     "dash",
@@ -1202,8 +1180,22 @@ function generate_potential_tiles()
       name = next,
       sprite = sprites["potential_" ..next]
     }
+    add(potential_tiles, tile)
     deploy(tile, {"potential", "effect", "hero"})
   end
+end
+
+function create_effect_tile(name)
+
+  local new_effect_tile = {
+    x = null,
+    y = null,
+    type = "effect",
+    name = name,
+    sprite = sprites["effect_" ..name],
+    hero_sprite = sprites["hero_" ..name]
+  }
+  return new_effect_tile
 end
 
 __gfx__
