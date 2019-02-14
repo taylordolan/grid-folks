@@ -10,8 +10,11 @@ __lua__
 -- [x] implement a delay before enemy movement
 -- [x] allow restarting after game over by calling _init() again
 -- [x] clean up _init()
--- [ ] write a function that prints a overview of the spawn rate throughout the game
+-- [ ] write a function that prints an overview of the spawn rate throughout the game
 -- [ ] add a debug mode where spawn rate and turn count show while playing
+-- [ ] rename companion to ally throughout
+-- [ ] come up with better names for potential tiles and effect tiles (buttons?)
+-- [ ] create a running list of effect tiles
 -- [ ] build the game end state
 
 -- game state that gets refreshed on restart
