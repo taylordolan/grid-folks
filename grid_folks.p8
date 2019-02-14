@@ -6,13 +6,13 @@ __lua__
 
 -- todo
 -- [x] players still aren't gaining health when enemies spawn to health tiles
+-- [x] you shouldn't be able to shoot through players
+-- [x] implement a delay before enemy movement
 -- [ ] write a function that prints a overview of the spawn rate throughout the game
 -- [ ] add a debug mode where spawn rate and turn count show while playing
--- [ ] you shouldn't be able to shoot through players
 -- [ ] build the game end state
 -- [ ] clean up _init()
 -- [ ] allow restarting after game over by calling _init() again
--- [ ] staying on a potential tile shouldn't trigger the sound
 
 sounds = {
   music = 002,
@@ -22,7 +22,10 @@ sounds = {
   dash = 025,
   step = 021,
   advance = 027,
-  potential_tile_step = 028
+  potential_tile_step = 028, -- todo: this shouldn't trigger when you're just standing there
+  switch_heroes = 000,
+  enemy_bump = 000,
+  hero_bump = 000
 }
 
 function _init()
@@ -45,6 +48,7 @@ function _init()
 	game_over = false
   score = 0
   turns = 0
+  delay = 0
 
   sprites = {
     floor = 003,
@@ -164,31 +168,59 @@ end
 
 function _update()
 
+  update_hero_sprites()
+  -- if hero_a_active then
+  --   hero_a.sprite = hero_a.base_sprite + 1
+  --   hero_b.sprite = hero_b.base_sprite
+  -- else
+  --   hero_a.sprite = hero_a.base_sprite
+  --   hero_b.sprite = hero_b.base_sprite + 1
+  -- end
+
+  if delay > 0 then
+		delay = delay - 1
+	elseif player_turn == true then
+		if hero_a_active then
+      hero_a:update()
+    else
+      hero_b:update()
+    end
+		-- if delay > 0 then turn=1 end
+	elseif player_turn == false then
+    -- if #enemies > 0 then
+    for next in all(enemies) do
+      next.update(next)
+    end
+    -- delay = delay + 30
+    -- end
+    player_turn = true
+	end
+
   if btnp(5) then
     hero_a_active = not hero_a_active
     has_switched = true
   end
 
 	-- move heroes
-  if hero_a_active then
-    hero_a.sprite = hero_a.base_sprite + 1
-    hero_b.sprite = hero_b.base_sprite
-    hero_a:update()
-  else
-    hero_a.sprite = hero_a.base_sprite
-    hero_b.sprite = hero_b.base_sprite + 1
-    hero_b:update()
-  end
+  -- if hero_a_active then
+  --   hero_a.sprite = hero_a.base_sprite + 1
+  --   hero_b.sprite = hero_b.base_sprite
+  --   hero_a:update()
+  -- else
+  --   hero_a.sprite = hero_a.base_sprite
+  --   hero_b.sprite = hero_b.base_sprite + 1
+  --   hero_b:update()
+  -- end
 
   -- move enemies
-  if player_turn == false then
-    for next in all(enemies) do
-      next.update(next)
-    end
-  end
+  -- if player_turn == false then
+  --   for next in all(enemies) do
+  --     next.update(next)
+  --   end
+  -- end
 
   -- game end test
-  if hero_a.health == 0 or hero_b.health == 0 then
+  if hero_a.health <= 0 or hero_b.health <= 0 then
     game_over = true
   end
 end
@@ -641,7 +673,7 @@ function create_hero()
     x = null,
     y = null,
 		type = "hero",
-    base_sprite = 17,
+    base_sprite = sprites.hero,
     sprite = null,
     max_health = 5,
     health = 5,
@@ -653,7 +685,7 @@ function create_hero()
     -- update hero
 		update = function(self)
 
-      -- if game_over then return end
+      if game_over then return end
 
       -- find the other hero
       local companion
@@ -855,10 +887,23 @@ function create_hero()
         turns = turns + 1
         maybe_spawn_enemy()
         player_turn = false
+        if #enemies > 0 then
+          delay += 8
+        end
       end
 		end
 	}
   return hero
+end
+
+function update_hero_sprites()
+  if hero_a_active then
+    hero_a.sprite = hero_a.base_sprite + 1
+    hero_b.sprite = hero_b.base_sprite
+  else
+    hero_a.sprite = hero_a.base_sprite
+    hero_b.sprite = hero_b.base_sprite + 1
+  end
 end
 
 -- given an enemy and an amount of damage,
@@ -877,7 +922,7 @@ end
   enemy stuff
 --]]
 
-  function create_pre_enemy()
+function create_pre_enemy()
   pre_enemy = {
     x = null,
     y = null,
@@ -973,7 +1018,7 @@ function create_enemy(tile)
           -- trigger_enemy_effects(dest)
         end
       end
-      player_turn = true
+      -- player_turn = true
 		end
 	}
 	add(enemies, enemy)
