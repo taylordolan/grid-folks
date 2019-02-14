@@ -8,70 +8,75 @@ __lua__
 -- [x] players still aren't gaining health when enemies spawn to health tiles
 -- [x] you shouldn't be able to shoot through players
 -- [x] implement a delay before enemy movement
+-- [x] allow restarting after game over by calling _init() again
+-- [ ] clean up _init()
 -- [ ] write a function that prints a overview of the spawn rate throughout the game
 -- [ ] add a debug mode where spawn rate and turn count show while playing
 -- [ ] build the game end state
--- [ ] clean up _init()
--- [ ] allow restarting after game over by calling _init() again
 
--- sound dictionary
-sounds = {
-  music = 002,
-  health = 026,
-  score = 022,
-  shoot = 029,
-  dash = 025,
-  step = 021,
-  advance = 027,
-  potential_tile_step = 028, -- todo: this shouldn't trigger when you're just standing there
-  switch_heroes = 000,
-  enemy_bump = 000,
-  hero_bump = 000
-}
-
--- sprites dictionary
-sprites = {
-  floor = 003,
-  hero = 017,
-  hero_dash = 019,
-  hero_shoot = 021,
-  enemy = 002,
-  pre_enemy = 004,
-  wall_right = 005,
-  wall_down = 006,
-  effect_dash = 023,
-  effect_shoot = 024,
-  effect_health = 025,
-  effect_score = 026,
-  potential_dash = 007,
-  potential_shoot = 008,
-  potential_health = 009,
-  potential_score = 010,
-}
-
--- board size
-rows = 5
-cols = 9
-
--- 2d array for the board
-board = {}
-for x = 1, cols do
-  board[x] = {}
-  for y = 1, rows do
-    board[x][y] = {}
-  end
-end
-
-potential_tiles = {}
-
+-- game state that gets refreshed on restart
 function _init()
 
-  -- game state that gets refreshed on restart
+  -- board size
+  rows = 5
+  cols = 9
+
+  -- 2d array for the board
+  board = {}
+  for x = 1, cols do
+    board[x] = {}
+    for y = 1, rows do
+      board[x][y] = {}
+    end
+  end
+
   player_turn = true
 	game_over = false
   score = 0
   turns = 0
   delay = 0
+
+  -- sound dictionary
+  sounds = {
+    music = 002,
+    health = 026,
+    score = 022,
+    shoot = 029,
+    dash = 025,
+    step = 021,
+    advance = 027,
+    potential_tile_step = 028, -- todo: this shouldn't trigger when you're just standing there
+    switch_heroes = 000,
+    enemy_bump = 000,
+    hero_bump = 000
+  }
+
+  -- sprites dictionary
+  sprites = {
+    floor = 003,
+    hero = 017,
+    hero_dash = 019,
+    hero_shoot = 021,
+    enemy = 002,
+    pre_enemy = 004,
+    wall_right = 005,
+    wall_down = 006,
+    effect_dash = 023,
+    effect_shoot = 024,
+    effect_health = 025,
+    effect_score = 026,
+    potential_dash = 007,
+    potential_shoot = 008,
+    potential_health = 009,
+    potential_score = 010,
+  }
+
+  potential_tiles = {}
+  enemies = {}
+  pre_enemies = {}
+
+  has_switched = false
+  has_killed = false
 
   refresh_walls()
 
@@ -95,15 +100,9 @@ function _init()
   set_tile(hero_b, {6,4})
   hero_a_active = true
 
-	-- list of enemies
-	enemies = {}
-  pre_enemies = {}
+	-- initial enemy
   local new_pre_enemy = create_pre_enemy()
   deploy(new_pre_enemy, {"hero", "enemy", "pre-enemy"})
-
-  local has_switched = false
-  local has_killed = false
-  -- local has_advanced = false
 
   -- this determines what the spawn rate is at the start of the game
   initial_spawn_rate = 12
@@ -143,13 +142,9 @@ end
 function _update()
 
   update_hero_sprites()
-  -- if hero_a_active then
-  --   hero_a.sprite = hero_a.base_sprite + 1
-  --   hero_b.sprite = hero_b.base_sprite
-  -- else
-  --   hero_a.sprite = hero_a.base_sprite
-  --   hero_b.sprite = hero_b.base_sprite + 1
-  -- end
+  if game_over and btnp(4) then
+    _init()
+  end
 
   if delay > 0 then
 		delay = delay - 1
