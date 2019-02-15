@@ -11,15 +11,13 @@ __lua__
 -- [x] allow restarting after game over by calling _init() again
 -- [x] clean up _init()
 -- [x] rename companion to ally throughout
--- [x] create a running list of effect tiles
--- [ ] separate out wall generation and do it when it’s not the player’s turn
+-- [x] create a running list of buttons
+-- [x] separate out wall generation and do it when it’s not the player’s turn
+-- [x] come up with better names for advance pads and buttons (buttons?)
 -- [ ] build the game end state
 -- [ ] write a function that prints an overview of the spawn rate throughout the game
 -- [ ] add a debug mode where spawn rate and turn count show while playing
--- [ ] come up with better names for potential tiles and effect tiles (buttons?)
 -- [ ] when multiple enemies are present, they should act in random order
-
--- after the player takes a turn, I want to the system to reserve time to respond with any changes that might happen
 
 -- game state that gets refreshed on restart
 function _init()
@@ -46,7 +44,7 @@ function _init()
     dash = 025,
     step = 021,
     advance = 027,
-    potential_tile_step = 028, -- todo: this shouldn't trigger when you're just standing there
+    pad_tile_step = 028, -- todo: this shouldn't trigger when you're just standing there
     switch_heroes = 000,
     enemy_bump = 000,
     hero_bump = 000
@@ -62,14 +60,14 @@ function _init()
     enemy_egg = 004,
     wall_right = 005,
     wall_down = 006,
-    effect_dash = 023,
-    effect_shoot = 024,
-    effect_health = 025,
-    effect_score = 026,
-    potential_dash = 007,
-    potential_shoot = 008,
-    potential_health = 009,
-    potential_score = 010,
+    button_dash = 023,
+    button_shoot = 024,
+    button_health = 025,
+    button_score = 026,
+    pad_dash = 007,
+    pad_shoot = 008,
+    pad_health = 009,
+    pad_score = 010,
   }
 
   -- some game state
@@ -86,20 +84,20 @@ function _init()
   heroes = {}
   enemies = {}
   enemy_eggs = {}
-  potential_tiles = {}
-  effect_tiles = {}
+  advance_pads = {}
+  buttons = {}
 
   -- initial walls
   refresh_walls()
 
-  -- initial potential tiles
-  refresh_potential_tiles()
+  -- initial advance pads
+  refresh_advance_pads()
 
-  -- initial effect tiles
-  local dash_tile = new_effect_tile("dash")
-  local shoot_tile = new_effect_tile("shoot")
-  local health_tile = new_effect_tile("health")
-  local score_tile = new_effect_tile("score")
+  -- initial buttons
+  local dash_tile = new_button("dash")
+  local shoot_tile = new_button("shoot")
+  local health_tile = new_button("health")
+  local score_tile = new_button("score")
   set_tile(dash_tile, {5,2})
   set_tile(shoot_tile, {5,4})
   set_tile(health_tile, {6,3})
@@ -180,12 +178,12 @@ function _update()
 	elseif player_turn == false then
 
     -- update hero abilities
-    update_hero_effects()
+    update_hero_abilities()
 
     -- advance the board if appripriate
     if should_advance() then
-      add_effect_tile()
-      refresh_potential_tiles()
+      add_button()
+      refresh_advance_pads()
       refresh_walls()
     end
 
@@ -322,7 +320,7 @@ function _draw()
 
     -- shoot
     spr(sprites.hero, x_pos, y_pos - 2)
-    spr(sprites.effect_shoot, x_pos + 7, y_pos - 2)
+    spr(sprites.button_shoot, x_pos + 7, y_pos - 2)
     print("=", x_pos + 18, y_pos, 06)
     spr(sprites.hero + 1, x_pos + 24, y_pos - 2)
     print(smallcaps("shoot"), x_pos + 32, y_pos, text_color)
@@ -330,7 +328,7 @@ function _draw()
 
     -- dash
     spr(sprites.hero, x_pos, y_pos - 2)
-    spr(sprites.effect_dash, x_pos + 7, y_pos - 2)
+    spr(sprites.button_dash, x_pos + 7, y_pos - 2)
     print("=", x_pos + 18, y_pos, 06)
     spr(sprites.hero + 1, x_pos + 24, y_pos - 2)
     print(smallcaps("dash"), x_pos + 32, y_pos, text_color)
@@ -351,14 +349,14 @@ function _draw()
 
     -- health
     spr(sprites.enemy, x_pos, y_pos - 2)
-    spr(sprites.effect_health, x_pos + 7, y_pos - 2)
+    spr(sprites.button_health, x_pos + 7, y_pos - 2)
     print("=", x_pos + 18, y_pos, 06)
     print(smallcaps("heal"), x_pos + 25, y_pos, text_color)
     y_pos += line_height
 
     -- gold
     spr(sprites.enemy, x_pos, y_pos - 2)
-    spr(sprites.effect_score, x_pos + 7, y_pos - 2)
+    spr(sprites.button_score, x_pos + 7, y_pos - 2)
     print("=", x_pos + 18, y_pos, 06)
     print(smallcaps("gold"), x_pos + 25, y_pos, text_color)
 
@@ -521,10 +519,10 @@ function set_tile(thing, dest)
   thing.x = dest[1]
   thing.y = dest[2]
 
-  -- this is here for now because enemy effects need to be triggered when enemies step or are deployed
+  -- this is here for now because enemy buttons need to be triggered when enemies step or are deployed
   -- todo: this should probably be done differently somehow
   if (thing.type == "enemy") then
-    trigger_enemy_effects(dest)
+    trigger_enemy_buttons(dest)
   end
 end
 
@@ -558,9 +556,9 @@ function deploy(thing, avoid_list)
   set_tile(thing, dest)
 end
 
-function trigger_enemy_effects(enemy_tile)
+function trigger_enemy_buttons(enemy_tile)
 
-  function health_effect()
+  function gain_health()
     for next in all(heroes) do
       if (next.health < next.max_health) then
         next.health = next.health + 1
@@ -569,18 +567,18 @@ function trigger_enemy_effects(enemy_tile)
     sfx(sounds.health, 3)
   end
 
-  function score_effect()
+  function gain_score()
     score += 1
     sfx(sounds.score, 3)
   end
 
-  local effect = find_type_in_tile("effect", enemy_tile)
-  if effect then
-    if effect.name == "health" then
-      health_effect()
+  local button = find_type_in_tile("button", enemy_tile)
+  if button then
+    if button.name == "health" then
+      gain_health()
     end
-    if effect.name == "score" then
-      score_effect()
+    if button.name == "score" then
+      gain_score()
     end
   end
 end
@@ -648,7 +646,7 @@ function create_hero()
     max_health = 5,
     health = 5,
 
-    -- effects
+    -- buttons
     dash = false,
     shoot = false,
 
@@ -763,8 +761,8 @@ function create_hero()
 end
 
 -- updates both heroes' abilities and sprites
--- based on the effect tile that their ally is standing on
-function update_hero_effects()
+-- based on the button that their ally is standing on
+function update_hero_abilities()
 
   for next in all(heroes) do
 
@@ -784,12 +782,12 @@ function update_hero_effects()
     next.shoot = false
     next.base_sprite = sprites.hero
 
-    -- if the ally's tile is an effect tile, update the hero's deets
-    local effect = find_type_in_tile("effect", ally_xy)
-    if effect then
-      if effect.name == "dash" or effect.name == "shoot" then
-        next[effect.name] = true
-        next.base_sprite = effect.hero_sprite
+    -- if the ally's tile is a button, update the hero's deets
+    local button = find_type_in_tile("button", ally_xy)
+    if button then
+      if button.name == "dash" or button.name == "shoot" then
+        next[button.name] = true
+        next.base_sprite = button.hero_sprite
       end
     end
   end
@@ -800,11 +798,11 @@ function should_advance()
   local a_xy = {hero_a.x, hero_a.y}
   local b_xy = {hero_b.x, hero_b.y}
 
-  -- find any potential tiles that heroes are occupying
-  local a_p = find_type_in_tile("potential", b_xy)
-  local b_p = find_type_in_tile("potential", a_xy)
+  -- find any advance pads that heroes are occupying
+  local a_p = find_type_in_tile("pad", b_xy)
+  local b_p = find_type_in_tile("pad", a_xy)
 
-  -- if there are heroes occupying two potential tiles
+  -- if there are heroes occupying two advance pads
   if a_p and b_p then
     return true
   end
@@ -813,30 +811,30 @@ end
 
 
 -- todo: clean up redundancy with should_advance()
-function add_effect_tile()
+function add_button()
 
   -- get tiles for both heroes
   local a_xy = {hero_a.x, hero_a.y}
   local b_xy = {hero_b.x, hero_b.y}
 
-  -- find which potential tiles that heroes are occupying
-  local a_p = find_type_in_tile("potential", b_xy)
-  local b_p = find_type_in_tile("potential", a_xy)
+  -- find which advance pads that heroes are occupying
+  local a_p = find_type_in_tile("pad", b_xy)
+  local b_p = find_type_in_tile("pad", a_xy)
 
   -- find the other one
   local other_p
-  for next in all(potential_tiles) do
+  for next in all(advance_pads) do
     if next ~= a_p and next ~= b_p then
       other_p = next
     end
   end
 
-  -- put an effect tile in its position
-  local effect_name = other_p.name
-  local effect_x = other_p.x
-  local effect_y = other_p.y
-  local new_effect_tile = new_effect_tile(effect_name)
-  set_tile(new_effect_tile, {effect_x, effect_y})
+  -- put an button button in its position
+  local button_name = other_p.name
+  local button_x = other_p.x
+  local button_y = other_p.y
+  local new_button = new_button(button_name)
+  set_tile(new_button, {button_x, button_y})
 
   -- make the advance sound
   sfx(sounds.advance, 3)
@@ -980,7 +978,6 @@ function create_enemy(tile)
           end
         else
           set_tile(self, dest)
-          -- trigger_enemy_effects(dest)
         end
       end
       -- player_turn = true
@@ -1158,12 +1155,12 @@ function is_map_contiguous()
   return true
 end
 
-function refresh_potential_tiles()
+function refresh_advance_pads()
 
-  -- delete all existing potential tiles
-  for next in all(potential_tiles) do
+  -- delete all existing advance pads
+  for next in all(advance_pads) do
     del(board[next.x][next.y], next)
-    del(potential_tiles, next)
+    del(advance_pads, next)
   end
 
   local current_types = {
@@ -1176,30 +1173,30 @@ function refresh_potential_tiles()
   local to_remove = current_types[index]
   del(current_types, to_remove)
 
-  -- place new potential tiles
+  -- place new advance pads
   for next in all(current_types) do
     local tile = {
-      type = "potential",
+      type = "pad",
       name = next,
-      sprite = sprites["potential_" ..next]
+      sprite = sprites["pad_" ..next]
     }
-    add(potential_tiles, tile)
-    deploy(tile, {"potential", "effect", "hero"})
+    add(advance_pads, tile)
+    deploy(tile, {"pad", "button", "hero"})
   end
 end
 
-function new_effect_tile(name)
+function new_button(name)
 
-  local new_effect_tile = {
+  local new_button = {
     x = null,
     y = null,
-    type = "effect",
+    type = "button",
     name = name,
-    sprite = sprites["effect_" ..name],
+    sprite = sprites["button_" ..name],
     hero_sprite = sprites["hero_" ..name]
   }
-  add(effect_tiles, new_effect_tile)
-  return new_effect_tile
+  add(buttons, new_button)
+  return new_button
 end
 
 __gfx__
