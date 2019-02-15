@@ -13,7 +13,7 @@ __lua__
 -- [x] rename companion to ally throughout
 -- [x] create a running list of buttons
 -- [x] separate out wall generation and do it when it’s not the player’s turn
--- [x] come up with better names for advance pads and buttons (buttons?)
+-- [x] come up with better names for pads and buttons
 -- [ ] build the game end state
 -- [ ] write a function that prints an overview of the spawn rate throughout the game
 -- [ ] add a debug mode where spawn rate and turn count show while playing
@@ -44,10 +44,10 @@ function _init()
     dash = 025,
     step = 021,
     advance = 027,
-    pad_tile_step = 028, -- todo: this shouldn't trigger when you're just standing there
-    switch_heroes = 000,
-    enemy_bump = 000,
-    hero_bump = 000
+    pad_step = 028, -- todo: not implemented anymore
+    switch_heroes = 000, -- todo: not implemented
+    enemy_bump = 000, -- todo: not implemented
+    hero_bump = 000, -- todo: not implemented
   }
 
   -- sprites dictionary
@@ -84,24 +84,20 @@ function _init()
   heroes = {}
   enemies = {}
   enemy_eggs = {}
-  advance_pads = {}
+  pads = {}
   buttons = {}
+
+  -- initial buttons
+  set_tile(new_button("dash"), {5,2})
+  set_tile(new_button("shoot"), {5,4})
+  set_tile(new_button("health"), {6,3})
+  set_tile(new_button("score"), {4,3})
 
   -- initial walls
   refresh_walls()
 
-  -- initial advance pads
-  refresh_advance_pads()
-
-  -- initial buttons
-  local dash_tile = new_button("dash")
-  local shoot_tile = new_button("shoot")
-  local health_tile = new_button("health")
-  local score_tile = new_button("score")
-  set_tile(dash_tile, {5,2})
-  set_tile(shoot_tile, {5,4})
-  set_tile(health_tile, {6,3})
-  set_tile(score_tile, {4,3})
+  -- initial pads
+  refresh_pads()
 
   -- heroes
   hero_a = create_hero()
@@ -180,10 +176,10 @@ function _update()
     -- update hero abilities
     update_hero_abilities()
 
-    -- advance the board if appripriate
+    -- advance the board if appropriate
     if should_advance() then
       add_button()
-      refresh_advance_pads()
+      refresh_pads()
       refresh_walls()
     end
 
@@ -469,20 +465,6 @@ end
 --[[
   helper functions
 --]]
-
--- returns a random tile from the board
-function random_tile()
-  -- create an array of all tiles
-	local all_tiles = {}
-	for x = 1, cols do
-		for y = 1, rows do
-      add(all_tiles, {x,y})
-		end
-	end
-  -- return one of them
-	local index = flr(rnd(#all_tiles)) + 1
-  return all_tiles[index]
-end
 
 -- check if a location is on the board
 function location_exists(tile)
@@ -798,11 +780,11 @@ function should_advance()
   local a_xy = {hero_a.x, hero_a.y}
   local b_xy = {hero_b.x, hero_b.y}
 
-  -- find any advance pads that heroes are occupying
+  -- find any pads that heroes are occupying
   local a_p = find_type_in_tile("pad", b_xy)
   local b_p = find_type_in_tile("pad", a_xy)
 
-  -- if there are heroes occupying two advance pads
+  -- if there are heroes occupying two pads
   if a_p and b_p then
     return true
   end
@@ -817,13 +799,13 @@ function add_button()
   local a_xy = {hero_a.x, hero_a.y}
   local b_xy = {hero_b.x, hero_b.y}
 
-  -- find which advance pads that heroes are occupying
+  -- find which pads that heroes are occupying
   local a_p = find_type_in_tile("pad", b_xy)
   local b_p = find_type_in_tile("pad", a_xy)
 
   -- find the other one
   local other_p
-  for next in all(advance_pads) do
+  for next in all(pads) do
     if next ~= a_p and next ~= b_p then
       other_p = next
     end
@@ -1155,12 +1137,12 @@ function is_map_contiguous()
   return true
 end
 
-function refresh_advance_pads()
+function refresh_pads()
 
-  -- delete all existing advance pads
-  for next in all(advance_pads) do
+  -- delete all existing pads
+  for next in all(pads) do
     del(board[next.x][next.y], next)
-    del(advance_pads, next)
+    del(pads, next)
   end
 
   local current_types = {
@@ -1173,15 +1155,15 @@ function refresh_advance_pads()
   local to_remove = current_types[index]
   del(current_types, to_remove)
 
-  -- place new advance pads
+  -- place new pads
   for next in all(current_types) do
-    local tile = {
+    local new_pad = {
       type = "pad",
       name = next,
       sprite = sprites["pad_" ..next]
     }
-    add(advance_pads, tile)
-    deploy(tile, {"pad", "button", "hero"})
+    add(pads, new_pad)
+    deploy(new_pad, {"pad", "button", "hero"})
   end
 end
 
@@ -1478,4 +1460,3 @@ __music__
 00 00000000
 00 00000000
 00 00000000
-
