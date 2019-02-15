@@ -12,10 +12,14 @@ __lua__
 -- [x] clean up _init()
 -- [x] rename companion to ally throughout
 -- [x] create a running list of effect tiles
+-- [ ] separate out wall generation and do it when it’s not the player’s turn
 -- [ ] build the game end state
 -- [ ] write a function that prints an overview of the spawn rate throughout the game
 -- [ ] add a debug mode where spawn rate and turn count show while playing
 -- [ ] come up with better names for potential tiles and effect tiles (buttons?)
+-- [ ] when multiple enemies are present, they should act in random order
+
+-- after the player takes a turn, I want to the system to reserve time to respond with any changes that might happen
 
 -- game state that gets refreshed on restart
 function _init()
@@ -55,7 +59,7 @@ function _init()
     hero_dash = 019,
     hero_shoot = 021,
     enemy = 002,
-    pre_enemy = 004,
+    enemy_egg = 004,
     wall_right = 005,
     wall_down = 006,
     effect_dash = 023,
@@ -81,7 +85,7 @@ function _init()
   -- lists of things
   heroes = {}
   enemies = {}
-  pre_enemies = {}
+  enemy_eggs = {}
   potential_tiles = {}
   effect_tiles = {}
 
@@ -92,10 +96,10 @@ function _init()
   refresh_potential_tiles()
 
   -- initial effect tiles
-  local dash_tile = create_effect_tile("dash")
-  local shoot_tile = create_effect_tile("shoot")
-  local health_tile = create_effect_tile("health")
-  local score_tile = create_effect_tile("score")
+  local dash_tile = new_effect_tile("dash")
+  local shoot_tile = new_effect_tile("shoot")
+  local health_tile = new_effect_tile("health")
+  local score_tile = new_effect_tile("score")
   set_tile(dash_tile, {5,2})
   set_tile(shoot_tile, {5,4})
   set_tile(health_tile, {6,3})
@@ -109,8 +113,8 @@ function _init()
   set_tile(hero_b, {6,4})
 
 	-- initial enemy
-  local new_pre_enemy = create_pre_enemy()
-  deploy(new_pre_enemy, {"hero", "enemy", "pre-enemy"})
+  local new_enemy_egg = new_enemy_egg()
+  deploy(new_enemy_egg, {"hero", "enemy", "pre-enemy"})
 
   -- this determines what the spawn rate is at the start of the game
   initial_spawn_rate = 12
@@ -133,14 +137,18 @@ function get_spawn_rate()
   return spawn_modifier - flr(sqrt(spawn_base))
 end
 
-function maybe_spawn_enemy()
+function should_spawn_enemy_egg()
   local spawn_rate = get_spawn_rate()
   if turns - spawn_rate >= last_spawned_turn then
-    local new_pre_enemy = create_pre_enemy()
-    deploy(new_pre_enemy, {"hero", "enemy", "pre-enemy"})
-    printh(spawn_base)
-    last_spawned_turn = turns
+    return true
   end
+  return false
+end
+
+function spawn_enemy_egg()
+  local new_enemy_egg = new_enemy_egg()
+  deploy(new_enemy_egg, {"hero", "enemy", "pre-enemy"})
+  last_spawned_turn = turns
 end
 
 function _update()
@@ -149,27 +157,55 @@ function _update()
     _init()
   end
 
+  -- this is separated because switching heroes happens outside the turn order
+  if btnp(5) then
+    hero_a_active = not hero_a_active
+    has_switched = true
+  end
   update_hero_sprites()
 
+  -- if the system should be waiting, then wait
   if delay > 0 then
 		delay = delay - 1
+
+  -- if it's the player's turn, then listen for input and respond to it
 	elseif player_turn == true then
 		if hero_a_active then
       hero_a:update()
     else
       hero_b:update()
     end
+
+  -- if it's not the player's turn…
 	elseif player_turn == false then
+
+    -- update hero abilities
+    update_hero_effects()
+
+    -- advance the board if appripriate
+    if should_advance() then
+      add_effect_tile()
+      refresh_potential_tiles()
+      refresh_walls()
+    end
+
+    -- update enemy stuff
+    hatch_enemy_eggs()
+    if should_spawn_enemy_egg() then
+      spawn_enemy_egg()
+    end
+    if #enemies > 0 then
+      delay += 4
+    end
     for next in all(enemies) do
       next.update(next)
     end
+
+    -- update game state
+    turns = turns + 1
+    spawn_base += spawn_increment
     player_turn = true
 	end
-
-  if btnp(5) then
-    hero_a_active = not hero_a_active
-    has_switched = true
-  end
 
   -- game end test
   if hero_a.health <= 0 or hero_b.health <= 0 then
@@ -283,8 +319,6 @@ function _draw()
     local x_pos = padding_left - ceil(margin / 2) - 1
     local y_pos = 90
     local line_height = 11
-
-
 
     -- shoot
     spr(sprites.hero, x_pos, y_pos - 2)
@@ -450,22 +484,6 @@ function random_tile()
   -- return one of them
 	local index = flr(rnd(#all_tiles)) + 1
   return all_tiles[index]
-end
-
--- returns an empty tile from the board
-function random_empty_tile()
-	-- create an array of all empty tiles
-	local empty_tiles = {}
-	for x = 1, cols do
-		for y = 1, rows do
-			if #board[x][y] == 0 then
-				add(empty_tiles, {x,y})
-			end
-		end
-	end
-  -- return one of them
-	local index = flr(rnd(#empty_tiles)) + 1
-	return empty_tiles[index]
 end
 
 -- check if a location is on the board
@@ -682,7 +700,6 @@ function create_hero()
             shoot_target.stunned = true
             hit_enemy(shoot_target, 1)
             sfx(sounds.shoot, 3)
-            end_player_turn()
           elseif self.dash then
             step_or_bump(direction)
             next_tile = {self.x + direction[1], self.y + direction[2]}
@@ -694,12 +711,11 @@ function create_hero()
               step_or_bump(direction)
               sfx(sounds.dash, 3)
             end
-            end_player_turn()
           else
             step_or_bump(direction)
             sfx(sounds.step, 3)
-            end_player_turn()
           end
+          player_turn = false
         end
       end
 
@@ -746,23 +762,9 @@ function create_hero()
   return hero
 end
 
--- does whatever needs to happen after a hero has done its thing
-function end_player_turn()
-  update_potential_tiles()
-  update_heroes_effects()
-  convert_pre_enemies()
-  maybe_spawn_enemy()
-  spawn_base += spawn_increment
-  turns = turns + 1
-  player_turn = false
-  if #enemies > 0 then
-    delay += 4
-  end
-end
-
 -- updates both heroes' abilities and sprites
 -- based on the effect tile that their ally is standing on
-function update_heroes_effects()
+function update_hero_effects()
 
   for next in all(heroes) do
 
@@ -793,9 +795,8 @@ function update_heroes_effects()
   end
 end
 
-function update_potential_tiles()
-
-  -- get tiles for self and ally
+function should_advance()
+  -- get tiles for both heroes
   local a_xy = {hero_a.x, hero_a.y}
   local b_xy = {hero_b.x, hero_b.y}
 
@@ -805,32 +806,40 @@ function update_potential_tiles()
 
   -- if there are heroes occupying two potential tiles
   if a_p and b_p then
-
-    -- identify the other one
-    local other_p
-    for next in all(potential_tiles) do
-      if next ~= a_p and next ~= b_p then
-        other_p = next
-      end
-    end
-
-    -- put an effect tile in its position
-    local effect_name = other_p.name
-    local effect_x = other_p.x
-    local effect_y = other_p.y
-    local new_effect_tile = create_effect_tile(effect_name)
-    set_tile(new_effect_tile, {effect_x, effect_y})
-
-    -- delete existing potential tiles and create new ones
-    refresh_potential_tiles()
-    -- delete existing walls and create new ones
-    refresh_walls()
-    -- make the advance sound
-    sfx(sounds.advance, 3)
-
-  elseif a_p then
-    sfx(sounds.potential_tile_step, 3)
+    return true
   end
+  return false
+end
+
+
+-- todo: clean up redundancy with should_advance()
+function add_effect_tile()
+
+  -- get tiles for both heroes
+  local a_xy = {hero_a.x, hero_a.y}
+  local b_xy = {hero_b.x, hero_b.y}
+
+  -- find which potential tiles that heroes are occupying
+  local a_p = find_type_in_tile("potential", b_xy)
+  local b_p = find_type_in_tile("potential", a_xy)
+
+  -- find the other one
+  local other_p
+  for next in all(potential_tiles) do
+    if next ~= a_p and next ~= b_p then
+      other_p = next
+    end
+  end
+
+  -- put an effect tile in its position
+  local effect_name = other_p.name
+  local effect_x = other_p.x
+  local effect_y = other_p.y
+  local new_effect_tile = new_effect_tile(effect_name)
+  set_tile(new_effect_tile, {effect_x, effect_y})
+
+  -- make the advance sound
+  sfx(sounds.advance, 3)
 end
 
 function update_hero_sprites()
@@ -843,9 +852,9 @@ function update_hero_sprites()
   end
 end
 
-function convert_pre_enemies()
-  for next in all(pre_enemies) do
-    del(pre_enemies, next)
+function hatch_enemy_eggs()
+  for next in all(enemy_eggs) do
+    del(enemy_eggs, next)
     del(board[next.x][next.y], next)
 
     local found_hero = find_type_in_tile("hero", {next.x, next.y})
@@ -878,15 +887,15 @@ end
   enemy stuff
 --]]
 
-function create_pre_enemy()
-  pre_enemy = {
+function new_enemy_egg()
+  enemy_egg = {
     x = null,
     y = null,
-    type = "pre_enemy",
-    sprite = sprites.pre_enemy
+    type = "enemy_egg",
+    sprite = sprites.enemy_egg
   }
-  add(pre_enemies, pre_enemy)
-  return pre_enemy
+  add(enemy_eggs, enemy_egg)
+  return enemy_egg
 end
 
 -- create an enemy and add it to the array of enemies
@@ -1167,6 +1176,7 @@ function refresh_potential_tiles()
   local to_remove = current_types[index]
   del(current_types, to_remove)
 
+  -- place new potential tiles
   for next in all(current_types) do
     local tile = {
       type = "potential",
@@ -1178,7 +1188,7 @@ function refresh_potential_tiles()
   end
 end
 
-function create_effect_tile(name)
+function new_effect_tile(name)
 
   local new_effect_tile = {
     x = null,
