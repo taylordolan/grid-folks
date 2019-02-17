@@ -82,6 +82,7 @@ function _init()
   hero_a_active = true
   has_switched = false
   has_killed = false
+  debug = true
 
   -- lists of things
   heroes = {}
@@ -128,7 +129,7 @@ function _init()
   spawn_modifier = initial_spawn_rate + flr(sqrt(spawn_base))
 
   -- start the music!
-  music(sounds.music)
+  -- music(sounds.music)
 end
 
 function get_spawn_rate()
@@ -301,7 +302,13 @@ function _draw()
   function draw_score()
     local text = score.. " gold"
     print(smallcaps(text), 128 - padding_left + ceil(margin / 2) - (#text * 4) + 1, 06, 09)
-    print(smallcaps("grid folks"), padding_left - ceil(margin / 2), 06, 07)
+    if not debug then
+      print(smallcaps("grid folks"), padding_left - ceil(margin / 2), 06, 07)
+    else
+      local spawn_rate = get_spawn_rate()
+      print(smallcaps(turns.. " turns "), padding_left - ceil(margin / 2), 06, 07)
+      print(smallcaps(spawn_rate.. " spawn"), 48, 06, 07)
+    end
   end
 
   function draw_instructions()
@@ -1174,8 +1181,10 @@ function refresh_pads()
     del(pads, next)
   end
 
-  -- if there are only two spaces left, deploy exits
-  if #buttons == rows * cols - 2 then
+  -- if there are only 5 spaces left, deploy exits
+  -- right now I'm thinking it has to be 5 because otherwise pads get spawned below heroes
+  -- but I should probably do something to make this more elegant.
+  if #buttons == rows * cols - 5 then
     for i = 1, 2 do
       local exit_pad = {
         type = "exit",
