@@ -12,9 +12,10 @@ __lua__
 -- [x] clean up _init()
 -- [x] rename companion to ally throughout
 -- [x] create a running list of buttons
--- [x] separate out wall generation and do it when it’s not the player’s turn
+-- [x] separate out wall generation and do it when it's not the player' turn
 -- [x] come up with better names for pads and buttons
--- [ ] build the game end state
+-- [x] build the game end state
+-- [ ] rewrite _draw() to avoid weird overlaps
 -- [ ] write a function that prints an overview of the spawn rate throughout the game
 -- [ ] add a debug mode where spawn rate and turn count show while playing
 -- [ ] when multiple enemies are present, they should act in random order
@@ -68,6 +69,7 @@ function _init()
     pad_shoot = 008,
     pad_health = 009,
     pad_score = 010,
+    exit = 028,
   }
 
   -- some game state
@@ -75,7 +77,8 @@ function _init()
   turns = 0
   delay = 0
   player_turn = true
-	game_over = false
+	game_lost = false
+  game_won = false
   hero_a_active = true
   has_switched = false
   has_killed = false
@@ -86,6 +89,7 @@ function _init()
   enemy_eggs = {}
   pads = {}
   buttons = {}
+  exits = {}
 
   -- initial buttons
   set_tile(new_button("dash"), {5,2})
@@ -147,8 +151,11 @@ end
 
 function _update()
 
-  if game_over and btnp(5) then
-    _init()
+  if game_won or game_lost then
+    if btnp(5) then
+      _init()
+    end
+    return
   end
 
   -- this is separated because switching heroes happens outside the turn order
@@ -157,6 +164,12 @@ function _update()
     has_switched = true
   end
   update_hero_sprites()
+
+  -- for testing game end state
+  -- if btnp(4) then
+  --   add_button()
+  --   refresh_pads()
+  -- end
 
   -- if the system should be waiting, then wait
   if delay > 0 then
@@ -201,9 +214,19 @@ function _update()
     player_turn = true
 	end
 
-  -- game end test
+
+  -- game won test
+  local a_xy = {hero_a.x, hero_a.y}
+  local b_xy = {hero_b.x, hero_b.y}
+  local reached_exit_a = find_type_in_tile("exit", a_xy)
+  local reached_exit_b = find_type_in_tile("exit", b_xy)
+  if reached_exit_a and reached_exit_b then
+    game_won = true
+  end
+
+  -- game lost test
   if hero_a.health <= 0 or hero_b.health <= 0 then
-    game_over = true
+    game_lost = true
   end
 end
 
@@ -455,7 +478,13 @@ function _draw()
 
   draw_outlines()
 
-  if game_over then
+  if game_won then
+    local msg = "escaped!"
+    local msg_x = 64 - (#msg * 4) / 2
+    print(smallcaps(msg), msg_x, 47, 11)
+  end
+
+  if game_lost then
 		local msg = "dead"
 		local msg_x = 64 - (#msg * 4) / 2
 		print(smallcaps(msg), msg_x, 47, 8)
@@ -635,7 +664,7 @@ function create_hero()
     -- update hero
 		update = function(self)
 
-      if game_over then return end
+      if game_lost or game_won then return end
 
       -- find the other hero
       local ally
@@ -1145,6 +1174,18 @@ function refresh_pads()
     del(pads, next)
   end
 
+  -- if there are only two spaces left, deploy exits
+  if #buttons == rows * cols - 2 then
+    for i = 1, 2 do
+      local exit_pad = {
+        type = "exit",
+        sprite = sprites.exit
+      }
+      deploy(exit_pad, {"button"})
+    end
+    return
+  end
+
   local current_types = {
     "dash",
     "shoot",
@@ -1190,14 +1231,14 @@ __gfx__
 0000000000000000007700ff00000000667766ff0000000d00000000fccffccffbbffbbff88ff88ff99ff99ff77ff77ff555555f000000000000000000000000
 0000000000000000f0000fff00000000f6666fff0000000d00000000ffcffcffffbffbffff8ff8ffff9ff9ffff7ff7ffff5555ff000000000000000000000000
 0000000000000000ffffffff00000000ffffffff0000000dddddddddffffffffffffffffffffffffffffffffffffffffffffffff000000000000000000000000
-00000000ffffffffff000fffffffffffff000fffffffffffff000fffffffffffffffffffffffffffffffffff7777777700000000000000000000000000000000
-00000000ffffffffff070fffffffffffff0c0fffffffffffff0b0fffffccccffffbbbbffff8888ffff9999ff7767767700000000000000000000000000000000
-00000000ff000fff0007000fff000fff000c000fff000fff000b000ffccccccffbbbbbbff888888ff999999f7765567700000000000000000000000000000000
-000000000007000f0777770f000c000f0ccccc0f000b000f0bbbbb0ffccccccffbbbbbbff888888ff999999f7566665700000000000000000000000000000000
-000000000777770f0007000f0ccccc0f000c000f0bbbbb0f000b000ff1cccc1ff3bbbb3ff288882ff499994f7060060700000000000000000000000000000000
-000000000007000ff07070ff000c000ff0c0c0ff000b000ff0b0b0fff111111ff333333ff222222ff444444f7066660700000000000000000000000000000000
-00000000f07070fff07070fff0c0c0fff0c0c0fff0b0b0fff0b0b0ffff1111ffff3333ffff2222ffff4444ff7760067700000000000000000000000000000000
-00000000f00000fff00000fff00000fff00000fff00000fff00000ffffffffffffffffffffffffffffffffff7777777700000000000000000000000000000000
+00000000ffffffffff000fffffffffffff000fffffffffffff000fffffffffffffffffffffffffffffffffff77777777eeeeeeee000000000000000000000000
+00000000ffffffffff070fffffffffffff0c0fffffffffffff0b0fffffccccffffbbbbffff8888ffff9999ff77677677effffffe000000000000000000000000
+00000000ff000fff0007000fff000fff000c000fff000fff000b000ffccccccffbbbbbbff888888ff999999f77655677efeeeefe000000000000000000000000
+000000000007000f0777770f000c000f0ccccc0f000b000f0bbbbb0ffccccccffbbbbbbff888888ff999999f75666657efeffefe000000000000000000000000
+000000000777770f0007000f0ccccc0f000c000f0bbbbb0f000b000ff1cccc1ff3bbbb3ff288882ff499994f70600607efeffefe000000000000000000000000
+000000000007000ff07070ff000c000ff0c0c0ff000b000ff0b0b0fff111111ff333333ff222222ff444444f70666607efeeeefe000000000000000000000000
+00000000f07070fff07070fff0c0c0fff0c0c0fff0b0b0fff0b0b0ffff1111ffff3333ffff2222ffff4444ff77600677effffffe000000000000000000000000
+00000000f00000fff00000fff00000fff00000fff00000fff00000ffffffffffffffffffffffffffffffffff77777777eeeeeeee000000000000000000000000
 __label__
 00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
