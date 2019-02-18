@@ -15,9 +15,11 @@ __lua__
 -- [x] separate out wall generation and do it when it's not the player' turn
 -- [x] come up with better names for pads and buttons
 -- [x] build the game end state
+-- [x] write a function that prints an overview of the spawn rate throughout the game
+-- [x] add a debug mode where spawn rate and turn count show while playing
+-- [ ] add some variation in when exactly enemies appear
+-- [ ] do something to make the game end state feel less clunky
 -- [ ] rewrite _draw() to avoid weird overlaps
--- [ ] write a function that prints an overview of the spawn rate throughout the game
--- [ ] add a debug mode where spawn rate and turn count show while playing
 -- [ ] when multiple enemies are present, they should act in random order
 
 -- game state that gets refreshed on restart
@@ -119,17 +121,16 @@ function _init()
   initial_spawn_rate = 12
   -- this determines the overall shape of the "spawn rate" curve
   -- the higher this is, the flatter the curve
-  -- i think the lowest usable value for this is 4
-  spawn_base = 4
+  spawn_base = 1
   -- this determines how quickly we move through the curve throughout the game
-  spawn_increment = 0.1
+  spawn_increment = 0.15
   -- this gets updated whenever an enemy spawns
   last_spawned_turn = 0
   -- this is just so i don't have to set the initial_spawn_rate in an abstract way
   spawn_modifier = initial_spawn_rate + flr(sqrt(spawn_base))
 
   -- start the music!
-  -- music(sounds.music)
+  music(sounds.music)
 end
 
 function get_spawn_rate()

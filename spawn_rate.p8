@@ -4,29 +4,26 @@ __lua__
 -- grid folks
 -- taylor d
 
--- game state that gets refreshed on restart
 function _init()
-  cls()
 
-  turns = 0
   -- this determines what the spawn rate is at the start of the game
   initial_spawn_rate = 12
   -- this determines the overall shape of the "spawn rate" curve
   -- the higher this is, the flatter the curve
-  -- i think the lowest usable value for this is 4
   spawn_base = 1
   -- this determines how quickly we move through the curve throughout the game
-  spawn_increment = 0.1
+  spawn_increment = 0.15
   -- this gets updated whenever an enemy spawns
   last_spawned_turn = 0
   -- this is just so i don't have to set the initial_spawn_rate in an abstract way
   spawn_modifier = initial_spawn_rate + flr(sqrt(spawn_base))
 
-  rates = {}
+  turns = 0
   max_turns = 600
   previous_spawn_rate = initial_spawn_rate
   new_spawn_rate = null
   graph_mode = true
+  rates = {}
 
   for i = 1, max_turns do
     new_spawn_rate = get_spawn_rate()
