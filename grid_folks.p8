@@ -85,7 +85,7 @@ function _init()
   hero_a_active = true
   has_switched = false
   has_killed = false
-  debug = true
+  debug_mode = false
 
   -- lists of things
   heroes = {}
@@ -119,12 +119,12 @@ function _init()
   deploy(new_egg, {"hero", "enemy", "egg"})
 
   -- this determines what the spawn rate is at the start of the game
-  initial_spawn_rate = 12
+  initial_spawn_rate = 16
   -- this determines the overall shape of the "spawn rate" curve
   -- the higher this is, the flatter the curve
   spawn_base = 1
   -- this determines how quickly we move through the curve throughout the game
-  spawn_increment = 0.15
+  spawn_increment = 0.3
   -- this gets updated whenever an enemy spawns
   last_spawned_turn = 0
   -- this is just so i don't have to set the initial_spawn_rate in an abstract way
@@ -168,13 +168,14 @@ function _update()
   end
   update_hero_sprites()
 
-  -- for testing game end state
-  -- if btnp(4) then
-  --   if #exits ~= 2 then
-  --     add_button()
-  --     refresh_pads()
-  --   end
-  -- end
+  if btnp(4) then
+    debug_mode = not debug_mode
+    -- for testing game end state
+    -- if #exits ~= 2 then
+    --   add_button()
+    --   refresh_pads()
+    -- end
+  end
 
   -- if the system should be waiting, then wait
   if delay > 0 then
@@ -306,12 +307,11 @@ function _draw()
   function draw_score()
     local text = score.. " gold"
     print(smallcaps(text), 128 - padding_left + ceil(margin / 2) - (#text * 4) + 1, 06, 09)
-    if not debug then
+    if not debug_mode then
       print(smallcaps("grid folks"), padding_left - ceil(margin / 2), 06, 07)
     else
       local spawn_rate = get_spawn_rate()
-      print(smallcaps(turns.. " turns "), padding_left - ceil(margin / 2), 06, 07)
-      print(smallcaps(spawn_rate.. " spawn"), 48, 06, 07)
+      print(smallcaps(turns .." , " ..spawn_rate), padding_left - ceil(margin / 2), 06, 07)
     end
   end
 

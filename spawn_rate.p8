@@ -7,12 +7,12 @@ __lua__
 function _init()
 
   -- this determines what the spawn rate is at the start of the game
-  initial_spawn_rate = 12
+  initial_spawn_rate = 16
   -- this determines the overall shape of the "spawn rate" curve
   -- the higher this is, the flatter the curve
   spawn_base = 1
   -- this determines how quickly we move through the curve throughout the game
-  spawn_increment = 0.15
+  spawn_increment = 0.3
   -- this gets updated whenever an enemy spawns
   last_spawned_turn = 0
   -- this is just so i don't have to set the initial_spawn_rate in an abstract way
@@ -58,7 +58,7 @@ function _draw()
         x = 20
         for i = 1, rates[t] do
           pset(x, y, 7)
-          x = x + 8
+          x = x + 4
         end
         x = 0
       end
