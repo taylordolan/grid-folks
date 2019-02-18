@@ -6,6 +6,7 @@ __lua__
 
 -- game state that gets refreshed on restart
 function _init()
+  cls()
 
   turns = 0
   -- this determines what the spawn rate is at the start of the game
@@ -21,11 +22,20 @@ function _init()
   -- this is just so i don't have to set the initial_spawn_rate in an abstract way
   spawn_modifier = initial_spawn_rate + flr(sqrt(spawn_base))
 
-  x = 0
-  y = 0
+  rates = {}
+  max_turns = 1000
   previous_spawn_rate = initial_spawn_rate
   new_spawn_rate = null
-  cls()
+
+  for i = 1, max_turns do
+    new_spawn_rate = get_spawn_rate()
+    if turns == 1 or new_spawn_rate < previous_spawn_rate then
+      rates[turns] = new_spawn_rate
+    end
+    turns = turns + 1
+    spawn_base += spawn_increment
+    previous_spawn_rate = new_spawn_rate
+  end
 end
 
 function get_spawn_rate()
@@ -33,16 +43,16 @@ function get_spawn_rate()
 end
 
 function _update()
-  turns = turns + 1
-  spawn_base += spawn_increment
-  new_spawn_rate = get_spawn_rate()
-  printh(new_spawn_rate)
 end
 
 function _draw()
-  if turns == 1 or new_spawn_rate < previous_spawn_rate then
-    print("spawn rate of "..new_spawn_rate .." at " ..turns .." turns", x, y)
-    previous_spawn_rate = new_spawn_rate
-    y = y + 12
+  cls()
+  x = 0
+  y = 0
+  for t = 1, max_turns do
+    if rates[t] then
+      print("spawn rate of "..rates[t] .." at " ..t .." turns", x, y)
+      y = y + 8
+    end
   end
 end
