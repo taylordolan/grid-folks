@@ -170,8 +170,10 @@ function _update()
 
   -- for testing game end state
   -- if btnp(4) then
-  --   add_button()
-  --   refresh_pads()
+  --   if #exits ~= 2 then
+  --     add_button()
+  --     refresh_pads()
+  --   end
   -- end
 
   -- if the system should be waiting, then wait
@@ -1243,13 +1245,16 @@ function refresh_pads()
   -- if there are only 5 spaces left, deploy exits
   -- right now I'm thinking it has to be 5 because otherwise pads get spawned below heroes
   -- but I should probably do something to make this more elegant.
-  if #buttons == rows * cols - 5 then
+  if #buttons == rows * cols - 4 then
     for i = 1, 2 do
-      local exit_pad = {
+      local exit = {
+        x = null,
+        y = null,
         type = "exit",
         sprite = sprites.exit
       }
-      deploy(exit_pad, {"button"})
+      add(exits, exit)
+      deploy(exit, {"button", "hero", "exit"})
     end
     return
   end
