@@ -61,7 +61,7 @@ function _init()
     hero_dash = 019,
     hero_shoot = 021,
     enemy = 002,
-    enemy_egg = 004,
+    egg = 004,
     wall_right = 005,
     wall_down = 006,
     button_dash = 023,
@@ -90,7 +90,7 @@ function _init()
   -- lists of things
   heroes = {}
   enemies = {}
-  enemy_eggs = {}
+  eggs = {}
   pads = {}
   buttons = {}
   exits = {}
@@ -115,8 +115,8 @@ function _init()
   set_tile(hero_b, {6,4})
 
 	-- initial enemy
-  local new_enemy_egg = new_enemy_egg()
-  deploy(new_enemy_egg, {"hero", "enemy", "pre-enemy"})
+  local new_egg = new_egg()
+  deploy(new_egg, {"hero", "enemy", "egg"})
 
   -- this determines what the spawn rate is at the start of the game
   initial_spawn_rate = 12
@@ -138,7 +138,7 @@ function get_spawn_rate()
   return spawn_modifier - flr(sqrt(spawn_base))
 end
 
-function should_spawn_enemy_egg()
+function should_spawn_egg()
   local spawn_rate = get_spawn_rate()
   if turns - spawn_rate >= last_spawned_turn then
     return true
@@ -146,9 +146,9 @@ function should_spawn_enemy_egg()
   return false
 end
 
-function spawn_enemy_egg()
-  local new_enemy_egg = new_enemy_egg()
-  deploy(new_enemy_egg, {"hero", "enemy", "pre-enemy"})
+function spawn_egg()
+  local new_egg = new_egg()
+  deploy(new_egg, {"hero", "enemy", "egg"})
   last_spawned_turn = turns
 end
 
@@ -200,9 +200,9 @@ function _update()
     end
 
     -- update enemy stuff
-    hatch_enemy_eggs()
-    if should_spawn_enemy_egg() then
-      spawn_enemy_egg()
+    hatch_eggs()
+    if should_spawn_egg() then
+      spawn_egg()
     end
     if #enemies > 0 then
       delay += 4
@@ -736,7 +736,7 @@ function create_hero()
 
       function step_or_bump(direction)
         local target_tile = {self.x + direction[1], self.y + direction[2]}
-        local enemy = find_type_in_tile("enemy", target_tile)
+        local enemy = find_type_in_tile("enemy", target_tile) or find_type_in_tile("egg", target_tile)
         if enemy then
           hit_enemy(enemy, 1)
         else
@@ -764,7 +764,7 @@ function create_hero()
             return false
           end
           -- if there's an enemy in the target, return it
-          local enemy = find_type_in_tile("enemy", next_tile)
+          local enemy = find_type_in_tile("enemy", next_tile) or find_type_in_tile("egg", next_tile)
           if enemy then
             return enemy
           end
@@ -819,7 +819,7 @@ function create_hero()
             return targets
           end
           -- if there's an enemy in the target, return it
-          local enemy = find_type_in_tile("enemy", next_tile)
+          local enemy = find_type_in_tile("enemy", next_tile) or find_type_in_tile("egg", next_tile)
           if enemy then
             add(targets, enemy)
           end
@@ -922,9 +922,9 @@ function update_hero_sprites()
   end
 end
 
-function hatch_enemy_eggs()
-  for next in all(enemy_eggs) do
-    del(enemy_eggs, next)
+function hatch_eggs()
+  for next in all(eggs) do
+    del(eggs, next)
     del(board[next.x][next.y], next)
 
     local found_hero = find_type_in_tile("hero", {next.x, next.y})
@@ -948,8 +948,12 @@ function hit_enemy(enemy, damage)
   enemy.health -= damage
   if (enemy.health <= 0) then
     has_killed = true
-    del(enemies, enemy)
     del(board[enemy.x][enemy.y], enemy)
+    if enemy.type == "enemy" then
+      del(enemies, enemy)
+    elseif enemy.type == "egg" then
+      del(eggs, enemy)
+    end
   end
 end
 
@@ -957,15 +961,16 @@ end
   enemy stuff
 --]]
 
-function new_enemy_egg()
-  enemy_egg = {
+function new_egg()
+  egg = {
     x = null,
     y = null,
-    type = "enemy_egg",
-    sprite = sprites.enemy_egg
+    health = 1,
+    type = "egg",
+    sprite = sprites.egg
   }
-  add(enemy_eggs, enemy_egg)
-  return enemy_egg
+  add(eggs, egg)
+  return egg
 end
 
 -- create an enemy and add it to the array of enemies
