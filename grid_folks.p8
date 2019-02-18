@@ -21,6 +21,7 @@ __lua__
 -- [ ] do something to make the game end state feel less clunky
 -- [ ] rewrite _draw() to avoid weird overlaps
 -- [ ] when multiple enemies are present, they should act in random order
+-- [ ] randomly distribute starting abilities
 
 -- game state that gets refreshed on restart
 function _init()
@@ -662,8 +663,8 @@ function create_hero()
 		type = "hero",
     base_sprite = sprites.hero,
     sprite = null,
-    max_health = 5,
-    health = 5,
+    max_health = 3,
+    health = 3,
 
     -- buttons
     dash = false,
@@ -718,16 +719,13 @@ function create_hero()
             hit_enemy(shoot_target, 1)
             sfx(sounds.shoot, 3)
           elseif self.dash then
-            step_or_bump(direction)
-            next_tile = {self.x + direction[1], self.y + direction[2]}
-            if
-              location_exists(next_tile) and
-              not is_wall_between({self.x, self.y}, next_tile) and
-              not find_type_in_tile("hero", next_tile)
-            then
-              step_or_bump(direction)
-              sfx(sounds.dash, 3)
+            local dest = get_dash_dest(direction)
+            local targets = get_dash_targets(direction)
+            for next in all(targets) do
+              hit_enemy(next, 3)
             end
+            set_tile(self, dest)
+            sfx(sounds.dash, 3)
           else
             step_or_bump(direction)
             sfx(sounds.step, 3)
@@ -769,6 +767,61 @@ function create_hero()
           local enemy = find_type_in_tile("enemy", next_tile)
           if enemy then
             return enemy
+          end
+          -- set `current` to `next_tile` and keep going
+          now_tile = next_tile
+        end
+      end
+
+      function get_dash_dest(direction)
+
+        local now_tile = {self.x, self.y}
+        local x_vel = direction[1]
+        local y_vel = direction[2]
+
+        while true do
+          -- define the current target
+          local next_tile = {now_tile[1] + x_vel, now_tile[2] + y_vel}
+          -- if `next_tile` is off the map, or there's a wall in the way, return false
+          if
+            location_exists(next_tile) == false or
+            is_wall_between(now_tile, next_tile) or
+            find_type_in_tile("hero", next_tile)
+          then
+            return now_tile
+          end
+          -- if there's an enemy in the target, return it
+          -- local enemy = find_type_in_tile("enemy", next_tile)
+          -- if enemy then
+          --   return enemy
+          -- end
+          -- set `current` to `next_tile` and keep going
+          now_tile = next_tile
+        end
+      end
+
+      function get_dash_targets(direction)
+
+        local now_tile = {self.x, self.y}
+        local x_vel = direction[1]
+        local y_vel = direction[2]
+        local targets = {}
+
+        while true do
+          -- define the current target
+          local next_tile = {now_tile[1] + x_vel, now_tile[2] + y_vel}
+          -- if `next_tile` is off the map, or there's a wall in the way, return false
+          if
+            location_exists(next_tile) == false or
+            is_wall_between(now_tile, next_tile) or
+            find_type_in_tile("hero", next_tile)
+          then
+            return targets
+          end
+          -- if there's an enemy in the target, return it
+          local enemy = find_type_in_tile("enemy", next_tile)
+          if enemy then
+            add(targets, enemy)
           end
           -- set `current` to `next_tile` and keep going
           now_tile = next_tile
