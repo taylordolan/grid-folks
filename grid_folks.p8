@@ -168,14 +168,14 @@ function _update()
   end
   update_hero_sprites()
 
-  if btnp(4) then
-    debug_mode = not debug_mode
-    -- for testing game end state
-    -- if #exits ~= 2 then
-    --   add_button()
-    --   refresh_pads()
-    -- end
-  end
+  -- if btnp(4) then
+  --   debug_mode = not debug_mode
+  --   -- for testing game end state
+  --   -- if #exits ~= 2 then
+  --   --   add_button()
+  --   --   refresh_pads()
+  --   -- end
+  -- end
 
   -- if the system should be waiting, then wait
   if delay > 0 then
@@ -316,11 +316,11 @@ function _draw()
   end
 
   function draw_instructions()
-    if not has_switched or not has_killed then
-      draw_intro_instructions()
-    else
-      draw_button_instructions()
-    end
+    -- if not has_switched or not has_killed then
+    --   draw_intro_instructions()
+    -- else
+    draw_button_instructions()
+    -- end
   end
 
   function draw_intro_instructions()
