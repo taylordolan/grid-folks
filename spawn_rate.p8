@@ -12,9 +12,13 @@ function _init()
   -- the higher this is, the flatter the curve
   spawn_base = 1
   -- this determines how quickly we move through the curve throughout the game
-  spawn_increment = 0.3
+  spawn_increment = 0.4
+
+  -- spawn stuff below here shouldn't be messed with
   -- this gets updated whenever an enemy spawns
   last_spawned_turn = 0
+  -- this tracks whether we've spawned a turn early
+  spawned_early = false
   -- this is just so i don't have to set the initial_spawn_rate in an abstract way
   spawn_modifier = initial_spawn_rate + flr(sqrt(spawn_base))
 

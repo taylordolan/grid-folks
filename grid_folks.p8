@@ -17,11 +17,12 @@ __lua__
 -- [x] build the game end state
 -- [x] write a function that prints an overview of the spawn rate throughout the game
 -- [x] add a debug mode where spawn rate and turn count show while playing
--- [ ] add some variation in when exactly enemies appear
--- [ ] do something to make the game end state feel less clunky
+-- [x] add some variation in when exactly enemies appear
 -- [ ] rewrite _draw() to avoid weird overlaps
 -- [ ] when multiple enemies are present, they should act in random order
 -- [ ] randomly distribute starting abilities
+-- [ ] do something to make the game end state feel less clunky
+-- [ ] maybe enemies should just enter stunned with full health. that would solve how to show they're stunned after being shot too
 
 -- game state that gets refreshed on restart
 function _init()
@@ -124,9 +125,13 @@ function _init()
   -- the higher this is, the flatter the curve
   spawn_base = 1
   -- this determines how quickly we move through the curve throughout the game
-  spawn_increment = 0.3
+  spawn_increment = 0.4
+
+  -- spawn stuff below here shouldn't be messed with
   -- this gets updated whenever an enemy spawns
   last_spawned_turn = 0
+  -- this tracks whether we've spawned a turn early
+  spawned_early = false
   -- this is just so i don't have to set the initial_spawn_rate in an abstract way
   spawn_modifier = initial_spawn_rate + flr(sqrt(spawn_base))
 
@@ -140,10 +145,25 @@ end
 
 function should_spawn_egg()
   local spawn_rate = get_spawn_rate()
-  if turns - spawn_rate >= last_spawned_turn then
-    return true
+  local should_spawn = false
+
+  -- if it's one turn before reaching the spawn rate
+  if turns - last_spawned_turn == spawn_rate - 1 then
+    -- 50% chance of spawning early
+    if flr(rnd(2)) == 1 then
+      -- if spawning early, then mark it in a global variable so we don't also spawn the next turn
+      spawned_early = true
+      should_spawn = true
+    end
+  -- if this turn has actually reached the spawn rate
+  elseif turns - last_spawned_turn >= spawn_rate then
+    if not spawned_early then
+      should_spawn = true
+    end
+    -- reset this variable for next round
+    spawned_early = false
   end
-  return false
+  return should_spawn
 end
 
 function spawn_egg()
@@ -168,14 +188,14 @@ function _update()
   end
   update_hero_sprites()
 
-  -- if btnp(4) then
-  --   debug_mode = not debug_mode
-  --   -- for testing game end state
-  --   -- if #exits ~= 2 then
-  --   --   add_button()
-  --   --   refresh_pads()
-  --   -- end
-  -- end
+  if btnp(4) then
+    debug_mode = not debug_mode
+    -- for testing game end state
+    -- if #exits ~= 2 then
+    --   add_button()
+    --   refresh_pads()
+    -- end
+  end
 
   -- if the system should be waiting, then wait
   if delay > 0 then
@@ -1243,8 +1263,8 @@ function refresh_pads()
   end
 
   -- if there are only 5 spaces left, deploy exits
-  -- right now I'm thinking it has to be 5 because otherwise pads get spawned below heroes
-  -- but I should probably do something to make this more elegant.
+  -- right now i'm thinking it has to be 5 because otherwise pads get spawned below heroes
+  -- but i should probably do something to make this more elegant.
   if #buttons == rows * cols - 4 then
     for i = 1, 2 do
       local exit = {
@@ -1574,3 +1594,4 @@ __music__
 00 00000000
 00 00000000
 00 00000000
+
