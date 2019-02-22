@@ -18,6 +18,7 @@ __lua__
 -- [x] write a function that prints an overview of the spawn rate throughout the game
 -- [x] add a debug mode where spawn rate and turn count show while playing
 -- [x] add some variation in when exactly enemies appear
+-- [ ] add basic animations
 -- [ ] rewrite _draw() to avoid weird overlaps
 -- [ ] when multiple enemies are present, they should act in random order
 -- [ ] randomly distribute starting abilities
@@ -685,8 +686,8 @@ function create_hero()
 		type = "hero",
     base_sprite = sprites.hero,
     sprite = null,
-    max_health = 3,
-    health = 3,
+    max_health = 2,
+    health = 2,
 
     -- buttons
     dash = false,
