@@ -125,7 +125,7 @@ function _init()
   -- the higher this is, the flatter the curve
   spawn_base = 1
   -- this determines how quickly we move through the curve throughout the game
-  spawn_increment = 0.4
+  spawn_increment = 0.5
 
   -- spawn stuff below here shouldn't be messed with
   -- this gets updated whenever an enemy spawns
@@ -1002,7 +1002,7 @@ function create_enemy(tile)
     y = null,
     type = "enemy",
     sprite = sprites.enemy,
-    health = 3,
+    health = 2,
     stunned = true,
     update = function(self)
 
