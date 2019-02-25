@@ -18,6 +18,8 @@ __lua__
 -- [x] write a function that prints an overview of the spawn rate throughout the game
 -- [x] add a debug mode where spawn rate and turn count show while playing
 -- [x] add some variation in when exactly enemies appear
+-- [ ] implement transitions for movement
+-- [ ] try a 5 x 7 board instead
 -- [ ] add basic animations
 -- [ ] rewrite _draw() to avoid weird overlaps
 -- [ ] when multiple enemies are present, they should act in random order
@@ -80,7 +82,6 @@ function _init()
   -- some game state
   score = 0
   turns = 0
-  delay = 0
   player_turn = true
 	game_lost = false
   game_won = false
@@ -135,6 +136,10 @@ function _init()
   spawned_early = false
   -- this is just so i don't have to set the initial_spawn_rate in an abstract way
   spawn_modifier = initial_spawn_rate + flr(sqrt(spawn_base))
+
+  -- transition stuff
+  transition_frames = 8
+  input_delay = 0
 
   -- start the music!
   music(sounds.music)
@@ -199,8 +204,8 @@ function _update()
   end
 
   -- if the system should be waiting, then wait
-  if delay > 0 then
-		delay = delay - 1
+  if input_delay > 0 then
+		input_delay = input_delay - 1
 
   -- if it's the player's turn, then listen for input and respond to it
 	elseif player_turn == true then
@@ -229,7 +234,7 @@ function _update()
       spawn_egg()
     end
     if #enemies > 0 then
-      delay += 4
+      input_delay += 4
     end
     for next in all(enemies) do
       next.update(next)
