@@ -7,6 +7,7 @@ __lua__
 -- [x] support for a sequence of positions
 -- [x] allow different transition speeds for different movements
 -- [x] fix input delay
+-- [ ] allow one input during transitions
 
 p = {}
 -- screen position
@@ -69,27 +70,24 @@ function _update()
   if not is_transitioning() then
     -- player turn
     if player_turn == true then
+      local dest
       -- left
-      if btnp(0) then
-        local dest = {p.s[1] - tile_size, p.s[2]}
-        transition(p, {dest}, 4)
-        player_turn = false
-      end
-      -- right
-      if btnp(1) then
-        local dest = {p.s[1] + tile_size, p.s[2]}
-        transition(p, {dest}, 4)
-        player_turn = false
-      end
-      -- up
-      if btnp(2) then
-        local dest = {p.s[1], p.s[2] - tile_size}
-        transition(p, {dest}, 4)
-        player_turn = false
-      end
-      -- down
-      if btnp(3) then
-        local dest = {p.s[1], p.s[2] + tile_size}
+      if btnp(0) or btnp(1) or btnp(2) or btnp(3) then
+        if btnp(0) then
+          dest = {p.s[1] - tile_size, p.s[2]}
+        end
+        -- right
+        if btnp(1) then
+          dest = {p.s[1] + tile_size, p.s[2]}
+        end
+        -- up
+        if btnp(2) then
+          dest = {p.s[1], p.s[2] - tile_size}
+        end
+        -- down
+        if btnp(3) then
+          dest = {p.s[1], p.s[2] + tile_size}
+        end
         transition(p, {dest}, 4)
         player_turn = false
       end
