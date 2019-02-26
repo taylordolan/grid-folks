@@ -6,6 +6,7 @@ __lua__
 -- [x] represent positions as arrays
 -- [x] support for a sequence of positions
 -- [x] allow different transition speeds for different movements
+-- [x] fix input delay
 
 p = {}
 -- screen position
@@ -31,15 +32,11 @@ e.transition_speed = 1 -- in frames
 
 actors = {p, e}
 player_turn = true
--- transition_speed = 4 -- in frames
-input_delay = 0
 tile_size = 16
 
 function move()
   for next in all(actors) do
-    -- if screen position differs from dest position
-    -- todo: eventually this should just check if #t > 0
-    -- or maybe not. think about what happens when a button is pressed
+    -- if there are one or more target destinations
     if #next.t > 0 then
       -- if this will be the first frame of this transition
       if next.frames_so_far == 0 then
@@ -69,48 +66,40 @@ function move()
 end
 
 function _update()
-  if input_delay > 0 then
-    input_delay = input_delay - 1
-  -- player turn
-  elseif player_turn == true then
-    -- left
-    if btnp(0) then
-      -- todo: this could work by checking if #d > 0
-      -- assuming d is reset to {} after a successful transition
-      -- then we wouldn't need input_delay
-      -- actually it would have to check all actors. not sure if that's worth it or not
-      input_delay += p.transition_speed
-      local dest = {p.s[1] - tile_size, p.s[2]}
-      transition(p, {dest}, 4)
-      player_turn = false
+  if not is_transitioning() then
+    -- player turn
+    if player_turn == true then
+      -- left
+      if btnp(0) then
+        local dest = {p.s[1] - tile_size, p.s[2]}
+        transition(p, {dest}, 4)
+        player_turn = false
+      end
+      -- right
+      if btnp(1) then
+        local dest = {p.s[1] + tile_size, p.s[2]}
+        transition(p, {dest}, 4)
+        player_turn = false
+      end
+      -- up
+      if btnp(2) then
+        local dest = {p.s[1], p.s[2] - tile_size}
+        transition(p, {dest}, 4)
+        player_turn = false
+      end
+      -- down
+      if btnp(3) then
+        local dest = {p.s[1], p.s[2] + tile_size}
+        transition(p, {dest}, 4)
+        player_turn = false
+      end
+    -- simulate enemy turn
+    elseif player_turn == false then
+      local dest2 = {e.s[1], e.s[2]}
+      local dest1 = {e.s[1] + tile_size, e.s[2]}
+      transition(e, {dest1, dest2}, 16)
+      player_turn = true
     end
-    -- right
-    if btnp(1) then
-      input_delay += p.transition_speed
-      local dest = {p.s[1] + tile_size, p.s[2]}
-      transition(p, {dest}, 4)
-      player_turn = false
-    end
-    -- up
-    if btnp(2) then
-      input_delay += p.transition_speed
-      local dest = {p.s[1], p.s[2] - tile_size}
-      transition(p, {dest}, 4)
-      player_turn = false
-    end
-    -- down
-    if btnp(3) then
-      input_delay += p.transition_speed
-      local dest = {p.s[1], p.s[2] + tile_size}
-      transition(p, {dest}, 4)
-      player_turn = false
-    end
-  -- simulate enemy turn
-  elseif player_turn == false then
-    local dest2 = {e.s[1], e.s[2]}
-    local dest1 = {e.s[1] + tile_size, e.s[2]}
-    transition(e, {dest1, dest2}, 16)
-    player_turn = true
   end
   move()
 end
@@ -127,6 +116,16 @@ function transition(thing, targets, speed)
   for next in all(targets) do
     add(thing.t, next)
   end
+end
+
+function is_transitioning()
+  local transitioning = false
+  for next in all(actors) do
+    if #next.t > 0 then
+      transitioning = true
+    end
+  end
+  return transitioning
 end
 
 __gfx__
