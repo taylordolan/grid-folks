@@ -7,7 +7,7 @@ __lua__
 -- [x] support for a sequence of positions
 -- [x] allow different transition speeds for different movements
 -- [x] fix input delay
--- [ ] allow one input during transitions
+-- [x] allow one input during transitions
 
 p = {}
 -- screen position
@@ -34,6 +34,7 @@ e.transition_speed = 1 -- in frames
 actors = {p, e}
 player_turn = true
 tile_size = 16
+input_log = {}
 
 function move()
   for next in all(actors) do
@@ -67,37 +68,42 @@ function move()
 end
 
 function _update()
-  if not is_transitioning() then
-    -- player turn
-    if player_turn == true then
-      local dest
-      -- left
-      if btnp(0) or btnp(1) or btnp(2) or btnp(3) then
-        if btnp(0) then
-          dest = {p.s[1] - tile_size, p.s[2]}
-        end
-        -- right
-        if btnp(1) then
-          dest = {p.s[1] + tile_size, p.s[2]}
-        end
-        -- up
-        if btnp(2) then
-          dest = {p.s[1], p.s[2] - tile_size}
-        end
-        -- down
-        if btnp(3) then
-          dest = {p.s[1], p.s[2] + tile_size}
-        end
-        transition(p, {dest}, 4)
-        player_turn = false
-      end
-    -- simulate enemy turn
-    elseif player_turn == false then
-      local dest2 = {e.s[1], e.s[2]}
-      local dest1 = {e.s[1] + tile_size, e.s[2]}
-      transition(e, {dest1, dest2}, 16)
-      player_turn = true
+  -- only accept two inputs
+  -- accepting more might result in the players committing moves too early
+  if #input_log < 2 then
+    local input
+    -- left
+    if btnp(0) then
+      input = {-1, 0}
     end
+    -- right
+    if btnp(1) then
+      input = {1, 0}
+    end
+    -- up
+    if btnp(2) then
+      input = {0, -1}
+    end
+    -- down
+    if btnp(3) then
+      input = {0, 1}
+    end
+    add(input_log, input)
+  end
+  if #input_log > 0 and is_transitioning() == false then
+    -- player turn
+    local dir = input_log[1]
+    input_log = {}
+    local screen_x = p.s[1]
+    local screen_y = p.s[2]
+    local vel_x = tile_size * dir[1]
+    local vel_y = tile_size * dir[2]
+    local dest = {screen_x + vel_x , screen_y + vel_y}
+    transition(p, {dest}, 4)
+    -- enemy turn
+    local dest2 = {e.s[1], e.s[2]}
+    local dest1 = {e.s[1] + tile_size, e.s[2]}
+    transition(e, {dest1, dest2}, 16)
   end
   move()
 end
