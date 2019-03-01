@@ -23,7 +23,7 @@ __lua__
 -- [x] fix sound stuff
 -- [x] add bump transitions
 -- [x] fix bug: stepping into walls still advances the turn
--- [ ] add shoot animation
+-- [x] add shoot animation
 -- [ ] try a 5 x 7 board instead
 -- [ ] when multiple enemies are present, they should act in random order
 -- [ ] randomly distribute starting abilities
@@ -58,6 +58,9 @@ function _init()
   -- padding_top = flr((screen_size - total_map_height) / 2)
   padding_top = 20
   transition_frames = 4
+  shot_points = {}
+  shot_direction = {}
+  shot_duration = 0
 
   -- sounds dictionary
   sounds = {
@@ -93,6 +96,26 @@ function _init()
     pad_health = 009,
     pad_score = 010,
     exit = 028,
+  }
+
+  -- colors dictionary
+  colors = {
+    black = 0,
+    navy = 1,
+    maroon = 2,
+    forest = 3,
+    brown = 4,
+    dark_gray = 5,
+    light_gray = 6,
+    white = 7,
+    red = 8,
+    orange = 9,
+    yellow = 10,
+    green = 11,
+    blue = 12,
+    purple = 13,
+    pink = 14,
+    tan = 15,
   }
 
   -- some game state
@@ -441,6 +464,39 @@ function _draw()
     rect(rect_origin[1] - 1, rect_origin[2] - 1, rect_opposite[1] + 1, rect_opposite[2] + 1, background_color)
   end
 
+  function draw_shot(a, b, dir)
+    local ax = a[1]
+    local ay = a[2]
+    local bx = b[1]
+    local by = b[2]
+    -- up
+    if pair_equal(dir, {0, -1}) then
+      ax += 3
+      bx += 3
+      ay -= 2
+      by += 8
+    -- down
+    elseif pair_equal(dir, {0, 1}) then
+      ax += 3
+      bx += 3
+      ay += 9
+      by -= 1
+    -- left
+    elseif pair_equal(dir, {-1, 0}) then
+      ax -= 2
+      bx += 7
+      ay += 3
+      by += 3
+    -- right
+    elseif pair_equal(dir, {1, 0}) then
+      ax += 8
+      bx -= 2
+      ay += 3
+      by += 3
+    end
+    rectfill(ax, ay, bx, by, colors.green)
+  end
+
   function draw_score()
     local text = score.. " gold"
     print(smallcaps(text), 128 - padding_left + ceil(margin / 2) - (#text * 4) + 1, 06, 09)
@@ -620,6 +676,14 @@ function _draw()
 		end
 	end
 
+  if #shot_points > 0 then
+    draw_shot(shot_points[1], shot_points[2], shot_direction)
+    shot_duration -= 1
+    if shot_duration <= 0 then
+      shot_points = {}
+      shot_direction = {}
+    end
+  end
   draw_outlines()
 
   if game_won then
@@ -954,6 +1018,9 @@ function create_hero()
           hit_enemy(shoot_target, 1)
           delay += transition_frames
           sfx(sounds.shoot, 3)
+          shot_points = {self.s, shoot_target.s}
+          shot_direction = direction
+          shot_duration = 4
           -- player_turn = false
         elseif self.dash then
           local dest = get_dash_dest(direction)
@@ -1229,27 +1296,35 @@ function new_enemy()
   return enemy
 end
 
-function get_direction(start, dest)
-  local sx = start[1]
-  local sy = start[2]
-  local dx = dest[1]
-  local dy = dest[2]
+function get_direction(a, b)
+  local ax = a[1]
+  local ay = a[2]
+  local bx = b[1]
+  local by = b[2]
   -- up
-  if dx == sx and dy == sy - 1 then
+  if bx == ax and by == ay - 1 then
+  -- if dest ==
     return {0, -1}
   -- down
-  elseif dx == sx and dy == sy + 1 then
+  elseif bx == ax and by == ay + 1 then
     return {0, 1}
   -- left
-  elseif dx == sx - 1 and dy == sy then
+  elseif bx == ax - 1 and by == ay then
     return {-1, 0}
   -- right
-  elseif dx == sx + 1 and dy == sy then
+  elseif bx == ax + 1 and by == ay then
     return {1, 0}
   -- fail
   else
     return false
   end
+end
+
+function pair_equal(a, b)
+  if a[1] == b[1] and a[2] == b[2] then
+    return true
+  end
+  return false
 end
 
 function distance(start, goal)
