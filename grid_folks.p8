@@ -19,7 +19,7 @@ __lua__
 -- [x] add a debug mode where spawn rate and turn count show while playing
 -- [x] add some variation in when exactly enemies appear
 -- [x] implement transitions for movement
--- [ ] maybe enemies should just enter stunned with full health. that would solve how to show they're stunned after being shot too
+-- [x] maybe enemies should just enter stunned with full health. that would solve how to show they're stunned after being shot too
 -- [ ] fix sound stuff
 -- [ ] convert s{} to sx and sy
 -- [ ] try a 5 x 7 board instead
@@ -55,6 +55,7 @@ function _init()
   padding_left = flr((screen_size - total_map_width) / 2)
   -- padding_top = flr((screen_size - total_map_height) / 2)
   padding_top = 20
+  transition_frames = 4
 
   -- sounds dictionary
   sounds = {
@@ -102,6 +103,7 @@ function _init()
   has_switched = false
   has_killed = false
   debug_mode = false
+  delay = 0
 
   -- lists of things
   heroes = {}
@@ -239,8 +241,11 @@ function _update()
     end
     add(input_log, input)
   end
+
+  if delay > 0 then
+    delay -= 1
   -- player turn
-  if #input_log > 0 and player_turn == true and is_transitioning_enemies() == false then
+  elseif player_turn == true and #input_log > 0 then
     local dir = input_log[1]
     del(input_log, dir)
     local active_hero
@@ -251,9 +256,8 @@ function _update()
     end
     active_hero.act(active_hero, dir)
     player_turn = false
-  end
   -- enemy turn
-  if player_turn == false and is_transitioning_heroes() == false then
+  elseif player_turn == false then
     update_hero_abilities()
     if should_advance() then
       add_button()
@@ -649,22 +653,15 @@ function set_tile(thing, dest)
   thing.x = dest[1]
   thing.y = dest[2]
 
-  -- if thing.type == "hero" or thing.type == "enemy" then
   if thing.s and #thing.s > 0 then
     local screen_x = thing.s[1]
     local screen_y = thing.s[2]
-    -- local vel_x = tile_size * dir[1]
-    -- local vel_y = tile_size * dir[2]
     local screen_dest = board_position_to_screen_position({dest[1], dest[2]})
-    set_target_positions(thing, {screen_dest}, 4)
-  -- end
+    set_target_positions(thing, {screen_dest}, transition_frames)
   else
     local screen_dest = board_position_to_screen_position({dest[1], dest[2]})
-    -- set_target_positions(thing, {screen_dest}, 4)
-    printh(screen_dest[1])
     thing.s = {screen_dest[1], screen_dest[2]}
   end
-  -- end
 
   -- this is here for now because enemy buttons need to be triggered when enemies step or are deployed
   -- todo: this should probably be done differently somehow
@@ -920,8 +917,10 @@ function create_hero()
         shoot_target = get_shoot_target(direction)
         if self.shoot and shoot_target then
           shoot_target.stunned = true
+          shoot_target.sprite = sprites.egg
           hit_enemy(shoot_target, 1)
           sfx(sounds.shoot, 3)
+          delay += transition_frames
         elseif self.dash then
           local dest = get_dash_dest(direction)
           local targets = get_dash_targets(direction)
@@ -929,9 +928,11 @@ function create_hero()
             hit_enemy(next, 3)
           end
           set_tile(self, dest)
+          delay += transition_frames
           sfx(sounds.dash, 3)
         else
           step_or_bump(direction)
+          delay += transition_frames
           sfx(sounds.step, 3)
         end
         player_turn = false
