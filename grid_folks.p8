@@ -20,10 +20,10 @@ __lua__
 -- [x] add some variation in when exactly enemies appear
 -- [x] implement transitions for movement
 -- [x] maybe enemies should just enter stunned with full health. that would solve how to show they're stunned after being shot too
--- [ ] fix sound stuff
+-- [x] fix sound stuff
 -- [ ] convert s{} to sx and sy
 -- [ ] try a 5 x 7 board instead
--- [ ] add basic animations
+-- [ ] add basic attack animations
 -- [ ] when multiple enemies are present, they should act in random order
 -- [ ] randomly distribute starting abilities
 -- [ ] do something to make the game end state feel less clunky
@@ -66,10 +66,10 @@ function _init()
     dash = 025,
     step = 021,
     advance = 027,
-    pad_step = 028, -- todo: not implemented anymore
-    switch_heroes = 000, -- todo: not implemented
-    enemy_bump = 000, -- todo: not implemented
-    hero_bump = 000, -- todo: not implemented
+    pad_step = 028,
+    switch_heroes = 000,
+    enemy_bump = 000,
+    hero_bump = 000,
   }
 
   -- sprites dictionary
@@ -207,6 +207,7 @@ function _update()
   if btnp(5) then
     hero_a_active = not hero_a_active
     has_switched = true
+    sfx(sounds.switch_heroes, 3)
   end
   update_hero_sprites()
 
@@ -668,6 +669,14 @@ function set_tile(thing, dest)
   if thing.type == "enemy" then
     trigger_enemy_buttons(dest)
   end
+
+  if thing.type == "hero" and find_type_in_tile("pad", dest) then
+    if find_type_in_tile("pad", dest) then
+      sfx(sounds.pad_step, 3)
+    else
+      sfx(sounds.step, 3)
+    end
+  end
 end
 
 function board_position_to_screen_position(board_position)
@@ -821,6 +830,7 @@ function create_hero()
         local enemy = find_type_in_tile("enemy", target_tile) or find_type_in_tile("egg", target_tile)
         if enemy then
           hit_enemy(enemy, 1)
+          sfx(sounds.hero_bump, 3)
         else
           set_tile(self, target_tile)
         end
@@ -933,7 +943,6 @@ function create_hero()
         else
           step_or_bump(direction)
           delay += transition_frames
-          sfx(sounds.step, 3)
         end
         player_turn = false
       end
@@ -1174,6 +1183,7 @@ function new_enemy()
         if target then
           if target.health > 0 then
             target.health -= 1
+            sfx(sounds.enemy_bump, 3)
           end
         else
           set_tile(self, dest)
