@@ -21,12 +21,14 @@ __lua__
 -- [x] implement transitions for movement
 -- [x] maybe enemies should just enter stunned with full health. that would solve how to show they're stunned after being shot too
 -- [x] fix sound stuff
--- [ ] convert s{} to sx and sy
+-- [x] add bump transitions
+-- [ ] fix bug: stepping into walls still advances the turn
+-- [ ] add shoot animation
 -- [ ] try a 5 x 7 board instead
--- [ ] add basic attack animations
 -- [ ] when multiple enemies are present, they should act in random order
 -- [ ] randomly distribute starting abilities
--- [ ] do something to make the game end state feel less clunky
+-- [ ] convert s{} to sx and sy
+-- [ ] tweak spawn rates
 
 -- game state that gets refreshed on restart
 function _init()
@@ -138,8 +140,9 @@ function _init()
 	-- initial enemy
   -- local new_egg = new_egg()
   -- deploy(new_egg, {"hero", "enemy", "egg"})
-  local new_enemy = new_enemy()
-  deploy(new_enemy, {"hero", "enemy"})
+  -- local new_enemy = new_enemy()
+  -- deploy(new_enemy, {"hero", "enemy"})
+  spawn_enemy()
 
   -- this determines what the spawn rate is at the start of the game
   initial_spawn_rate = 16
@@ -165,34 +168,40 @@ function get_spawn_rate()
   return spawn_modifier - flr(sqrt(spawn_base))
 end
 
--- function should_spawn_egg()
---   local spawn_rate = get_spawn_rate()
---   local should_spawn = false
+function should_spawn()
+  local spawn_rate = get_spawn_rate()
+  local should_spawn = false
 
---   -- if it's one turn before reaching the spawn rate
---   if turns - last_spawned_turn == spawn_rate - 1 then
---     -- 50% chance of spawning early
---     if flr(rnd(2)) == 1 then
---       -- if spawning early, then mark it in a global variable so we don't also spawn the next turn
---       spawned_early = true
---       should_spawn = true
---     end
---   -- if this turn has actually reached the spawn rate
---   elseif turns - last_spawned_turn >= spawn_rate then
---     if not spawned_early then
---       should_spawn = true
---     end
---     -- reset this variable for next round
---     spawned_early = false
---   end
---   return should_spawn
--- end
+  -- if it's one turn before reaching the spawn rate
+  if turns - last_spawned_turn == spawn_rate - 1 then
+    -- 50% chance of spawning early
+    if flr(rnd(2)) == 1 then
+      -- if spawning early, then mark it in a global variable so we don't also spawn the next turn
+      spawned_early = true
+      should_spawn = true
+    end
+  -- if this turn has actually reached the spawn rate
+  elseif turns - last_spawned_turn >= spawn_rate then
+    if not spawned_early then
+      should_spawn = true
+    end
+    -- reset this variable for next round
+    spawned_early = false
+  end
+  return should_spawn
+end
 
 -- function spawn_egg()
 --   local new_egg = new_egg()
 --   deploy(new_egg, {"hero", "enemy", "egg"})
 --   last_spawned_turn = turns
 -- end
+
+function spawn_enemy()
+  local new_enemy = new_enemy()
+  deploy(new_enemy, {"hero", "enemy"})
+  last_spawned_turn = turns
+end
 
 function _update()
 
@@ -266,17 +275,19 @@ function _update()
       refresh_walls()
     end
     -- hatch_eggs()
-    -- if should_spawn_egg() then
-    --   spawn_egg()
-    -- end
     for next in all(enemies) do
       next.update(next)
+    end
+    if should_spawn() then
+      -- spawn_egg()
+      spawn_enemy()
     end
     -- update game state
     turns = turns + 1
     player_turn = true
     spawn_base += spawn_increment
   end
+
   -- update screen positions
   for next in all(heroes) do
     update_screen_position(next)
@@ -285,18 +296,19 @@ function _update()
     update_screen_position(next)
   end
 
-  -- game won test
-  local a_xy = {hero_a.x, hero_a.y}
-  local b_xy = {hero_b.x, hero_b.y}
-  local reached_exit_a = find_type_in_tile("exit", a_xy)
-  local reached_exit_b = find_type_in_tile("exit", b_xy)
-  if reached_exit_a and reached_exit_b then
-    game_won = true
-  end
-
-  -- game lost test
-  if hero_a.health <= 0 or hero_b.health <= 0 then
-    game_lost = true
+  if delay <= 0 then
+    -- game won test
+    local a_xy = {hero_a.x, hero_a.y}
+    local b_xy = {hero_b.x, hero_b.y}
+    local reached_exit_a = find_type_in_tile("exit", a_xy)
+    local reached_exit_b = find_type_in_tile("exit", b_xy)
+    if reached_exit_a and reached_exit_b then
+      game_won = true
+    end
+    -- game lost test
+    if hero_a.health <= 0 or hero_b.health <= 0 then
+      game_lost = true
+    end
   end
 end
 
@@ -328,8 +340,10 @@ function smallcaps(s)
 end
 
 function update_screen_position(thing)
+  if thing.td and thing.td > 0 then
+    thing.td -= 1
   -- if there are one or more target destinations
-  if #thing.t > 0 then
+  elseif #thing.t > 0 then
     -- if this will be the first frame of this transition
     if thing.frames_so_far == 0 then
       -- determine how many pixels to move the sprite each frame
@@ -363,35 +377,42 @@ function set_target_positions(thing, positions, speed)
   end
 end
 
-function is_transitioning()
-  local transitioning = false
-  for next in all(actors) do
-    if #next.t > 0 then
-      transitioning = true
-    end
-  end
-  return transitioning
+function set_bump_transition(thing, direction, total_transition_time, transition_delay)
+  local origin_position = {thing.s[1], thing.s[2]}
+  local adjust_position = {thing.s[1] + direction[1], thing.s[2] + direction[2]}
+  set_target_positions(thing, {adjust_position, origin_position}, total_transition_time / 2)
+  thing.td = transition_delay
 end
 
-function is_transitioning_heroes()
-  local transitioning = false
-  for next in all(heroes) do
-    if #next.t > 0 then
-      transitioning = true
-    end
-  end
-  return transitioning
-end
+-- function is_transitioning()
+--   local transitioning = false
+--   for next in all(actors) do
+--     if #next.t > 0 then
+--       transitioning = true
+--     end
+--   end
+--   return transitioning
+-- end
 
-function is_transitioning_enemies()
-  local transitioning = false
-  for next in all(enemies) do
-    if #next.t > 0 then
-      transitioning = true
-    end
-  end
-  return transitioning
-end
+-- function is_transitioning_heroes()
+--   local transitioning = false
+--   for next in all(heroes) do
+--     if #next.t > 0 then
+--       transitioning = true
+--     end
+--   end
+--   return transitioning
+-- end
+
+-- function is_transitioning_enemies()
+--   local transitioning = false
+--   for next in all(enemies) do
+--     if #next.t > 0 then
+--       transitioning = true
+--     end
+--   end
+--   return transitioning
+-- end
 
 function _draw()
 
@@ -806,6 +827,7 @@ function create_hero()
     s = {},
     -- target screen position(s)
     t = {},
+    td = 0,
     -- transition stuff
     frames_so_far = 0,
     vel_per_frame = 0,
@@ -830,6 +852,8 @@ function create_hero()
         local enemy = find_type_in_tile("enemy", target_tile) or find_type_in_tile("egg", target_tile)
         if enemy then
           hit_enemy(enemy, 1)
+          set_bump_transition(self, direction, 2, 0)
+          set_bump_transition(enemy, direction, 2, 2)
           sfx(sounds.hero_bump, 3)
         else
           set_tile(self, target_tile)
@@ -1000,7 +1024,6 @@ function should_advance()
   return false
 end
 
-
 -- todo: clean up redundancy with should_advance()
 function add_button()
 
@@ -1102,6 +1125,7 @@ function new_enemy()
     s = {},
     -- target screen position(s)
     t = {},
+    td = 0,
     -- transition stuff
     frames_so_far = 0,
     vel_per_frame = 0,
@@ -1182,19 +1206,46 @@ function new_enemy()
         local target = find_type_in_tile("hero", dest)
         if target then
           if target.health > 0 then
+            -- get direction
+            local direction = get_direction(self_tile, dest)
+            set_bump_transition(self, direction, 2, 0)
+            set_bump_transition(target, direction, 2, 2)
             target.health -= 1
+            delay += 4
             sfx(sounds.enemy_bump, 3)
           end
         else
           set_tile(self, dest)
+          delay += 4
         end
       end
-      -- player_turn = true
 		end
 	}
 	add(enemies, enemy)
-  -- set_tile(enemy, tile)
   return enemy
+end
+
+function get_direction(start, dest)
+  local sx = start[1]
+  local sy = start[2]
+  local dx = dest[1]
+  local dy = dest[2]
+  -- up
+  if dx == sx and dy == sy - 1 then
+    return {0, -1}
+  -- down
+  elseif dx == sx and dy == sy + 1 then
+    return {0, 1}
+  -- left
+  elseif dx == sx - 1 and dy == sy then
+    return {-1, 0}
+  -- right
+  elseif dx == sx + 1 and dy == sy then
+    return {1, 0}
+  -- fail
+  else
+    return false
+  end
 end
 
 function distance(start, goal)
