@@ -22,7 +22,7 @@ __lua__
 -- [x] maybe enemies should just enter stunned with full health. that would solve how to show they're stunned after being shot too
 -- [x] fix sound stuff
 -- [x] add bump transitions
--- [ ] fix bug: stepping into walls still advances the turn
+-- [x] fix bug: stepping into walls still advances the turn
 -- [ ] add shoot animation
 -- [ ] try a 5 x 7 board instead
 -- [ ] when multiple enemies are present, they should act in random order
@@ -116,7 +116,7 @@ function _init()
   exits = {}
 
   -- log of recent user input
-  input_log = {}
+  input_queue = {}
 
   -- initial buttons
   set_tile(new_button("dash"), {5,2})
@@ -205,20 +205,14 @@ end
 
 function _update()
 
+  update_hero_sprites()
+
   if game_won or game_lost then
     if btnp(5) then
       _init()
     end
     return
   end
-
-  -- this is separated because switching heroes happens outside the turn order
-  if btnp(5) then
-    hero_a_active = not hero_a_active
-    has_switched = true
-    sfx(sounds.switch_heroes, 3)
-  end
-  update_hero_sprites()
 
   if btnp(4) then
     debug_mode = not debug_mode
@@ -231,41 +225,46 @@ function _update()
 
   -- for complicated reasons, this value should be set to
   -- one *less* than the maximum allowed number of rapid player inputs
-  if #input_log < 2 then
+  if #input_queue < 2 then
     local input
     -- left
     if btnp(0) then
       input = {-1, 0}
-    end
     -- right
-    if btnp(1) then
+    elseif btnp(1) then
       input = {1, 0}
-    end
     -- up
-    if btnp(2) then
+    elseif btnp(2) then
       input = {0, -1}
-    end
     -- down
-    if btnp(3) then
+    elseif btnp(3) then
       input = {0, 1}
+    elseif btnp(5) then
+      input = 5
     end
-    add(input_log, input)
+    add(input_queue, input)
   end
 
   if delay > 0 then
     delay -= 1
   -- player turn
-  elseif player_turn == true and #input_log > 0 then
-    local dir = input_log[1]
-    del(input_log, dir)
-    local active_hero
-    if hero_a_active then
-      active_hero = hero_a
+  elseif player_turn == true and #input_queue > 0 then
+    if input_queue[1] == 5 then
+      hero_a_active = not hero_a_active
+      has_switched = true
+      sfx(sounds.switch_heroes, 3)
     else
-      active_hero = hero_b
+      local active_hero
+      if hero_a_active then
+        active_hero = hero_a
+      else
+        active_hero = hero_b
+      end
+      -- act() controls whether `player_turn` is set to false because
+      -- it's possible to not act (e.g. moving toward a wall)
+      active_hero.act(active_hero, input_queue[1])
     end
-    active_hero.act(active_hero, dir)
-    player_turn = false
+    del(input_queue, input_queue[1])
   -- enemy turn
   elseif player_turn == false then
     update_hero_abilities()
@@ -827,6 +826,7 @@ function create_hero()
     s = {},
     -- target screen position(s)
     t = {},
+    -- for delaying movement transitions
     td = 0,
     -- transition stuff
     frames_so_far = 0,
@@ -838,7 +838,6 @@ function create_hero()
     sprite = null,
     max_health = 2,
     health = 2,
-
     -- buttons
     dash = false,
     shoot = false,
@@ -953,22 +952,26 @@ function create_hero()
           shoot_target.stunned = true
           shoot_target.sprite = sprites.egg
           hit_enemy(shoot_target, 1)
-          sfx(sounds.shoot, 3)
           delay += transition_frames
+          sfx(sounds.shoot, 3)
+          -- player_turn = false
         elseif self.dash then
           local dest = get_dash_dest(direction)
           local targets = get_dash_targets(direction)
           for next in all(targets) do
-            hit_enemy(next, 3)
+            hit_enemy(next, 5)
           end
           set_tile(self, dest)
           delay += transition_frames
           sfx(sounds.dash, 3)
+          -- player_turn = false
         else
           step_or_bump(direction)
           delay += transition_frames
+          -- player_turn = false
         end
         player_turn = false
+        -- del(input_queue, input_queue[1])
       end
     end
 	}
@@ -1125,6 +1128,7 @@ function new_enemy()
     s = {},
     -- target screen position(s)
     t = {},
+    -- for delaying movement transitions
     td = 0,
     -- transition stuff
     frames_so_far = 0,
