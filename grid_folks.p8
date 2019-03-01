@@ -19,13 +19,14 @@ __lua__
 -- [x] add a debug mode where spawn rate and turn count show while playing
 -- [x] add some variation in when exactly enemies appear
 -- [x] implement transitions for movement
+-- [ ] maybe enemies should just enter stunned with full health. that would solve how to show they're stunned after being shot too
+-- [ ] fix sound stuff
 -- [ ] convert s{} to sx and sy
 -- [ ] try a 5 x 7 board instead
 -- [ ] add basic animations
 -- [ ] when multiple enemies are present, they should act in random order
 -- [ ] randomly distribute starting abilities
 -- [ ] do something to make the game end state feel less clunky
--- [ ] maybe enemies should just enter stunned with full health. that would solve how to show they're stunned after being shot too
 
 -- game state that gets refreshed on restart
 function _init()
@@ -105,7 +106,7 @@ function _init()
   -- lists of things
   heroes = {}
   enemies = {}
-  eggs = {}
+  -- eggs = {}
   pads = {}
   buttons = {}
   exits = {}
@@ -133,8 +134,10 @@ function _init()
   set_tile(hero_b, {6,4})
 
 	-- initial enemy
-  local new_egg = new_egg()
-  deploy(new_egg, {"hero", "enemy", "egg"})
+  -- local new_egg = new_egg()
+  -- deploy(new_egg, {"hero", "enemy", "egg"})
+  local new_enemy = new_enemy()
+  deploy(new_enemy, {"hero", "enemy"})
 
   -- this determines what the spawn rate is at the start of the game
   initial_spawn_rate = 16
@@ -160,34 +163,34 @@ function get_spawn_rate()
   return spawn_modifier - flr(sqrt(spawn_base))
 end
 
-function should_spawn_egg()
-  local spawn_rate = get_spawn_rate()
-  local should_spawn = false
+-- function should_spawn_egg()
+--   local spawn_rate = get_spawn_rate()
+--   local should_spawn = false
 
-  -- if it's one turn before reaching the spawn rate
-  if turns - last_spawned_turn == spawn_rate - 1 then
-    -- 50% chance of spawning early
-    if flr(rnd(2)) == 1 then
-      -- if spawning early, then mark it in a global variable so we don't also spawn the next turn
-      spawned_early = true
-      should_spawn = true
-    end
-  -- if this turn has actually reached the spawn rate
-  elseif turns - last_spawned_turn >= spawn_rate then
-    if not spawned_early then
-      should_spawn = true
-    end
-    -- reset this variable for next round
-    spawned_early = false
-  end
-  return should_spawn
-end
+--   -- if it's one turn before reaching the spawn rate
+--   if turns - last_spawned_turn == spawn_rate - 1 then
+--     -- 50% chance of spawning early
+--     if flr(rnd(2)) == 1 then
+--       -- if spawning early, then mark it in a global variable so we don't also spawn the next turn
+--       spawned_early = true
+--       should_spawn = true
+--     end
+--   -- if this turn has actually reached the spawn rate
+--   elseif turns - last_spawned_turn >= spawn_rate then
+--     if not spawned_early then
+--       should_spawn = true
+--     end
+--     -- reset this variable for next round
+--     spawned_early = false
+--   end
+--   return should_spawn
+-- end
 
-function spawn_egg()
-  local new_egg = new_egg()
-  deploy(new_egg, {"hero", "enemy", "egg"})
-  last_spawned_turn = turns
-end
+-- function spawn_egg()
+--   local new_egg = new_egg()
+--   deploy(new_egg, {"hero", "enemy", "egg"})
+--   last_spawned_turn = turns
+-- end
 
 function _update()
 
@@ -257,10 +260,10 @@ function _update()
       refresh_pads()
       refresh_walls()
     end
-    hatch_eggs()
-    if should_spawn_egg() then
-      spawn_egg()
-    end
+    -- hatch_eggs()
+    -- if should_spawn_egg() then
+    --   spawn_egg()
+    -- end
     for next in all(enemies) do
       next.update(next)
     end
@@ -1028,24 +1031,23 @@ function update_hero_sprites()
   end
 end
 
-function hatch_eggs()
-  for next in all(eggs) do
-    del(eggs, next)
-    del(board[next.x][next.y], next)
+-- function hatch_eggs()
+--   for next in all(eggs) do
+--     del(eggs, next)
+--     del(board[next.x][next.y], next)
 
-    local found_hero = find_type_in_tile("hero", {next.x, next.y})
-    local found_enemy = find_type_in_tile("enemy", {next.x, next.y})
+--     local found_hero = find_type_in_tile("hero", {next.x, next.y})
+--     local found_enemy = find_type_in_tile("enemy", {next.x, next.y})
 
-    if found_hero then
-      found_hero.health -= 1
-    elseif found_enemy then
-      hit_enemy(found_enemy, 1)
-    else
-      local new_enemy = create_enemy({next.x, next.y})
-      new_enemy.stunned = true
-    end
-  end
-end
+--     if found_hero then
+--       found_hero.health -= 1
+--     elseif found_enemy then
+--       hit_enemy(found_enemy, 1)
+--     else
+--       local new_enemy = new_enemy({next.x, next.y})
+--     end
+--   end
+-- end
 
 -- given an enemy and an amount of damage,
 -- hit it and then kill if it has no health
@@ -1057,8 +1059,8 @@ function hit_enemy(enemy, damage)
     del(board[enemy.x][enemy.y], enemy)
     if enemy.type == "enemy" then
       del(enemies, enemy)
-    elseif enemy.type == "egg" then
-      del(eggs, enemy)
+    -- elseif enemy.type == "egg" then
+    --   del(eggs, enemy)
     end
   end
 end
@@ -1067,21 +1069,21 @@ end
   enemy stuff
 --]]
 
-function new_egg()
-  egg = {
-    x = null,
-    y = null,
-    s = {},
-    health = 1,
-    type = "egg",
-    sprite = sprites.egg
-  }
-  add(eggs, egg)
-  return egg
-end
+-- function new_egg()
+--   egg = {
+--     x = null,
+--     y = null,
+--     s = {},
+--     health = 1,
+--     type = "egg",
+--     sprite = sprites.egg
+--   }
+--   add(eggs, egg)
+--   return egg
+-- end
 
 -- create an enemy and add it to the array of enemies
-function create_enemy(tile)
+function new_enemy()
 	enemy = {
     -- board position
     x = null,
@@ -1097,13 +1099,14 @@ function create_enemy(tile)
     -- other stuff
 		type = "hero",
     type = "enemy",
-    sprite = sprites.enemy,
-    health = 2,
     stunned = true,
+    sprite = sprites.egg, -- stunned by default
+    health = 2,
     update = function(self)
 
       if self.stunned == true then
         self.stunned = false
+        self.sprite = sprites.enemy
         player_turn = true
         return
       end
@@ -1179,7 +1182,7 @@ function create_enemy(tile)
 		end
 	}
 	add(enemies, enemy)
-  set_tile(enemy, tile)
+  -- set_tile(enemy, tile)
   return enemy
 end
 
