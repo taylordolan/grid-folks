@@ -18,10 +18,10 @@ __lua__
 -- [x] write a function that prints an overview of the spawn rate throughout the game
 -- [x] add a debug mode where spawn rate and turn count show while playing
 -- [x] add some variation in when exactly enemies appear
--- [ ] implement transitions for movement
+-- [x] implement transitions for movement
+-- [ ] convert s{} to sx and sy
 -- [ ] try a 5 x 7 board instead
 -- [ ] add basic animations
--- [ ] rewrite _draw() to avoid weird overlaps
 -- [ ] when multiple enemies are present, they should act in random order
 -- [ ] randomly distribute starting abilities
 -- [ ] do something to make the game end state feel less clunky
@@ -42,6 +42,18 @@ function _init()
       board[x][y] = {}
     end
   end
+
+  -- graphics stuff that needs to be global
+  screen_size = 128
+  sprite_size = 8
+  margin = 5
+  tile_size = sprite_size + margin
+  total_sprites_width = sprite_size * cols
+  total_margins_width = margin * (cols - 1)
+  total_map_width = total_sprites_width + total_margins_width
+  padding_left = flr((screen_size - total_map_width) / 2)
+  -- padding_top = flr((screen_size - total_map_height) / 2)
+  padding_top = 20
 
   -- sounds dictionary
   sounds = {
@@ -98,6 +110,9 @@ function _init()
   buttons = {}
   exits = {}
 
+  -- log of recent user input
+  input_log = {}
+
   -- initial buttons
   set_tile(new_button("dash"), {5,2})
   set_tile(new_button("shoot"), {5,4})
@@ -136,10 +151,6 @@ function _init()
   spawned_early = false
   -- this is just so i don't have to set the initial_spawn_rate in an abstract way
   spawn_modifier = initial_spawn_rate + flr(sqrt(spawn_base))
-
-  -- transition stuff
-  transition_frames = 8
-  input_delay = 0
 
   -- start the music!
   music(sounds.music)
@@ -203,49 +214,68 @@ function _update()
     -- end
   end
 
-  -- if the system should be waiting, then wait
-  if input_delay > 0 then
-		input_delay = input_delay - 1
-
-  -- if it's the player's turn, then listen for input and respond to it
-	elseif player_turn == true then
-		if hero_a_active then
-      hero_a:update()
-    else
-      hero_b:update()
+  -- for complicated reasons, this value should be set to
+  -- one *less* than the maximum allowed number of rapid player inputs
+  if #input_log < 2 then
+    local input
+    -- left
+    if btnp(0) then
+      input = {-1, 0}
     end
-
-  -- if it's not the player's turn…
-	elseif player_turn == false then
-
-    -- update hero abilities
+    -- right
+    if btnp(1) then
+      input = {1, 0}
+    end
+    -- up
+    if btnp(2) then
+      input = {0, -1}
+    end
+    -- down
+    if btnp(3) then
+      input = {0, 1}
+    end
+    add(input_log, input)
+  end
+  -- player turn
+  if #input_log > 0 and player_turn == true and is_transitioning_enemies() == false then
+    local dir = input_log[1]
+    del(input_log, dir)
+    local active_hero
+    if hero_a_active then
+      active_hero = hero_a
+    else
+      active_hero = hero_b
+    end
+    active_hero.act(active_hero, dir)
+    player_turn = false
+  end
+  -- enemy turn
+  if player_turn == false and is_transitioning_heroes() == false then
     update_hero_abilities()
-
-    -- advance the board if appropriate
     if should_advance() then
       add_button()
       refresh_pads()
       refresh_walls()
     end
-
-    -- update enemy stuff
     hatch_eggs()
     if should_spawn_egg() then
       spawn_egg()
     end
-    if #enemies > 0 then
-      input_delay += 4
-    end
     for next in all(enemies) do
       next.update(next)
     end
-
     -- update game state
     turns = turns + 1
-    spawn_base += spawn_increment
     player_turn = true
-	end
-
+    spawn_base += spawn_increment
+  end
+  -- update screen positions
+  for next in all(heroes) do
+    update_screen_position(next)
+  end
+  for next in all(enemies) do
+    update_screen_position(next)
+  end
 
   -- game won test
   local a_xy = {hero_a.x, hero_a.y}
@@ -289,6 +319,72 @@ function smallcaps(s)
   return d
 end
 
+function update_screen_position(thing)
+  -- if there are one or more target destinations
+  if #thing.t > 0 then
+    -- if this will be the first frame of this transition
+    if thing.frames_so_far == 0 then
+      -- determine how many pixels to move the sprite each frame
+      local x_px_per_frame = (thing.t[1][1] - thing.s[1]) / thing.transition_speed
+      local y_px_per_frame = (thing.t[1][2] - thing.s[2]) / thing.transition_speed
+      thing.vel_per_frame = {x_px_per_frame, y_px_per_frame}
+    end
+    -- move the appropriate number of pixels on x and y
+    thing.s[1] = thing.s[1] + thing.vel_per_frame[1]
+    thing.s[2] = thing.s[2] + thing.vel_per_frame[2]
+    -- increment the count of frames moved
+    thing.frames_so_far = thing.frames_so_far + 1
+    -- if the movement is complete
+    if thing.frames_so_far == thing.transition_speed then
+      -- this is to resolve any minor descrepancies between actual and intended screen positions
+      -- i don't know if this is actually necessary, just being safe
+      thing.s[1] = thing.t[1][1]
+      thing.s[2] = thing.t[1][2]
+      -- reset these values
+      thing.frames_so_far = 0
+      thing.vel_per_frame = null
+      del(thing.t, thing.t[1])
+    end
+  end
+end
+
+function set_target_positions(thing, positions, speed)
+  thing.transition_speed = speed
+  for next in all(positions) do
+    add(thing.t, next)
+  end
+end
+
+function is_transitioning()
+  local transitioning = false
+  for next in all(actors) do
+    if #next.t > 0 then
+      transitioning = true
+    end
+  end
+  return transitioning
+end
+
+function is_transitioning_heroes()
+  local transitioning = false
+  for next in all(heroes) do
+    if #next.t > 0 then
+      transitioning = true
+    end
+  end
+  return transitioning
+end
+
+function is_transitioning_enemies()
+  local transitioning = false
+  for next in all(enemies) do
+    if #next.t > 0 then
+      transitioning = true
+    end
+  end
+  return transitioning
+end
+
 function _draw()
 
 	cls()
@@ -297,22 +393,9 @@ function _draw()
   local floor_color = 07
   local wall_color = 07
 
-  local screen_size = 128
-  local sprite_size = 8
-  local margin = 5
-
-  local total_sprites_width = sprite_size * cols
-  local total_margins_width = margin * (cols - 1)
-  local total_map_width = total_sprites_width + total_margins_width
-
   local total_sprites_height = sprite_size * rows
   local total_margins_height = margin * (rows - 1)
   local total_map_height = total_sprites_height + total_margins_height
-
-  local padding_left = flr((screen_size - total_map_width) / 2)
-  -- local padding_top = flr((screen_size - total_map_height) / 2)
-  local padding_top = 20
-
 
   local rect_origin = {padding_left - ceil(margin / 2), padding_top - ceil(margin / 2)}
   local rect_opposite = {padding_left + total_map_width - 1 + ceil(margin / 2), padding_top + total_map_height - 1 + ceil(margin / 2)}
@@ -342,11 +425,7 @@ function _draw()
   end
 
   function draw_instructions()
-    -- if not has_switched or not has_killed then
-    --   draw_intro_instructions()
-    -- else
     draw_button_instructions()
-    -- end
   end
 
   function draw_intro_instructions()
@@ -501,10 +580,10 @@ function _draw()
             palt(0, false)
             palt(15, true)
             local sprite = next.sprite
-            spr(sprite, x_pos, y_pos)
+            spr(sprite, next.s[1], next.s[2])
               -- draw a health bar for things with health
             if (next.health) then
-              draw_health(x_pos, y_pos, next.health)
+              draw_health(next.s[1], next.s[2], next.health)
             end
             palt()
           end
@@ -567,11 +646,36 @@ function set_tile(thing, dest)
   thing.x = dest[1]
   thing.y = dest[2]
 
+  -- if thing.type == "hero" or thing.type == "enemy" then
+  if thing.s and #thing.s > 0 then
+    local screen_x = thing.s[1]
+    local screen_y = thing.s[2]
+    -- local vel_x = tile_size * dir[1]
+    -- local vel_y = tile_size * dir[2]
+    local screen_dest = board_position_to_screen_position({dest[1], dest[2]})
+    set_target_positions(thing, {screen_dest}, 4)
+  -- end
+  else
+    local screen_dest = board_position_to_screen_position({dest[1], dest[2]})
+    -- set_target_positions(thing, {screen_dest}, 4)
+    printh(screen_dest[1])
+    thing.s = {screen_dest[1], screen_dest[2]}
+  end
+  -- end
+
   -- this is here for now because enemy buttons need to be triggered when enemies step or are deployed
   -- todo: this should probably be done differently somehow
-  if (thing.type == "enemy") then
+  if thing.type == "enemy" then
     trigger_enemy_buttons(dest)
   end
+end
+
+function board_position_to_screen_position(board_position)
+  local board_x = board_position[1]
+  local board_y = board_position[2]
+  local x_pos = (board_x - 1) * sprite_size + (board_x - 1) * margin + padding_left
+  local y_pos = (board_y - 1) * sprite_size + (board_y - 1) * margin + padding_top
+  return {x_pos, y_pos}
 end
 
 -- deploys a thing to a random tile
@@ -686,8 +790,18 @@ end
 function create_hero()
   local hero = {
 
+    -- board position
     x = null,
     y = null,
+    -- screen position
+    s = {},
+    -- target screen position(s)
+    t = {},
+    -- transition stuff
+    frames_so_far = 0,
+    vel_per_frame = 0,
+    transition_speed = 1, -- in frames
+    -- other stuff
 		type = "hero",
     base_sprite = sprites.hero,
     sprite = null,
@@ -698,70 +812,10 @@ function create_hero()
     dash = false,
     shoot = false,
 
-    -- update hero
-		update = function(self)
-
-      if game_lost or game_won then return end
-
-      -- find the other hero
-      local ally
-      if heroes[1] == self then
-        ally = heroes[2]
-      else
-        ally = heroes[1]
-      end
-
-      -- move up
-			if btnp(⬆️) then
-        local direction = {0, -1}
-        act(direction)
-      end
-      -- move down
-			if btnp(⬇️) then
-        local direction = {0, 1}
-        act(direction)
-      end
-      -- move left
-			if btnp(⬅️) then
-        local direction = {-1, 0}
-        act(direction)
-      end
-      -- move right
-			if btnp(➡️) then
-        local direction = {1, 0}
-        act(direction)
-      end
-
       -- this is called when the player hits a direction on their turn.
       -- it determines which action should be taken and triggers it.
-      function act(direction)
-        local next_tile = {self.x + direction[1], self.y + direction[2]}
-        if
-          location_exists(next_tile) and
-          not is_wall_between({self.x, self.y}, next_tile) and
-          not find_type_in_tile("hero", next_tile)
-        then
-          shoot_target = get_shoot_target(direction)
-          if self.shoot and shoot_target then
-            shoot_target.stunned = true
-            hit_enemy(shoot_target, 1)
-            sfx(sounds.shoot, 3)
-          elseif self.dash then
-            local dest = get_dash_dest(direction)
-            local targets = get_dash_targets(direction)
-            for next in all(targets) do
-              hit_enemy(next, 3)
-            end
-            set_tile(self, dest)
-            sfx(sounds.dash, 3)
-          else
-            step_or_bump(direction)
-            sfx(sounds.step, 3)
-          end
-          player_turn = false
-        end
-      end
-
+    act = function(self, direction)
+      local next_tile = {self.x + direction[1], self.y + direction[2]}
       function step_or_bump(direction)
         local target_tile = {self.x + direction[1], self.y + direction[2]}
         local enemy = find_type_in_tile("enemy", target_tile) or find_type_in_tile("egg", target_tile)
@@ -855,7 +909,31 @@ function create_hero()
           now_tile = next_tile
         end
       end
-		end
+      if
+        location_exists(next_tile) and
+        not is_wall_between({self.x, self.y}, next_tile) and
+        not find_type_in_tile("hero", next_tile)
+      then
+        shoot_target = get_shoot_target(direction)
+        if self.shoot and shoot_target then
+          shoot_target.stunned = true
+          hit_enemy(shoot_target, 1)
+          sfx(sounds.shoot, 3)
+        elseif self.dash then
+          local dest = get_dash_dest(direction)
+          local targets = get_dash_targets(direction)
+          for next in all(targets) do
+            hit_enemy(next, 3)
+          end
+          set_tile(self, dest)
+          sfx(sounds.dash, 3)
+        else
+          step_or_bump(direction)
+          sfx(sounds.step, 3)
+        end
+        player_turn = false
+      end
+    end
 	}
   return hero
 end
@@ -993,6 +1071,7 @@ function new_egg()
   egg = {
     x = null,
     y = null,
+    s = {},
     health = 1,
     type = "egg",
     sprite = sprites.egg
@@ -1004,8 +1083,19 @@ end
 -- create an enemy and add it to the array of enemies
 function create_enemy(tile)
 	enemy = {
+    -- board position
     x = null,
     y = null,
+    -- screen position
+    s = {},
+    -- target screen position(s)
+    t = {},
+    -- transition stuff
+    frames_so_far = 0,
+    vel_per_frame = 0,
+    transition_speed = 1, -- in frames
+    -- other stuff
+		type = "hero",
     type = "enemy",
     sprite = sprites.enemy,
     health = 2,
@@ -1298,6 +1388,7 @@ function refresh_pads()
   -- place new pads
   for next in all(current_types) do
     local new_pad = {
+      s = {},
       type = "pad",
       name = next,
       sprite = sprites["pad_" ..next]
@@ -1312,6 +1403,7 @@ function new_button(name)
   local new_button = {
     x = null,
     y = null,
+    s = {},
     type = "button",
     name = name,
     sprite = sprites["button_" ..name],

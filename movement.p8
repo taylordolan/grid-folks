@@ -36,7 +36,7 @@ player_turn = true
 tile_size = 16
 input_log = {}
 
-function move()
+function update_screen_position()
   for next in all(actors) do
     -- if there are one or more target destinations
     if #next.t > 0 then
@@ -68,8 +68,8 @@ function move()
 end
 
 function _update()
-  -- only accept two inputs
-  -- accepting more might result in the players committing moves too early
+  -- for complicated reasons, this value should be set to
+  -- one *less* than the maximum allowed number of rapid player inputs
   if #input_log < 2 then
     local input
     -- left
@@ -93,19 +93,19 @@ function _update()
   if #input_log > 0 and is_transitioning() == false then
     -- player turn
     local dir = input_log[1]
-    input_log = {}
+    del(input_log, dir)
     local screen_x = p.s[1]
     local screen_y = p.s[2]
     local vel_x = tile_size * dir[1]
     local vel_y = tile_size * dir[2]
     local dest = {screen_x + vel_x , screen_y + vel_y}
-    transition(p, {dest}, 4)
+    set_target_positions(p, {dest}, 4)
     -- enemy turn
     local dest2 = {e.s[1], e.s[2]}
     local dest1 = {e.s[1] + tile_size, e.s[2]}
-    transition(e, {dest1, dest2}, 16)
+    set_target_positions(e, {dest1, dest2}, 16)
   end
-  move()
+  update_screen_position()
 end
 
 function _draw()
@@ -115,9 +115,9 @@ function _draw()
   end
 end
 
-function transition(thing, targets, speed)
+function set_target_positions(thing, positions, speed)
   thing.transition_speed = speed
-  for next in all(targets) do
+  for next in all(positions) do
     add(thing.t, next)
   end
 end
