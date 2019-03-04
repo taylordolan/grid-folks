@@ -47,21 +47,43 @@ function _init()
     end
   end
 
+  -- colors dictionary
+  colors = {
+    black = 0,
+    navy = 1,
+    maroon = 2,
+    forest = 3,
+    brown = 4,
+    dark_gray = 5,
+    light_gray = 6,
+    white = 7,
+    red = 8,
+    orange = 9,
+    yellow = 10,
+    green = 11,
+    blue = 12,
+    purple = 13,
+    pink = 14,
+    tan = 15,
+  }
+
   -- graphics stuff that needs to be global
   screen_size = 128
   sprite_size = 8
-  margin = 5
+  margin = 7
   tile_size = sprite_size + margin
   total_sprites_width = sprite_size * cols
   total_margins_width = margin * (cols - 1)
   total_map_width = total_sprites_width + total_margins_width
   padding_left = flr((screen_size - total_map_width) / 2)
   -- padding_top = flr((screen_size - total_map_height) / 2)
-  padding_top = 21
+  padding_top = 15
   transition_frames = 4
   shot_points = {}
   shot_direction = {}
   shot_duration = 0
+  frame_color = 0
+  set_frame_color()
 
   -- sounds dictionary
   sounds = {
@@ -97,26 +119,6 @@ function _init()
     pad_health = 009,
     pad_score = 010,
     exit = 028,
-  }
-
-  -- colors dictionary
-  colors = {
-    black = 0,
-    navy = 1,
-    maroon = 2,
-    forest = 3,
-    brown = 4,
-    dark_gray = 5,
-    light_gray = 6,
-    white = 7,
-    red = 8,
-    orange = 9,
-    yellow = 10,
-    green = 11,
-    blue = 12,
-    purple = 13,
-    pink = 14,
-    tan = 15,
   }
 
   -- some game state
@@ -186,6 +188,20 @@ function _init()
 
   -- start the music!
   music(sounds.music)
+end
+
+function set_frame_color()
+  local options = {
+    -- colors.green,
+    -- colors.orange,
+    -- colors.yellow,
+    -- colors.pink,
+    colors.tan,
+    colors.light_gray,
+  }
+  del(options, frame_color)
+  local index = flr(rnd(#options)) + 1
+  frame_color = options[index]
 end
 
 function get_spawn_rate()
@@ -296,6 +312,7 @@ function _update()
       add_button()
       refresh_pads()
       refresh_walls()
+      set_frame_color()
     end
     -- hatch_eggs()
     for next in all(enemies) do
@@ -407,42 +424,12 @@ function set_bump_transition(thing, direction, total_transition_time, transition
   thing.td = transition_delay
 end
 
--- function is_transitioning()
---   local transitioning = false
---   for next in all(actors) do
---     if #next.t > 0 then
---       transitioning = true
---     end
---   end
---   return transitioning
--- end
-
--- function is_transitioning_heroes()
---   local transitioning = false
---   for next in all(heroes) do
---     if #next.t > 0 then
---       transitioning = true
---     end
---   end
---   return transitioning
--- end
-
--- function is_transitioning_enemies()
---   local transitioning = false
---   for next in all(enemies) do
---     if #next.t > 0 then
---       transitioning = true
---     end
---   end
---   return transitioning
--- end
-
 function _draw()
 
 	cls()
   -- rectfill(1,1,120,120,colors.light_gray)
   local text_color = colors.white
-  local bg_color = colors.dark_gray
+  local bg_color = colors.black
   local wall_color = colors.white
   local floor_color = colors.white
 
@@ -512,10 +499,14 @@ function _draw()
   end
 
   function draw_score()
-    local text = score.. " gold"
-    print(smallcaps(text), 128 - (#text * 4) - 11, 3, 09)
+    -- local foo = "(z): how to"
+    -- print(foo, 12, 106, colors.white)
     if not debug_mode then
-      print(smallcaps("grid folks"), padding_left - 9, 3, 07)
+      -- local text = score.. " gold"
+      print(smallcaps("gold"), 102, 100, 09)
+      local text = score.. ""
+      print(score, 99 - #text * 4, 100, 09)
+      -- print(smallcaps("grid folks"), padding_left - 9, 3, 07)
     else
       local spawn_rate = get_spawn_rate()
       print(smallcaps(turns .." , " ..spawn_rate), padding_left - ceil(margin / 2), 06, 07)
@@ -523,41 +514,21 @@ function _draw()
   end
 
   function draw_instructions()
-    draw_button_instructions()
-  end
-
-  function draw_intro_instructions()
-    palt(0, false)
-    palt(15, true)
-    local x_pos = padding_left - ceil(margin / 2) + 26
-    local y_pos = 90
-    local line_height = 11
-    print(smallcaps("\151"), x_pos, y_pos)
-    print(smallcaps("to switch"), x_pos + 12, y_pos)
-    spr(sprites.hero, x_pos + 51, y_pos - 2)
-    spr(sprites.hero + 1, x_pos + 59, y_pos - 2)
-    y_pos += line_height
-
-    print(smallcaps("bump"), x_pos, y_pos)
-    spr(sprites.enemy, x_pos + 19, y_pos - 1)
-    print(smallcaps("to attack"), x_pos + 29, y_pos)
-    palt()
-  end
-
-  function draw_button_instructions()
     palt(0, false)
     palt(15, true)
     pal(colors.black, bg_color)
-    local x_pos = padding_left - 10
-    local y_pos = 95
-    local line_height = 11
+    local x_pos = padding_left - 5
+    local y_pos = 100
+    local line_height = 9
 
-    -- shoot
+    -- advance
     spr(sprites.hero, x_pos, y_pos - 2)
-    spr(sprites.button_shoot, x_pos + 7, y_pos - 2)
-    print("=", x_pos + 18, y_pos, 06)
+    spr(011, x_pos + 7, y_pos - 2)
+    print("+", x_pos + 18, y_pos, 06)
     spr(sprites.hero + 1, x_pos + 24, y_pos - 2)
-    print(smallcaps("shoot"), x_pos + 32, y_pos, text_color)
+    spr(011, x_pos + 31, y_pos - 2)
+    print("=", x_pos + 42, y_pos, 06)
+    spr(012, x_pos + 48, y_pos - 2)
     y_pos += line_height
 
     -- dash
@@ -568,31 +539,28 @@ function _draw()
     print(smallcaps("dash"), x_pos + 32, y_pos, text_color)
     y_pos += line_height
 
-    -- advance
+    -- shoot
     spr(sprites.hero, x_pos, y_pos - 2)
-    spr(011, x_pos + 7, y_pos - 2)
-    print("+", x_pos + 18, y_pos, 06)
-    spr(sprites.hero + 1, x_pos + 24, y_pos - 2)
-    spr(011, x_pos + 31, y_pos - 2)
-    print("=", x_pos + 42, y_pos, 06)
-    spr(012, x_pos + 48, y_pos - 2)
-
-    x_pos += 65
-    y_pos -= line_height
-    y_pos -= line_height
-
-    -- health
-    spr(sprites.enemy, x_pos, y_pos - 2)
-    spr(sprites.button_health, x_pos + 7, y_pos - 2)
+    spr(sprites.button_shoot, x_pos + 7, y_pos - 2)
     print("=", x_pos + 18, y_pos, 06)
-    print(smallcaps("heal"), x_pos + 25, y_pos, text_color)
-    y_pos += line_height
+    spr(sprites.hero + 1, x_pos + 24, y_pos - 2)
+    print(smallcaps("shoot"), x_pos + 32, y_pos, text_color)
+
+    x_pos += 67
+    y_pos -= line_height
 
     -- gold
     spr(sprites.enemy, x_pos, y_pos - 2)
     spr(sprites.button_score, x_pos + 7, y_pos - 2)
     print("=", x_pos + 18, y_pos, 06)
     print(smallcaps("gold"), x_pos + 25, y_pos, text_color)
+    y_pos += line_height
+
+    -- health
+    spr(sprites.enemy, x_pos, y_pos - 2)
+    spr(sprites.button_health, x_pos + 7, y_pos - 2)
+    print("=", x_pos + 18, y_pos, 06)
+    print(smallcaps("heal"), x_pos + 25, y_pos, text_color)
 
     palt()
   end
@@ -704,68 +672,82 @@ function _draw()
   end
 
   pal(colors.white, wall_color)
+  pal(colors.light_gray, frame_color)
+
+  rect(rect_origin[1], rect_origin[2], rect_opposite[1], rect_opposite[2], bg_color)
 
   -- left
-  spr(49, 12, 19)
-  spr(49, 12, 27)
-  spr(49, 12, 35)
-  spr(49, 12, 43)
-  spr(49, 12, 51)
-  spr(49, 12, 59)
-  spr(49, 12, 67)
-  spr(49, 12, 75)
+  spr(52, 4, 19 - 6)
+  spr(52, 4, 27 - 6)
+  spr(52, 4, 35 - 6)
+  spr(52, 4, 43 - 6)
+  spr(52, 4, 51 - 6)
+  spr(52, 4, 59 - 6)
+  spr(52, 4, 67 - 6)
+  spr(52, 4, 75 - 6)
+  spr(52, 4, 83 - 6)
+  -- spr(49, 5, 91 - 8)
 
   -- top left
-  spr(50, 12, 12)
+  -- pal(colors.pink, colors.light_gray)
+  spr(50, 4, 5)
+  spr(50, 116, 85, 1, 1, true, true)
 
   -- top
-  spr(51, 19 + 1, 12)
-  spr(51, 27 + 1, 12)
-  spr(51, 35 + 1, 12)
-  spr(51, 43 + 1, 12)
-  spr(51, 51 + 1, 12)
-  spr(51, 59 + 1, 12)
-  spr(51, 67 + 1, 12)
-  spr(51, 75 + 1, 12)
-  spr(51, 83 + 1, 12)
-  spr(51, 91 + 1, 12)
-  spr(51, 99 + 1, 12)
+  spr(51, 19 - 7, 4, 1, 1, false, false)
+  spr(51, 27 - 7, 4, 1, 1, false, false)
+  spr(51, 35 - 7, 4, 1, 1, false, false)
+  spr(51, 43 - 7, 4, 1, 1, false, false)
+  spr(51, 51 - 7, 4, 1, 1, false, false)
+  spr(51, 59 - 7, 4, 1, 1, false, false)
+  spr(51, 67 - 7, 4, 1, 1, false, false)
+  spr(51, 75 - 7, 4, 1, 1, false, false)
+  spr(51, 83 - 7, 4, 1, 1, false, false)
+  spr(51, 91 - 7, 4, 1, 1, false, false)
+  spr(51, 99 - 7, 4, 1, 1, false, false)
+  spr(51, 107 - 7, 4, 1, 1, false, false)
+  spr(51, 115 - 7, 4, 1, 1, false, false)
 
-  -- bottom left
-  spr(53, 12, 82)
+  -- -- bottom left
+  -- spr(53, 12, 82)
 
   -- bottom
-  spr(52, 20, 82)
-  spr(52, 28, 82)
-  spr(52, 36, 82)
-  spr(52, 44, 82)
-  spr(52, 52, 82)
-  spr(52, 60, 82)
-  spr(52, 68, 82)
-  spr(52, 76, 82)
-  spr(52, 84, 82)
-  spr(52, 92, 82)
-  spr(52, 100, 82)
+  spr(51, 20 - 8, 82 + 4, 1, 1, true, true)
+  spr(51, 28 - 8, 82 + 4, 1, 1, true, true)
+  spr(51, 36 - 8, 82 + 4, 1, 1, true, true)
+  spr(51, 44 - 8, 82 + 4, 1, 1, true, true)
+  spr(51, 52 - 8, 82 + 4, 1, 1, true, true)
+  spr(51, 60 - 8, 82 + 4, 1, 1, true, true)
+  spr(51, 68 - 8, 82 + 4, 1, 1, true, true)
+  spr(51, 76 - 8, 82 + 4, 1, 1, true, true)
+  spr(51, 84 - 8, 82 + 4, 1, 1, true, true)
+  spr(51, 92 - 8, 82 + 4, 1, 1, true, true)
+  spr(51, 100 - 8, 82 + 4, 1, 1, true, true)
+  spr(51, 108 - 8, 82 + 4, 1, 1, true, true)
+  spr(51, 116 - 8, 82 + 4, 1, 1, true, true)
 
   -- right
-  spr(54, 108, 19)
-  spr(54, 108, 27)
-  spr(54, 108, 35)
-  spr(54, 108, 43)
-  spr(54, 108, 51)
-  spr(54, 108, 59)
-  spr(54, 108, 67)
-  spr(54, 108, 75)
-
-  -- bottom right
-  spr(55, 108, 82)
+  spr(52, 116, 19 - 6, 1, 1, true, true)
+  spr(52, 116, 27 - 6, 1, 1, true, true)
+  spr(52, 116, 35 - 6, 1, 1, true, true)
+  spr(52, 116, 43 - 6, 1, 1, true, true)
+  spr(52, 116, 51 - 6, 1, 1, true, true)
+  spr(52, 116, 59 - 6, 1, 1, true, true)
+  spr(52, 116, 67 - 6, 1, 1, true, true)
+  spr(52, 116, 75 - 6, 1, 1, true, true)
+  spr(52, 116, 83 - 6, 1, 1, true, true)
 
   -- top right
-  spr(56, 108, 12)
+  spr(57, 116, 5, 1, 1, true, false)
+
+  -- bottom right
+  spr(57, 4, 85, 1, 1, false, true)
 
   pal()
 
-  rect(rect_origin[1], rect_origin[2], rect_opposite[1], rect_opposite[2], wall_color)
+  -- rect(rect_origin[1], rect_origin[2], rect_opposite[1], rect_opposite[2], bg_color)
+
+  -- rect(0, 0, 4, 4, colors.blue)
 
   if game_won then
     local msg = "escaped!"
@@ -1655,22 +1637,23 @@ __gfx__
 000000000007000ff07070ff000c000ff0c0c0ff000b000ff0b0b0fff111111ff333333ff222222ff444444f70666607efeeeefe000000000000000000000000
 00000000f07070fff07070fff0c0c0fff0c0c0fff0b0b0fff0b0b0ffff1111ffff3333ffff2222ffff4444ff77600677effffffe000000000000000000000000
 00000000f00000fff00000fff00000fff00000fff00000fff00000ffffffffffffffffffffffffffffffffff77777777eeeeeeee000000000000000000000000
-00000000000070707777777777000777000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-00000000707000707777777777070777000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-00000000007000707777777700070007000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-00000000700070707777777707777707000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-00000000000070707777777700070007000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-00000000707000707777777770707077000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-00000000007000707777777770707077000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-00000000700070707777777770000077000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-00000000007000707077707000700070000000000000007007070000070000000070770700000000000000000000000000000000000000000000000000000000
-00000000700070700070000000000000777777770070007707070700770700000000070000000000000000000000000000000000000000000000000000000000
-00000000007070707777070707070707000000007000700007070007000707000707777700000000000000000000000000000000000000000000000000000000
-00000000000070707070000000000000077707770070777707000700077700070000070700000000000000000000000000000000000000000000000000000000
-00000000007000707000777077707770000000007070000007070000000007077777070000000000000000000000000000000000000000000000000000000000
-00000000700070700070700000000000707070707777707007070700707077770007000700000000000000000000000000000000000000000000000000000000
-00000000007070700000707777777777000000000070000007070007000007007700070000000000000000000000000000000000000000000000000000000000
-00000000000070700000007000000000070007007077070007000700070777070700000000000000000000000000000000000000000000000000000000000000
+00000000000070707000700070007000000000000000000007070000000000000000000000000000000000000000000000000000000000000000000000000000
+00000000707000700000000000000000000000000000000007070700000000000000000000000000000000000000000000000000000000000000000000000000
+00000000007000707007070070070700000000000000000007070007000000000000000000000000000000000000000000000000000000000000000000000000
+00000000700070707070007070700070000000000000000007000700000000000000000000000000000000000000000000000000000000000000000000000000
+00000000000070700000000000000000000000000000000007070000000000000000000000000000000000000000000000000000000000000000000000000000
+00000000707000707707770777077707000000000000000007070700000000000000000000000000000000000000000000000000000000000000000000000000
+00000000007000700000000000000000000000000000000007070007000000000000000000000000000000000000000000000000000000000000000000000000
+00000000700070707777777777777777000000000000000007000700000000000000000000000000000000000000000000000000000000000000000000000000
+00000000007000700006060000600060000006070000007007070000070000000007070000060060000000000000000000000000000000000000000000000000
+00000000700000700060000660000000600600070070007707070700770700000000007000600600000000000000000000000000000000000000000000000000
+00000000007070700600606000060600006006077000700007000007000707007070700706000006000000000000000000000000000000000000000000000000
+00000000000070700006000000600060000060070070777707000700077700070000070000006000000000000000000000000000000000000000000000000000
+00000000007000700600060660006000006006077070000007070000000007070777000000600060000000000000000000000000000000000000000000000000
+00000000700000700006000006060606600600077777707007070700707077770007070006000600000000000000000000000000000000000000000000000000
+00000000007070700060060700000000000006070070000007000007000007007707000700060007000000000000000000000000000000000000000000000000
+00000000000070700600600777777777060060077077070007000700070777070700070000000607000000000000000000000000000000000000000000000000
+0000000000000000000000000000000000000000000000000000000000000000000000000e00e000000000000000000000000000000000000000000000000000
 __label__
 00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
