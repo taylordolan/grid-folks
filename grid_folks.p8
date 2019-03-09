@@ -7,9 +7,9 @@ __lua__
 -- todo
 -- [x] try a 5 x 7 board instead
 -- [x] maybe I can avoid placing pads on heroes' tiles now?
--- [ ] clean up
+-- [x] clean up
+-- [x] fix bug: when a button appears where an enemy becomes un-stunned, it appears on top
 -- [ ] heroes "bounce" when activated
--- [ ] fix bug: when a button appears where an enemy becomes un-stunned, it appears on top
 -- [ ] when multiple enemies are present, they should act in random order
 -- [ ] randomly distribute starting abilities
 -- [ ] convert s{} to sx and sy
@@ -124,6 +124,15 @@ function _init()
   pads = {}
   buttons = {}
   exits = {}
+  -- when multiple things are in a tile, they'll be rendering in this order
+  -- that means the things at the end will appear on top
+  sprite_layers = {
+    "pad",
+    "button",
+    "exit",
+    "enemy",
+    "hero",
+  }
 
   -- log of recent user input
   input_queue = {}
@@ -467,6 +476,7 @@ function _draw()
         -- draw the sprite for everything at the current position
         if #board[x][y] > 0 then
           for next in all(board[x][y]) do
+
             -- draw walls
             local x_pos = (x - 1) * sprite_size + (x - 1) * tile_margin + padding_left
             local y_pos = (y - 1) * sprite_size + (y - 1) * tile_margin + padding_top
@@ -474,16 +484,22 @@ function _draw()
               draw_wall_right(x_pos, y_pos)
             elseif next.type == "wall_down" then
               draw_wall_down(x_pos, y_pos)
-            -- draw the thing's sprite
+
+            -- draw sprites
             else
               palt(15, true)
               palt(0, false)
               pal(0, bg_color)
-              local sprite = next.sprite
-              spr(sprite, next.s[1], next.s[2])
-                -- draw a health bar for things with health
-              if (next.health) then
-                draw_health(next.s[1], next.s[2], next.health)
+              -- render sprites in the order defined by sprite_layers
+              for type in all(sprite_layers) do
+                if next.type == type then
+                  local sprite = next.sprite
+                  spr(sprite, next.s[1], next.s[2])
+                    -- draw a health bar for things with health
+                  if (next.health) then
+                    draw_health(next.s[1], next.s[2], next.health)
+                  end
+                end
               end
               palt()
               pal()
