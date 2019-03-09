@@ -9,12 +9,12 @@ __lua__
 -- [x] maybe I can avoid placing pads on heroes' tiles now?
 -- [x] clean up
 -- [x] fix bug: when a button appears where an enemy becomes un-stunned, it appears on top
--- [ ] heroes "bounce" when activated
+-- [x] heroes hop when activated
+-- [ ] support for manually setting spawn rates
+-- [ ] animation for enemy death
 -- [ ] when multiple enemies are present, they should act in random order
 -- [ ] randomly distribute starting abilities
 -- [ ] convert s{} to sx and sy
--- [ ] support for manually setting spawn rates
--- [ ] animation for enemy death
 -- [ ] new enemy types
 
 -- game state that gets refreshed on restart
@@ -113,7 +113,6 @@ function _init()
 	game_lost = false
   game_won = false
   hero_a_active = true
-  has_switched = false
   has_killed = false
   debug_mode = false
   delay = 0
@@ -270,7 +269,14 @@ function _update()
   elseif player_turn == true and #input_queue > 0 then
     if input_queue[1] == 5 then
       hero_a_active = not hero_a_active
-      has_switched = true
+      local active_hero
+      if hero_a_active then
+        active_hero = hero_a
+      else
+        active_hero = hero_b
+      end
+      set_bump_transition(active_hero, {0, -2}, 4, 0)
+      delay += transition_frames
       sfx(sounds.switch_heroes, 3)
     else
       local active_hero
