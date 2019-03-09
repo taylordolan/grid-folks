@@ -7,7 +7,7 @@ __lua__
 function _init()
 
   -- this determines what the spawn rate is at the start of the game
-  initial_spawn_rate = 16
+  initial_spawn_rate = 15
   -- this determines the overall shape of the "spawn rate" curve
   -- the higher this is, the flatter the curve
   spawn_base = 1

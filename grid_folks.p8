@@ -5,31 +5,17 @@ __lua__
 -- taylor d
 
 -- todo
--- [x] players still aren't gaining health when enemies spawn to health tiles
--- [x] you shouldn't be able to shoot through players
--- [x] implement a delay before enemy movement
--- [x] allow restarting after game over by calling _init() again
--- [x] clean up _init()
--- [x] rename companion to ally throughout
--- [x] create a running list of buttons
--- [x] separate out wall generation and do it when it's not the player' turn
--- [x] come up with better names for pads and buttons
--- [x] build the game end state
--- [x] write a function that prints an overview of the spawn rate throughout the game
--- [x] add a debug mode where spawn rate and turn count show while playing
--- [x] add some variation in when exactly enemies appear
--- [x] implement transitions for movement
--- [x] maybe enemies should just enter stunned with full health. that would solve how to show they're stunned after being shot too
--- [x] fix sound stuff
--- [x] add bump transitions
--- [x] fix bug: stepping into walls still advances the turn
--- [x] add shoot animation
--- [ ] fix bug: when a button appears where an enemy becomes un-stunned, it appears on top
 -- [x] try a 5 x 7 board instead
+-- [x] maybe I can avoid placing pads on heroes' tiles now?
+-- [ ] clean up
+-- [ ] heroes "bounce" when activated
+-- [ ] fix bug: when a button appears where an enemy becomes un-stunned, it appears on top
 -- [ ] when multiple enemies are present, they should act in random order
 -- [ ] randomly distribute starting abilities
 -- [ ] convert s{} to sx and sy
--- [ ] tweak spawn rates
+-- [ ] support for manually setting spawn rates
+-- [ ] animation for enemy death
+-- [ ] new enemy types
 
 -- game state that gets refreshed on restart
 function _init()
@@ -70,20 +56,19 @@ function _init()
   -- graphics stuff that needs to be global
   screen_size = 128
   sprite_size = 8
-  margin = 7
-  tile_size = sprite_size + margin
+  tile_margin = 7
+  tile_size = sprite_size + tile_margin
   total_sprites_width = sprite_size * cols
-  total_margins_width = margin * (cols - 1)
+  total_margins_width = tile_margin * (cols - 1)
   total_map_width = total_sprites_width + total_margins_width
   padding_left = flr((screen_size - total_map_width) / 2)
-  -- padding_top = flr((screen_size - total_map_height) / 2)
-  padding_top = 15
-  transition_frames = 4
-  shot_points = {}
-  shot_direction = {}
-  shot_duration = 0
-  frame_color = 0
-  set_frame_color()
+  padding_top = padding_left -- so the board is drawn as far from the top as it is from each side
+  transition_frames = 4 -- how long it takes for movement transitions to happen
+  shot_points = {} -- expects two {x,y} points for the beginning and end of a shot
+  shot_direction = {} -- which direction the shot was fired in, e.g. {0, -1} for up
+  remaining_shot_frames = 0 -- for how many frames should the current shot be drawn?
+  border_color = 0
+  set_border_color()
 
   -- sounds dictionary
   sounds = {
@@ -107,7 +92,7 @@ function _init()
     hero_dash = 019,
     hero_shoot = 021,
     enemy = 002,
-    egg = 004,
+    enemy_stunned = 004,
     wall_right = 005,
     wall_down = 006,
     button_dash = 023,
@@ -136,7 +121,6 @@ function _init()
   -- lists of things
   heroes = {}
   enemies = {}
-  -- eggs = {}
   pads = {}
   buttons = {}
   exits = {}
@@ -150,12 +134,6 @@ function _init()
   set_tile(new_button("health"), {5,3})
   set_tile(new_button("score"), {3,3})
 
-  -- initial walls
-  refresh_walls()
-
-  -- initial pads
-  refresh_pads()
-
   -- heroes
   hero_a = create_hero()
   hero_b = create_hero()
@@ -163,15 +141,17 @@ function _init()
   set_tile(hero_a, {3,2})
   set_tile(hero_b, {5,4})
 
+  -- initial walls
+  refresh_walls()
+
+  -- initial pads
+  refresh_pads()
+
 	-- initial enemy
-  -- local new_egg = new_egg()
-  -- deploy(new_egg, {"hero", "enemy", "egg"})
-  -- local new_enemy = new_enemy()
-  -- deploy(new_enemy, {"hero", "enemy"})
   spawn_enemy()
 
   -- this determines what the spawn rate is at the start of the game
-  initial_spawn_rate = 16
+  initial_spawn_rate = 15
   -- this determines the overall shape of the "spawn rate" curve
   -- the higher this is, the flatter the curve
   spawn_base = 1
@@ -190,18 +170,14 @@ function _init()
   music(sounds.music)
 end
 
-function set_frame_color()
+function set_border_color()
   local options = {
-    -- colors.green,
-    -- colors.orange,
-    -- colors.yellow,
-    -- colors.pink,
     colors.tan,
     colors.light_gray,
   }
-  del(options, frame_color)
+  del(options, border_color)
   local index = flr(rnd(#options)) + 1
-  frame_color = options[index]
+  border_color = options[index]
 end
 
 function get_spawn_rate()
@@ -230,12 +206,6 @@ function should_spawn()
   end
   return should_spawn
 end
-
--- function spawn_egg()
---   local new_egg = new_egg()
---   deploy(new_egg, {"hero", "enemy", "egg"})
---   last_spawned_turn = turns
--- end
 
 function spawn_enemy()
   local new_enemy = new_enemy()
@@ -312,14 +282,12 @@ function _update()
       add_button()
       refresh_pads()
       refresh_walls()
-      set_frame_color()
+      set_border_color()
     end
-    -- hatch_eggs()
     for next in all(enemies) do
       next.update(next)
     end
     if should_spawn() then
-      -- spawn_egg()
       spawn_enemy()
     end
     -- update game state
@@ -427,89 +395,183 @@ end
 function _draw()
 
 	cls()
-  -- rectfill(1,1,120,120,colors.light_gray)
   local text_color = colors.white
   local bg_color = colors.black
   local wall_color = colors.white
   local floor_color = colors.white
 
   local total_sprites_height = sprite_size * rows
-  local total_margins_height = margin * (rows - 1)
+  local total_margins_height = tile_margin * (rows - 1)
   local total_map_height = total_sprites_height + total_margins_height
 
-  local rect_origin = {padding_left - ceil(margin / 2), padding_top - ceil(margin / 2)}
-  local rect_opposite = {padding_left + total_map_width - 1 + ceil(margin / 2), padding_top + total_map_height - 1 + ceil(margin / 2)}
-
-  function draw_floor()
-    rectfill(rect_origin[1] + 2, rect_origin[2] + 2, rect_opposite[1] - 2, rect_opposite[2] - 2, floor_color)
-  end
+  local board_origin = {padding_left - ceil(tile_margin / 2), padding_top - ceil(tile_margin / 2)}
+  local board_opposite = {padding_left + total_map_width - 1 + ceil(tile_margin / 2), padding_top + total_map_height - 1 + ceil(tile_margin / 2)}
 
   function draw_background()
+    -- this isn't really necessary if bg_color is black, but I'll keep it so I can modify the bg_color
     rectfill(0, 0, 127, 127, bg_color)
+  end
 
-    rectfill(0, 0, 4, 4, colors.black)
-    circfill(4, 4, 4, bg_color)
-
-    rectfill(123, 0, 127, 4, colors.black)
-    circfill(123, 4, 4, bg_color)
-
-    rectfill(0, 123, 4, 127, colors.black)
-    circfill(4, 123, 4, bg_color)
-
-    rectfill(123, 123, 127, 127, colors.black)
-    circfill(123, 123, 4, bg_color)
+  function draw_floor()
+    -- `adjust` isn't technically necessary because if the value was 0, draw_outlines() would still cover the difference
+    local adjust = 2
+    rectfill(board_origin[1] + adjust, board_origin[2] + adjust, board_opposite[1] - adjust, board_opposite[2] - adjust, wall_color)
   end
 
   function draw_outlines()
-    rect(rect_origin[1] - 1, rect_origin[2] - 1, rect_opposite[1] + 1, rect_opposite[2] + 1, bg_color)
-    rect(rect_origin[1] + 1, rect_origin[2] + 1, rect_opposite[1] - 1, rect_opposite[2] - 1, bg_color)
+    -- this draws 1px inside and 1px outside the "rim" that gets drawn by the border tiles.
+    -- this creates the appearance of walls around the floor of the board.
+    rect(board_origin[1] - 1, board_origin[2] - 1, board_opposite[1] + 1, board_opposite[2] + 1, bg_color)
+    rect(board_origin[1] + 1, board_origin[2] + 1, board_opposite[1] - 1, board_opposite[2] - 1, bg_color)
   end
 
-  function draw_shot(a, b, dir)
-    local ax = a[1]
-    local ay = a[2]
-    local bx = b[1]
-    local by = b[2]
-    -- up
-    if pair_equal(dir, {0, -1}) then
-      ax += 3
-      bx += 3
-      ay -= 2
-      by += 8
-    -- down
-    elseif pair_equal(dir, {0, 1}) then
-      ax += 3
-      bx += 3
-      ay += 9
-      by -= 1
-    -- left
-    elseif pair_equal(dir, {-1, 0}) then
-      ax -= 2
-      bx += 7
-      ay += 3
-      by += 3
-    -- right
-    elseif pair_equal(dir, {1, 0}) then
-      ax += 8
-      bx -= 2
-      ay += 3
-      by += 3
+  function draw_border()
+    pal(colors.white, wall_color)
+    pal(colors.light_gray, border_color)
+    -- top and bottom
+    local start = 12
+    local count = 13
+    for x = start, start + sprite_size * count - 1, sprite_size do
+      spr(51, x, 4, 1, 1, false, false)
+      spr(51, x, 86, 1, 1, true, true)
     end
-    rectfill(ax, ay, bx, by, colors.green)
+    -- left and right
+    local start = 13
+    local count = 9
+    for y = start, start + sprite_size * count - 1, sprite_size do
+      spr(52, 4, y)
+      spr(52, 116, y, 1, 1, true, true)
+    end
+    -- top left
+    spr(50, 4, 5)
+    -- top right
+    spr(57, 116, 5, 1, 1, true, false)
+    -- bottom left
+    spr(57, 4, 85, 1, 1, false, true)
+    -- bottom right
+    spr(50, 116, 85, 1, 1, true, true)
+    pal()
   end
 
-  function draw_score()
-    -- local foo = "(z): how to"
-    -- print(foo, 12, 106, colors.white)
-    if not debug_mode then
-      -- local text = score.. " gold"
-      print(smallcaps("gold"), 102, 100, 09)
-      local text = score.. ""
-      print(score, 99 - #text * 4, 100, 09)
-      -- print(smallcaps("grid folks"), padding_left - 9, 3, 07)
-    else
-      local spawn_rate = get_spawn_rate()
-      print(smallcaps(turns .." , " ..spawn_rate), padding_left - ceil(margin / 2), 06, 07)
+  function draw_sprites()
+
+    function draw_health(x_pos, y_pos, amount)
+      for i = 1, amount do
+        pset(x_pos + 7, y_pos + 8 - i, 8)
+      end
+    end
+
+    for x = 1, cols do
+      for y = 1, rows do
+
+        -- draw the sprite for everything at the current position
+        if #board[x][y] > 0 then
+          for next in all(board[x][y]) do
+            -- draw walls
+            local x_pos = (x - 1) * sprite_size + (x - 1) * tile_margin + padding_left
+            local y_pos = (y - 1) * sprite_size + (y - 1) * tile_margin + padding_top
+            if next.type == "wall_right" then
+              draw_wall_right(x_pos, y_pos)
+            elseif next.type == "wall_down" then
+              draw_wall_down(x_pos, y_pos)
+            -- draw the thing's sprite
+            else
+              palt(15, true)
+              palt(0, false)
+              pal(0, bg_color)
+              local sprite = next.sprite
+              spr(sprite, next.s[1], next.s[2])
+                -- draw a health bar for things with health
+              if (next.health) then
+                draw_health(next.s[1], next.s[2], next.health)
+              end
+              palt()
+              pal()
+            end
+          end
+        end
+      end
+    end
+  end
+
+  function draw_wall_right(x_pos, y_pos)
+    palt(0, false)
+
+    local x3 = x_pos + sprite_size + flr(tile_margin / 2)
+    local y3 = y_pos - ceil(tile_margin / 2)
+    local x4 = x_pos + sprite_size + flr(tile_margin / 2)
+    local y4 = y_pos + sprite_size + flr(tile_margin / 2)
+
+    local x1 = x3 - 1
+    local y1 = y3 - 1
+    local x2 = x4 + 1
+    local y2 = y4 + 1
+
+    rectfill(x1, y1, x2, y2, bg_color)
+    rectfill(x3, y3, x4, y4, wall_color)
+    palt()
+  end
+
+  function draw_wall_down(x_pos, y_pos)
+    palt(0, false)
+
+    local x3 = x_pos - ceil(tile_margin / 2)
+    local y3 = y_pos + sprite_size + flr(tile_margin / 2)
+    local x4 = x_pos + sprite_size + flr(tile_margin / 2)
+    local y4 = y_pos + sprite_size + flr(tile_margin / 2)
+
+    local x1 = x3 - 1
+    local y1 = y3 - 1
+    local x2 = x4 + 1
+    local y2 = y4 + 1
+
+    rectfill(x1, y1, x2, y2, bg_color)
+    rectfill(x3, y3, x4, y4, wall_color)
+    palt()
+  end
+
+  function update_shot_drawing()
+
+    function draw_shot(a, b, dir)
+      local ax = a[1]
+      local ay = a[2]
+      local bx = b[1]
+      local by = b[2]
+      -- up
+      if pair_equal(dir, {0, -1}) then
+        ax += 3
+        bx += 3
+        ay -= 2
+        by += 8
+      -- down
+      elseif pair_equal(dir, {0, 1}) then
+        ax += 3
+        bx += 3
+        ay += 9
+        by -= 1
+      -- left
+      elseif pair_equal(dir, {-1, 0}) then
+        ax -= 2
+        bx += 7
+        ay += 3
+        by += 3
+      -- right
+      elseif pair_equal(dir, {1, 0}) then
+        ax += 8
+        bx -= 2
+        ay += 3
+        by += 3
+      end
+      rectfill(ax, ay, bx, by, colors.green)
+    end
+
+    if #shot_points > 0 then
+      draw_shot(shot_points[1], shot_points[2], shot_direction)
+      remaining_shot_frames -= 1
+      if remaining_shot_frames <= 0 then
+        shot_points = {}
+        shot_direction = {}
+      end
     end
   end
 
@@ -565,201 +627,42 @@ function _draw()
     palt()
   end
 
-  function draw_wall_right(x_pos, y_pos)
-    palt(0, false)
-
-    local x3 = x_pos + sprite_size + flr(margin / 2)
-    local y3 = y_pos - ceil(margin / 2)
-    local x4 = x_pos + sprite_size + flr(margin / 2)
-    local y4 = y_pos + sprite_size + flr(margin / 2)
-
-    local x1 = x3 - 1
-    local y1 = y3 - 1
-    local x2 = x4 + 1
-    local y2 = y4 + 1
-
-    rectfill(x1, y1, x2, y2, bg_color)
-    rectfill(x3, y3, x4, y4, wall_color)
-    palt()
+  function draw_score()
+    if not debug_mode then
+      print(smallcaps("gold"), 102, 100, colors.orange)
+      local text = score.. ""
+      print(score, 99 - #text * 4, 100, colors.orange)
+    else
+      local spawn_rate = get_spawn_rate()
+      local text = turns .." , " ..spawn_rate
+      print(text, 118 - #text * 4, 100, colors.white)
+    end
   end
 
-  function draw_wall_down(x_pos, y_pos)
-    palt(0, false)
+  function draw_game_end_state()
+    if game_won then
+      local msg = "escaped!"
+      local msg_x = 64 - (#msg * 4) / 2
+      print(smallcaps(msg), msg_x, 47, 11)
+    end
 
-    local x3 = x_pos - ceil(margin / 2)
-    local y3 = y_pos + sprite_size + flr(margin / 2)
-    local x4 = x_pos + sprite_size + flr(margin / 2)
-    local y4 = y_pos + sprite_size + flr(margin / 2)
-
-    local x1 = x3 - 1
-    local y1 = y3 - 1
-    local x2 = x4 + 1
-    local y2 = y4 + 1
-
-    rectfill(x1, y1, x2, y2, bg_color)
-    rectfill(x3, y3, x4, y4, wall_color)
-    palt()
-  end
-
-  function draw_path_right(x_pos, y_pos)
-    local x1 = x_pos + sprite_size + flr(margin / 2) - 1
-    local y1 = y_pos
-    local x2 = x_pos + sprite_size + flr(margin / 2) + 1
-    local y2 = y_pos + sprite_size - 1
-    rectfill(x1, y1, x2, y2, floor_color)
-  end
-
-  function draw_path_down(x_pos, y_pos)
-    local x1 = x_pos
-    local y1 = y_pos + sprite_size + flr(margin / 2) - 1
-    local x2 = x_pos + sprite_size - 1
-    local y2 = y_pos + sprite_size + flr(margin / 2) + 1
-    rectfill(x1, y1, x2, y2, floor_color)
-  end
-
-  function draw_health(x_pos, y_pos, amount)
-    for i = 1, amount do
-      pset(x_pos + 7, y_pos + 8 - i, 8)
+    if game_lost then
+      local msg = "dead"
+      local msg_x = 64 - (#msg * 4) / 2
+      print(smallcaps(msg), msg_x, 47, 8)
     end
   end
 
   draw_background()
   draw_floor()
   draw_outlines()
-  draw_score()
   draw_instructions()
+  draw_score()
+  draw_sprites()
+  draw_border()
+  update_shot_drawing()
+  draw_game_end_state()
 
-	for x = 1, cols do
-		for y = 1, rows do
-
-			local x_pos = (x - 1) * sprite_size + (x - 1) * margin + padding_left
-			local y_pos = (y - 1) * sprite_size + (y - 1) * margin + padding_top
-
-			-- draw the sprite for everything at the current position
-			if #board[x][y] > 0 then
-				for next in all(board[x][y]) do
-          -- draw walls
-          if next.type == "wall_right" then
-            draw_wall_right(x_pos, y_pos)
-          elseif next.type == "wall_down" then
-            draw_wall_down(x_pos, y_pos)
-          -- draw the thing's sprite
-          else
-            palt(15, true)
-            palt(0, false)
-            pal(0, bg_color)
-            local sprite = next.sprite
-            spr(sprite, next.s[1], next.s[2])
-              -- draw a health bar for things with health
-            if (next.health) then
-              draw_health(next.s[1], next.s[2], next.health)
-            end
-            palt()
-            pal()
-          end
-				end
-			end
-		end
-	end
-
-  if #shot_points > 0 then
-    draw_shot(shot_points[1], shot_points[2], shot_direction)
-    shot_duration -= 1
-    if shot_duration <= 0 then
-      shot_points = {}
-      shot_direction = {}
-    end
-  end
-
-  pal(colors.white, wall_color)
-  pal(colors.light_gray, frame_color)
-
-  rect(rect_origin[1], rect_origin[2], rect_opposite[1], rect_opposite[2], bg_color)
-
-  -- left
-  spr(52, 4, 19 - 6)
-  spr(52, 4, 27 - 6)
-  spr(52, 4, 35 - 6)
-  spr(52, 4, 43 - 6)
-  spr(52, 4, 51 - 6)
-  spr(52, 4, 59 - 6)
-  spr(52, 4, 67 - 6)
-  spr(52, 4, 75 - 6)
-  spr(52, 4, 83 - 6)
-  -- spr(49, 5, 91 - 8)
-
-  -- top left
-  -- pal(colors.pink, colors.light_gray)
-  spr(50, 4, 5)
-  spr(50, 116, 85, 1, 1, true, true)
-
-  -- top
-  spr(51, 19 - 7, 4, 1, 1, false, false)
-  spr(51, 27 - 7, 4, 1, 1, false, false)
-  spr(51, 35 - 7, 4, 1, 1, false, false)
-  spr(51, 43 - 7, 4, 1, 1, false, false)
-  spr(51, 51 - 7, 4, 1, 1, false, false)
-  spr(51, 59 - 7, 4, 1, 1, false, false)
-  spr(51, 67 - 7, 4, 1, 1, false, false)
-  spr(51, 75 - 7, 4, 1, 1, false, false)
-  spr(51, 83 - 7, 4, 1, 1, false, false)
-  spr(51, 91 - 7, 4, 1, 1, false, false)
-  spr(51, 99 - 7, 4, 1, 1, false, false)
-  spr(51, 107 - 7, 4, 1, 1, false, false)
-  spr(51, 115 - 7, 4, 1, 1, false, false)
-
-  -- -- bottom left
-  -- spr(53, 12, 82)
-
-  -- bottom
-  spr(51, 20 - 8, 82 + 4, 1, 1, true, true)
-  spr(51, 28 - 8, 82 + 4, 1, 1, true, true)
-  spr(51, 36 - 8, 82 + 4, 1, 1, true, true)
-  spr(51, 44 - 8, 82 + 4, 1, 1, true, true)
-  spr(51, 52 - 8, 82 + 4, 1, 1, true, true)
-  spr(51, 60 - 8, 82 + 4, 1, 1, true, true)
-  spr(51, 68 - 8, 82 + 4, 1, 1, true, true)
-  spr(51, 76 - 8, 82 + 4, 1, 1, true, true)
-  spr(51, 84 - 8, 82 + 4, 1, 1, true, true)
-  spr(51, 92 - 8, 82 + 4, 1, 1, true, true)
-  spr(51, 100 - 8, 82 + 4, 1, 1, true, true)
-  spr(51, 108 - 8, 82 + 4, 1, 1, true, true)
-  spr(51, 116 - 8, 82 + 4, 1, 1, true, true)
-
-  -- right
-  spr(52, 116, 19 - 6, 1, 1, true, true)
-  spr(52, 116, 27 - 6, 1, 1, true, true)
-  spr(52, 116, 35 - 6, 1, 1, true, true)
-  spr(52, 116, 43 - 6, 1, 1, true, true)
-  spr(52, 116, 51 - 6, 1, 1, true, true)
-  spr(52, 116, 59 - 6, 1, 1, true, true)
-  spr(52, 116, 67 - 6, 1, 1, true, true)
-  spr(52, 116, 75 - 6, 1, 1, true, true)
-  spr(52, 116, 83 - 6, 1, 1, true, true)
-
-  -- top right
-  spr(57, 116, 5, 1, 1, true, false)
-
-  -- bottom right
-  spr(57, 4, 85, 1, 1, false, true)
-
-  pal()
-
-  -- rect(rect_origin[1], rect_origin[2], rect_opposite[1], rect_opposite[2], bg_color)
-
-  -- rect(0, 0, 4, 4, colors.blue)
-
-  if game_won then
-    local msg = "escaped!"
-    local msg_x = 64 - (#msg * 4) / 2
-    print(smallcaps(msg), msg_x, 47, 11)
-  end
-
-  if game_lost then
-		local msg = "dead"
-		local msg_x = 64 - (#msg * 4) / 2
-		print(smallcaps(msg), msg_x, 47, 8)
-	end
 end
 
 --[[
@@ -829,8 +732,8 @@ end
 function board_position_to_screen_position(board_position)
   local board_x = board_position[1]
   local board_y = board_position[2]
-  local x_pos = (board_x - 1) * sprite_size + (board_x - 1) * margin + padding_left
-  local y_pos = (board_y - 1) * sprite_size + (board_y - 1) * margin + padding_top
+  local x_pos = (board_x - 1) * sprite_size + (board_x - 1) * tile_margin + padding_left
+  local y_pos = (board_y - 1) * sprite_size + (board_y - 1) * tile_margin + padding_top
   return {x_pos, y_pos}
 end
 
@@ -963,8 +866,8 @@ function create_hero()
 		type = "hero",
     base_sprite = sprites.hero,
     sprite = null,
-    max_health = 2,
-    health = 2,
+    max_health = 3,
+    health = 3,
     -- buttons
     dash = false,
     shoot = false,
@@ -975,7 +878,7 @@ function create_hero()
       local next_tile = {self.x + direction[1], self.y + direction[2]}
       function step_or_bump(direction)
         local target_tile = {self.x + direction[1], self.y + direction[2]}
-        local enemy = find_type_in_tile("enemy", target_tile) or find_type_in_tile("egg", target_tile)
+        local enemy = find_type_in_tile("enemy", target_tile)
         if enemy then
           hit_enemy(enemy, 1)
           set_bump_transition(self, direction, 2, 0)
@@ -1006,7 +909,7 @@ function create_hero()
             return false
           end
           -- if there's an enemy in the target, return it
-          local enemy = find_type_in_tile("enemy", next_tile) or find_type_in_tile("egg", next_tile)
+          local enemy = find_type_in_tile("enemy", next_tile)
           if enemy then
             return enemy
           end
@@ -1032,12 +935,6 @@ function create_hero()
           then
             return now_tile
           end
-          -- if there's an enemy in the target, return it
-          -- local enemy = find_type_in_tile("enemy", next_tile)
-          -- if enemy then
-          --   return enemy
-          -- end
-          -- set `current` to `next_tile` and keep going
           now_tile = next_tile
         end
       end
@@ -1061,7 +958,7 @@ function create_hero()
             return targets
           end
           -- if there's an enemy in the target, return it
-          local enemy = find_type_in_tile("enemy", next_tile) or find_type_in_tile("egg", next_tile)
+          local enemy = find_type_in_tile("enemy", next_tile)
           if enemy then
             add(targets, enemy)
           end
@@ -1077,14 +974,13 @@ function create_hero()
         shoot_target = get_shoot_target(direction)
         if self.shoot and shoot_target then
           shoot_target.stunned = true
-          shoot_target.sprite = sprites.egg
+          shoot_target.sprite = sprites.enemy_stunned
           hit_enemy(shoot_target, 1)
           delay += transition_frames
           sfx(sounds.shoot, 3)
           shot_points = {self.s, shoot_target.s}
           shot_direction = direction
-          shot_duration = 4
-          -- player_turn = false
+          remaining_shot_frames = transition_frames
         elseif self.dash then
           local dest = get_dash_dest(direction)
           local targets = get_dash_targets(direction)
@@ -1094,14 +990,11 @@ function create_hero()
           set_tile(self, dest)
           delay += transition_frames
           sfx(sounds.dash, 3)
-          -- player_turn = false
         else
           step_or_bump(direction)
           delay += transition_frames
-          -- player_turn = false
         end
         player_turn = false
-        -- del(input_queue, input_queue[1])
       end
     end
 	}
@@ -1197,24 +1090,6 @@ function update_hero_sprites()
   end
 end
 
--- function hatch_eggs()
---   for next in all(eggs) do
---     del(eggs, next)
---     del(board[next.x][next.y], next)
-
---     local found_hero = find_type_in_tile("hero", {next.x, next.y})
---     local found_enemy = find_type_in_tile("enemy", {next.x, next.y})
-
---     if found_hero then
---       found_hero.health -= 1
---     elseif found_enemy then
---       hit_enemy(found_enemy, 1)
---     else
---       local new_enemy = new_enemy({next.x, next.y})
---     end
---   end
--- end
-
 -- given an enemy and an amount of damage,
 -- hit it and then kill if it has no health
 function hit_enemy(enemy, damage)
@@ -1223,30 +1098,13 @@ function hit_enemy(enemy, damage)
   if (enemy.health <= 0) then
     has_killed = true
     del(board[enemy.x][enemy.y], enemy)
-    if enemy.type == "enemy" then
-      del(enemies, enemy)
-    -- elseif enemy.type == "egg" then
-    --   del(eggs, enemy)
-    end
+    del(enemies, enemy)
   end
 end
 
 --[[
   enemy stuff
 --]]
-
--- function new_egg()
---   egg = {
---     x = null,
---     y = null,
---     s = {},
---     health = 1,
---     type = "egg",
---     sprite = sprites.egg
---   }
---   add(eggs, egg)
---   return egg
--- end
 
 -- create an enemy and add it to the array of enemies
 function new_enemy()
@@ -1268,7 +1126,7 @@ function new_enemy()
 		type = "hero",
     type = "enemy",
     stunned = true,
-    sprite = sprites.egg, -- stunned by default
+    sprite = sprites.enemy_stunned, -- stunned by default
     health = 2,
     update = function(self)
 
@@ -1366,7 +1224,6 @@ function get_direction(a, b)
   local by = b[2]
   -- up
   if bx == ax and by == ay - 1 then
-  -- if dest ==
     return {0, -1}
   -- down
   elseif bx == ax and by == ay + 1 then
@@ -1622,13 +1479,13 @@ end
 
 __gfx__
 0000000000000000ffffffff00000000ffffffff0000000d00000000ffffffffffffffffffffffffffffffffffffffffffffffff000000000000000000000000
-0000000000000000000000ff00000000666666ff0000000d00000000ffcffcffffbffbffff8ff8ffff9ff9ffff7ff7ffff7777ff000000000000000000000000
-0000000000000000077770ff00000000677776ff0000000d00000000fccffccffbbffbbff88ff88ff99ff99ff77ff77ff777777f000000000000000000000000
-0000000000000000007070ff00000000667676ff0000000d00000000fffffffffffffffffffffffffffffffffffffffff777777f000000000000000000000000
-0000000000000000077770ff00000000677776ff0000000d00000000fffffffffffffffffffffffffffffffffffffffff677776f000000000000000000000000
-0000000000000000007700ff00000000667766ff0000000d00000000fccffccffbbffbbff88ff88ff99ff99ff77ff77ff666666f000000000000000000000000
-0000000000000000f0000fff00000000f6666fff0000000d00000000ffcffcffffbffbffff8ff8ffff9ff9ffff7ff7ffff6666ff000000000000000000000000
-0000000000000000ffffffff00000000ffffffff0000000dddddddddffffffffffffffffffffffffffffffffffffffffffffffff000000000000000000000000
+0000000000000000ffffffff00000000ffffffff0000000d00000000ffcffcffffbffbffff8ff8ffff9ff9ffff7ff7ffff7777ff000000000000000000000000
+0000000000000000000000ff00000000666666ff0000000d00000000fccffccffbbffbbff88ff88ff99ff99ff77ff77ff777777f000000000000000000000000
+0000000000000000077770ff00000000677776ff0000000d00000000fffffffffffffffffffffffffffffffffffffffff777777f000000000000000000000000
+0000000000000000007070ff00000000667676ff0000000d00000000fffffffffffffffffffffffffffffffffffffffff677776f000000000000000000000000
+0000000000000000077770ff00000000677776ff0000000d00000000fccffccffbbffbbff88ff88ff99ff99ff77ff77ff666666f000000000000000000000000
+0000000000000000007700ff00000000667766ff0000000d00000000ffcffcffffbffbffff8ff8ffff9ff9ffff7ff7ffff6666ff000000000000000000000000
+0000000000000000f0000fff00000000f6666fff0000000dddddddddffffffffffffffffffffffffffffffffffffffffffffffff000000000000000000000000
 00000000ffffffffff000fffffffffffff000fffffffffffff000fffffffffffffffffffffffffffffffffff77777777eeeeeeee000000000000000000000000
 00000000ffffffffff070fffffffffffff0c0fffffffffffff0b0fffffccccffffbbbbffff8888ffff9999ff77677677effffffe000000000000000000000000
 00000000ff000fff0007000fff000fff000c000fff000fff000b000ffccccccffbbbbbbff888888ff999999f77655677efeeeefe000000000000000000000000
