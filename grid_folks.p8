@@ -6,12 +6,15 @@ __lua__
 
 -- todo
 -- [x] try a 5 x 7 board instead
--- [x] maybe I can avoid placing pads on heroes' tiles now?
+-- [x] maybe i can avoid placing pads on heroes' tiles now?
 -- [x] clean up
 -- [x] fix bug: when a button appears where an enemy becomes un-stunned, it appears on top
 -- [x] heroes hop when activated
 -- [x] objects should contain their own draw functions
 -- [x] support for manually setting spawn rates
+-- [ ] shoot should go through enemies (and walls?)
+-- [ ] dash should stop on enemies and do one damage
+-- [ ] it looks like the stun style isn't showing
 -- [ ] animation for enemy death
 -- [ ] when multiple enemies are present, they should act in random order
 -- [ ] randomly distribute starting abilities
@@ -57,7 +60,6 @@ function _init()
   -- graphics stuff that needs to be global
   text_color = colors.white
   bg_color = colors.black
-  wall_color = colors.white
   floor_color = colors.white
   screen_size = 128
   sprite_size = 8
@@ -74,6 +76,7 @@ function _init()
   remaining_shot_frames = 0 -- for how many frames should the current shot be drawn?
   border_color = 0
   set_border_color()
+  -- wall_color = border_color
 
   -- sounds dictionary
   sounds = {
@@ -194,6 +197,7 @@ function set_border_color()
   del(options, border_color)
   local index = flr(rnd(#options)) + 1
   border_color = options[index]
+  wall_color = border_color
 end
 
 function should_spawn()
@@ -429,14 +433,14 @@ function _draw()
   local board_opposite = {padding_left + total_map_width - 1 + ceil(tile_margin / 2), padding_top + total_map_height - 1 + ceil(tile_margin / 2)}
 
   function draw_background()
-    -- this isn't really necessary if bg_color is black, but I'll keep it so I can modify the bg_color
+    -- this isn't really necessary if bg_color is black, but i'll keep it so i can modify the bg_color
     rectfill(0, 0, 127, 127, bg_color)
   end
 
   function draw_floor()
     -- `adjust` isn't technically necessary because if the value was 0, draw_outlines() would still cover the difference
     local adjust = 2
-    rectfill(board_origin[1] + adjust, board_origin[2] + adjust, board_opposite[1] - adjust, board_opposite[2] - adjust, wall_color)
+    rectfill(board_origin[1] + adjust, board_origin[2] + adjust, board_opposite[1] - adjust, board_opposite[2] - adjust, floor_color)
   end
 
   function draw_outlines()
@@ -495,6 +499,7 @@ function _draw()
               palt(0, false)
               pal(0, bg_color)
               -- render sprites in the order defined by sprite_layers
+              -- todo: this isn't actually working
               for type in all(sprite_layers) do
                 if next.type == type then
                   next.draw(next)
@@ -963,7 +968,7 @@ function create_hero()
           local dest = get_dash_dest(direction)
           local targets = get_dash_targets(direction)
           for next in all(targets) do
-            hit_enemy(next, 5)
+            hit_enemy(next, 2)
           end
           set_tile(self, dest)
           delay += transition_frames
@@ -1451,7 +1456,10 @@ function refresh_pads()
         x = null,
         y = null,
         type = "exit",
-        sprite = sprites.exit
+        sprite = sprites.exit,
+        draw = function(self)
+          spr(self.sprite, self.s[1], self.s[2])
+        end,
       }
       add(exits, exit)
       deploy(exit, {"button", "hero", "exit"})
