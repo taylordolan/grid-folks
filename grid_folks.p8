@@ -11,8 +11,8 @@ __lua__
 -- [x] fix bug: when a button appears where an enemy becomes un-stunned, it appears on top
 -- [x] heroes hop when activated
 -- [x] objects should contain their own draw functions
+-- [x] support for manually setting spawn rates
 -- [ ] animation for enemy death
--- [ ] support for manually setting spawn rates
 -- [ ] when multiple enemies are present, they should act in random order
 -- [ ] randomly distribute starting abilities
 -- [ ] convert s{} to sx and sy
@@ -163,21 +163,24 @@ function _init()
 	-- initial enemy
   spawn_enemy()
 
-  -- this determines what the spawn rate is at the start of the game
-  initial_spawn_rate = 15
-  -- this determines the overall shape of the "spawn rate" curve
-  -- the higher this is, the flatter the curve
-  spawn_base = 1
-  -- this determines how quickly we move through the curve throughout the game
-  spawn_increment = 0.5
-
-  -- spawn stuff below here shouldn't be messed with
+  -- spawn rate stuff
+  spawn_rates = {
+    [1] = 14,
+    [30] = 12,
+    [60] = 10,
+    [105] = 8,
+    [150] = 6,
+    [200] = 5,
+    [250] = 4,
+    [300] = 3,
+    [360] = 2,
+    [420] = 1,
+  }
+  spawn_rate = spawn_rates[1]
   -- this gets updated whenever an enemy spawns
   last_spawned_turn = 0
   -- this tracks whether we've spawned a turn early
   spawned_early = false
-  -- this is just so i don't have to set the initial_spawn_rate in an abstract way
-  spawn_modifier = initial_spawn_rate + flr(sqrt(spawn_base))
 
   -- start the music!
   music(sounds.music)
@@ -193,12 +196,7 @@ function set_border_color()
   border_color = options[index]
 end
 
-function get_spawn_rate()
-  return spawn_modifier - flr(sqrt(spawn_base))
-end
-
 function should_spawn()
-  local spawn_rate = get_spawn_rate()
   local should_spawn = false
 
   -- if it's one turn before reaching the spawn rate
@@ -313,7 +311,9 @@ function _update()
     -- update game state
     turns = turns + 1
     player_turn = true
-    spawn_base += spawn_increment
+    if spawn_rates[turns] ~= nil then
+      spawn_rate = spawn_rates[turns]
+    end
   end
 
   -- update screen positions
@@ -612,7 +612,6 @@ function _draw()
       local text = score.. ""
       print(score, 99 - #text * 4, 100, colors.orange)
     else
-      local spawn_rate = get_spawn_rate()
       local text = turns .." , " ..spawn_rate
       print(text, 118 - #text * 4, 100, colors.white)
     end

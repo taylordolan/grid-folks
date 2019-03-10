@@ -57,7 +57,7 @@ function _draw()
     y = 0
     for t = 1, max_turns do
       if rates[t] then
-        y = flr(t / 10)
+        y = flr(t / 6)
         print(t, x, y)
         x = 20
         for i = 1, rates[t] do
