@@ -10,8 +10,9 @@ __lua__
 -- [x] clean up
 -- [x] fix bug: when a button appears where an enemy becomes un-stunned, it appears on top
 -- [x] heroes hop when activated
--- [ ] support for manually setting spawn rates
+-- [x] objects should contain their own draw functions
 -- [ ] animation for enemy death
+-- [ ] support for manually setting spawn rates
 -- [ ] when multiple enemies are present, they should act in random order
 -- [ ] randomly distribute starting abilities
 -- [ ] convert s{} to sx and sy
@@ -54,6 +55,10 @@ function _init()
   }
 
   -- graphics stuff that needs to be global
+  text_color = colors.white
+  bg_color = colors.black
+  wall_color = colors.white
+  floor_color = colors.white
   screen_size = 128
   sprite_size = 8
   tile_margin = 7
@@ -407,14 +412,15 @@ function set_bump_transition(thing, direction, total_transition_time, transition
   thing.td = transition_delay
 end
 
+function draw_health(x_pos, y_pos, amount)
+  for i = 1, amount do
+    pset(x_pos + 7, y_pos + 8 - i, 8)
+  end
+end
+
 function _draw()
 
 	cls()
-  local text_color = colors.white
-  local bg_color = colors.black
-  local wall_color = colors.white
-  local floor_color = colors.white
-
   local total_sprites_height = sprite_size * rows
   local total_margins_height = tile_margin * (rows - 1)
   local total_map_height = total_sprites_height + total_margins_height
@@ -470,12 +476,6 @@ function _draw()
 
   function draw_sprites()
 
-    function draw_health(x_pos, y_pos, amount)
-      for i = 1, amount do
-        pset(x_pos + 7, y_pos + 8 - i, 8)
-      end
-    end
-
     for x = 1, cols do
       for y = 1, rows do
 
@@ -486,10 +486,8 @@ function _draw()
             -- draw walls
             local x_pos = (x - 1) * sprite_size + (x - 1) * tile_margin + padding_left
             local y_pos = (y - 1) * sprite_size + (y - 1) * tile_margin + padding_top
-            if next.type == "wall_right" then
-              draw_wall_right(x_pos, y_pos)
-            elseif next.type == "wall_down" then
-              draw_wall_down(x_pos, y_pos)
+            if next.type == "wall_right" or next.type == "wall_down" then
+              next.draw(x_pos, y_pos)
 
             -- draw sprites
             else
@@ -499,12 +497,7 @@ function _draw()
               -- render sprites in the order defined by sprite_layers
               for type in all(sprite_layers) do
                 if next.type == type then
-                  local sprite = next.sprite
-                  spr(sprite, next.s[1], next.s[2])
-                    -- draw a health bar for things with health
-                  if (next.health) then
-                    draw_health(next.s[1], next.s[2], next.health)
-                  end
+                  next.draw(next)
                 end
               end
               palt()
@@ -514,42 +507,6 @@ function _draw()
         end
       end
     end
-  end
-
-  function draw_wall_right(x_pos, y_pos)
-    palt(0, false)
-
-    local x3 = x_pos + sprite_size + flr(tile_margin / 2)
-    local y3 = y_pos - ceil(tile_margin / 2)
-    local x4 = x_pos + sprite_size + flr(tile_margin / 2)
-    local y4 = y_pos + sprite_size + flr(tile_margin / 2)
-
-    local x1 = x3 - 1
-    local y1 = y3 - 1
-    local x2 = x4 + 1
-    local y2 = y4 + 1
-
-    rectfill(x1, y1, x2, y2, bg_color)
-    rectfill(x3, y3, x4, y4, wall_color)
-    palt()
-  end
-
-  function draw_wall_down(x_pos, y_pos)
-    palt(0, false)
-
-    local x3 = x_pos - ceil(tile_margin / 2)
-    local y3 = y_pos + sprite_size + flr(tile_margin / 2)
-    local x4 = x_pos + sprite_size + flr(tile_margin / 2)
-    local y4 = y_pos + sprite_size + flr(tile_margin / 2)
-
-    local x1 = x3 - 1
-    local y1 = y3 - 1
-    local x2 = x4 + 1
-    local y2 = y4 + 1
-
-    rectfill(x1, y1, x2, y2, bg_color)
-    rectfill(x3, y3, x4, y4, wall_color)
-    palt()
   end
 
   function update_shot_drawing()
@@ -1018,7 +975,11 @@ function create_hero()
         end
         player_turn = false
       end
-    end
+    end,
+    draw = function(self)
+      spr(self.sprite, self.s[1], self.s[2])
+      draw_health(self.s[1], self.s[2], self.health)
+    end,
 	}
   return hero
 end
@@ -1233,7 +1194,11 @@ function new_enemy()
           delay += 4
         end
       end
-		end
+		end,
+    draw = function(self)
+      spr(self.sprite, self.s[1], self.s[2])
+      draw_health(self.s[1], self.s[2], self.health)
+    end,
 	}
 	add(enemies, enemy)
   return enemy
@@ -1375,13 +1340,47 @@ function generate_walls()
       x = null,
       y = null,
       type = "wall_right",
-      sprite = sprites.wall_right
+      sprite = sprites.wall_right,
+      draw = function(x_pos, y_pos)
+        palt(0, false)
+
+        local x3 = x_pos + sprite_size + flr(tile_margin / 2)
+        local y3 = y_pos - ceil(tile_margin / 2)
+        local x4 = x_pos + sprite_size + flr(tile_margin / 2)
+        local y4 = y_pos + sprite_size + flr(tile_margin / 2)
+
+        local x1 = x3 - 1
+        local y1 = y3 - 1
+        local x2 = x4 + 1
+        local y2 = y4 + 1
+
+        rectfill(x1, y1, x2, y2, bg_color)
+        rectfill(x3, y3, x4, y4, wall_color)
+        palt()
+      end,
     }
     local wall_down = {
       x = null,
       y = null,
       type = "wall_down",
-      sprite = sprites.wall_down
+      sprite = sprites.wall_down,
+      draw = function(x_pos, y_pos)
+        palt(0, false)
+
+        local x3 = x_pos - ceil(tile_margin / 2)
+        local y3 = y_pos + sprite_size + flr(tile_margin / 2)
+        local x4 = x_pos + sprite_size + flr(tile_margin / 2)
+        local y4 = y_pos + sprite_size + flr(tile_margin / 2)
+
+        local x1 = x3 - 1
+        local y1 = y3 - 1
+        local x2 = x4 + 1
+        local y2 = y4 + 1
+
+        rectfill(x1, y1, x2, y2, bg_color)
+        rectfill(x3, y3, x4, y4, wall_color)
+        palt()
+      end,
     }
     deploy(wall_right, {"wall_right"})
     deploy(wall_down, {"wall_down"})
@@ -1477,7 +1476,10 @@ function refresh_pads()
       s = {},
       type = "pad",
       name = next,
-      sprite = sprites["pad_" ..next]
+      sprite = sprites["pad_" ..next],
+      draw = function(self)
+        spr(self.sprite, self.s[1], self.s[2])
+      end,
     }
     add(pads, new_pad)
     deploy(new_pad, {"pad", "button", "hero"})
@@ -1493,7 +1495,10 @@ function new_button(name)
     type = "button",
     name = name,
     sprite = sprites["button_" ..name],
-    hero_sprite = sprites["hero_" ..name]
+    hero_sprite = sprites["hero_" ..name],
+    draw = function(self)
+      spr(self.sprite, self.s[1], self.s[2])
+    end,
   }
   add(buttons, new_button)
   return new_button
