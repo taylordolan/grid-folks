@@ -12,6 +12,7 @@ __lua__
 -- [x] heroes hop when activated
 -- [x] objects should contain their own draw functions
 -- [x] support for manually setting spawn rates
+-- [ ] try replacing dash with moving and hitting through walls
 -- [ ] bring back enemy eggs that can't be attacked. they should not be allowed to deploy next to heroes, but blocking this doesn't take damage
 -- [ ] or allow them to be deployed next to heroes, but blocking them takes one damage
 -- [ ] shoot should go through enemies (and walls?)
@@ -952,33 +953,37 @@ function create_hero()
 
       if
         location_exists(next_tile) and
-        not is_wall_between({self.x, self.y}, next_tile) and
+        -- not is_wall_between({self.x, self.y}, next_tile) and
         not find_type_in_tile("hero", next_tile)
       then
         shoot_target = get_shoot_target(direction)
         if self.shoot and shoot_target then
-          shoot_target.stunned = true
-          shoot_target.sprite = sprites.enemy_stunned
+          -- shoot_target.stunned = true
+          -- shoot_target.sprite = sprites.enemy_stunned
           hit_enemy(shoot_target, 1)
           delay += transition_frames
           sfx(sounds.shoot, 3)
           shot_points = {self.s, shoot_target.s}
           shot_direction = direction
           remaining_shot_frames = transition_frames
+          player_turn = false
         elseif self.dash then
-          local dest = get_dash_dest(direction)
-          local targets = get_dash_targets(direction)
-          for next in all(targets) do
-            hit_enemy(next, 2)
-          end
-          set_tile(self, dest)
-          delay += transition_frames
-          sfx(sounds.dash, 3)
-        else
+          -- local dest = get_dash_dest(direction)
           step_or_bump(direction)
           delay += transition_frames
+          player_turn = false
+          -- local targets = get_dash_targets(direction)
+          -- for next in all(targets) do
+          --   hit_enemy(next, 2)
+          -- end
+          -- set_tile(self, dest)
+          -- delay += transition_frames
+          -- sfx(sounds.dash, 3)
+        elseif not is_wall_between({self.x, self.y}, next_tile) then
+          step_or_bump(direction)
+          delay += transition_frames
+          player_turn = false
         end
-        player_turn = false
       end
     end,
     draw = function(self)
