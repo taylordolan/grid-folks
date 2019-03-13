@@ -12,6 +12,8 @@ __lua__
 -- [x] heroes hop when activated
 -- [x] objects should contain their own draw functions
 -- [x] support for manually setting spawn rates
+-- [ ] bring back enemy eggs that can't be attacked. they should not be allowed to deploy next to heroes, but blocking this doesn't take damage
+-- [ ] or allow them to be deployed next to heroes, but blocking them takes one damage
 -- [ ] shoot should go through enemies (and walls?)
 -- [ ] dash should stop on enemies and do one damage
 -- [ ] it looks like the stun style isn't showing
@@ -172,12 +174,12 @@ function _init()
     [30] = 12,
     [60] = 10,
     [105] = 8,
-    [150] = 6,
-    [200] = 5,
-    [250] = 4,
-    [300] = 3,
-    [360] = 2,
-    [420] = 1,
+    [160] = 6,
+    [220] = 5,
+    [280] = 4,
+    [350] = 3,
+    [420] = 2,
+    [510] = 1,
   }
   spawn_rate = spawn_rates[1]
   -- this gets updated whenever an enemy spawns
@@ -232,6 +234,10 @@ function _update()
 
   update_hero_sprites()
 
+  if btnp(4) then
+    debug_mode = not debug_mode
+  end
+
   if game_won or game_lost then
     if btnp(5) then
       _init()
@@ -239,14 +245,6 @@ function _update()
     return
   end
 
-  if btnp(4) then
-    debug_mode = not debug_mode
-    -- for testing game end state
-    -- if #exits ~= 2 then
-    --   add_button()
-    --   refresh_pads()
-    -- end
-  end
 
   -- for complicated reasons, this value should be set to
   -- one *less* than the maximum allowed number of rapid player inputs
@@ -849,8 +847,8 @@ function create_hero()
 		type = "hero",
     base_sprite = sprites.hero,
     sprite = null,
-    max_health = 3,
-    health = 3,
+    max_health = 2,
+    health = 2,
     -- buttons
     dash = false,
     shoot = false,
@@ -858,7 +856,9 @@ function create_hero()
       -- this is called when the player hits a direction on their turn.
       -- it determines which action should be taken and triggers it.
     act = function(self, direction)
+
       local next_tile = {self.x + direction[1], self.y + direction[2]}
+
       function step_or_bump(direction)
         local target_tile = {self.x + direction[1], self.y + direction[2]}
         local enemy = find_type_in_tile("enemy", target_tile)
@@ -949,6 +949,7 @@ function create_hero()
           now_tile = next_tile
         end
       end
+
       if
         location_exists(next_tile) and
         not is_wall_between({self.x, self.y}, next_tile) and

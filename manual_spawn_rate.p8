@@ -11,12 +11,12 @@ function _init()
     [30] = 12,
     [60] = 10,
     [105] = 8,
-    [150] = 6,
-    [200] = 5,
-    [250] = 4,
-    [300] = 3,
-    [360] = 2,
-    [420] = 1,
+    [160] = 6,
+    [220] = 5,
+    [280] = 4,
+    [350] = 3,
+    [420] = 2,
+    [510] = 1,
   }
   max_turns = 600
   graph_mode = true
@@ -35,7 +35,7 @@ function _draw()
     y = 0
     for t = 1, max_turns do
       if spawn_rates[t] then
-        y = flr(t / 4)
+        y = flr(t / 5)
         print(t, x, y)
         x = 20
         for i = 1, spawn_rates[t] do
