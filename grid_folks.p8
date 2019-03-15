@@ -13,8 +13,10 @@ __lua__
 -- [x] objects should contain their own draw functions
 -- [x] support for manually setting spawn rates
 -- [ ] try replacing dash with moving and hitting through walls
+-- [ ] move against walls to wait?
 -- [ ] bring back enemy eggs that can't be attacked. they should not be allowed to deploy next to heroes, but blocking this doesn't take damage
 -- [ ] or allow them to be deployed next to heroes, but blocking them takes one damage
+-- [ ] fix load time on generating walls
 -- [ ] shoot should go through enemies (and walls?)
 -- [ ] dash should stop on enemies and do one damage
 -- [ ] it looks like the stun style isn't showing
@@ -125,7 +127,7 @@ function _init()
   game_won = false
   hero_a_active = true
   has_killed = false
-  debug_mode = false
+  debug_mode = true
   delay = 0
 
   -- lists of things
@@ -235,9 +237,9 @@ function _update()
 
   update_hero_sprites()
 
-  if btnp(4) then
-    debug_mode = not debug_mode
-  end
+  -- if btnp(4) then
+  --   debug_mode = not debug_mode
+  -- end
 
   if game_won or game_lost then
     if btnp(5) then
@@ -263,6 +265,8 @@ function _update()
     -- down
     elseif btnp(3) then
       input = {0, 1}
+    elseif btnp(4) then
+      input = 4
     elseif btnp(5) then
       input = 5
     end
@@ -273,7 +277,9 @@ function _update()
     delay -= 1
   -- player turn
   elseif player_turn == true and #input_queue > 0 then
-    if input_queue[1] == 5 then
+    if input_queue[1] == 4 then
+      player_turn = false
+    elseif input_queue[1] == 5 then
       hero_a_active = not hero_a_active
       local active_hero
       if hero_a_active then
@@ -616,7 +622,7 @@ function _draw()
       local text = score.. ""
       print(score, 99 - #text * 4, 100, colors.orange)
     else
-      local text = turns .." , " ..spawn_rate
+      local text = turns .."/"..spawn_rate.."/"..score
       print(text, 118 - #text * 4, 100, colors.white)
     end
   end
@@ -848,8 +854,8 @@ function create_hero()
 		type = "hero",
     base_sprite = sprites.hero,
     sprite = null,
-    max_health = 2,
-    health = 2,
+    max_health = 3,
+    health = 3,
     -- buttons
     dash = false,
     shoot = false,
@@ -1345,7 +1351,7 @@ end
 
 function generate_walls()
 
-  for i = 1, 10 do
+  for i = 1, 14 do
     local wall_right = {
       x = null,
       y = null,
@@ -1369,6 +1375,9 @@ function generate_walls()
         palt()
       end,
     }
+    deploy(wall_right, {"wall_right"})
+  end
+  for i = 1, 10 do
     local wall_down = {
       x = null,
       y = null,
@@ -1392,7 +1401,6 @@ function generate_walls()
         palt()
       end,
     }
-    deploy(wall_right, {"wall_right"})
     deploy(wall_down, {"wall_down"})
   end
 end
