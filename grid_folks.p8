@@ -15,6 +15,8 @@ __lua__
 -- [x] replace dash with moving and hitting through walls
 -- [x] move against walls to wait
 -- [x] bring back enemy eggs that can't be attacked. they should not be allowed to deploy next to heroes
+-- [x] charging functionality
+-- [ ] fix heroes walking through heroes
 -- [ ] fix load time on generating walls
 -- [ ] animation for enemy death
 -- [ ] when multiple enemies are present, they should act in random order
@@ -113,6 +115,7 @@ function _init()
     pad_health = 009,
     pad_score = 010,
     exit = 028,
+    charge = 039,
   }
 
   -- some game state
@@ -750,27 +753,36 @@ end
 
 function trigger_enemy_buttons(enemy_tile)
 
-  function gain_health()
+  function gain_health(charged)
     for next in all(heroes) do
-      if (next.health < next.max_health) then
+      next.health = next.health + 1
+      if charged then
         next.health = next.health + 1
+      end
+      if next.health > next.max_health then
+        next.health = next.max_health
       end
     end
     sfx(sounds.health, 3)
   end
 
-  function gain_score()
+  function gain_score(charged)
     score += 1
+    if charged then
+      score += 1
+    end
     sfx(sounds.score, 3)
   end
 
   local button = find_type_in_tile("button", enemy_tile)
   if button then
     if button.name == "health" then
-      gain_health()
+      gain_health(button.charged)
+      button.charged = false
     end
     if button.name == "score" then
-      gain_score()
+      gain_score(button.charged)
+      button.charged = false
     end
   end
 end
@@ -847,8 +859,8 @@ function create_hero()
 		type = "hero",
     base_sprite = sprites.hero,
     sprite = null,
-    max_health = 2,
-    health = 2,
+    max_health = 3,
+    health = 3,
     -- buttons
     dash = false,
     shoot = false,
@@ -857,13 +869,29 @@ function create_hero()
       -- it determines which action should be taken and triggers it.
     act = function(self, direction)
 
+      local ally
+      if heroes[1] == self then
+        ally = heroes[2]
+      else
+        ally = heroes[1]
+      end
+
+      local ally_button = find_type_in_tile("button", {ally.x, ally.y})
+
       local next_tile = {self.x + direction[1], self.y + direction[2]}
 
       function step_or_bump(direction)
         local target_tile = {self.x + direction[1], self.y + direction[2]}
         local enemy = find_type_in_tile("enemy", target_tile)
+        local bonus_damage = 0
         if enemy then
-          hit_enemy(enemy, 1)
+          if ally_button and ally_button.name == "dash" then
+            if ally_button.charged == true then
+              bonus_damage = 1
+              ally_button.charged = false
+            end
+          end
+          hit_enemy(enemy, 1 + bonus_damage)
           set_bump_transition(self, direction, 2, 0)
           set_bump_transition(enemy, direction, 2, 2)
           sfx(sounds.hero_bump, 3)
@@ -956,7 +984,12 @@ function create_hero()
         location_exists(next_tile) and
         self.shoot and shoot_target
       then
-        hit_enemy(shoot_target, 1)
+        local bonus_damage = 0
+        if ally_button.charged == true then
+          bonus_damage = 1
+          ally_button.charged = false
+        end
+        hit_enemy(shoot_target, 1 + bonus_damage)
         delay += transition_frames
         sfx(sounds.shoot, 3)
         shot_points = {self.s, shoot_target.s}
@@ -1095,6 +1128,10 @@ function hit_enemy(enemy, damage)
     enemy.health -= damage
     if (enemy.health <= 0) then
       has_killed = true
+      local button = find_type_in_tile("button", {enemy.x, enemy.y})
+      if button then
+        button.charged = true
+      end
       del(board[enemy.x][enemy.y], enemy)
       del(enemies, enemy)
     end
@@ -1556,10 +1593,23 @@ function new_button(name)
     s = {},
     type = "button",
     name = name,
+    charged = false,
     sprite = sprites["button_" ..name],
     hero_sprite = sprites["hero_" ..name],
     draw = function(self)
       spr(self.sprite, self.s[1], self.s[2])
+      if self.charged then
+        if self.name == "dash" then
+          pal(colors.black, colors.navy)
+        elseif self.name == "health" then
+          pal(colors.black, colors.maroon)
+        elseif self.name == "shoot" then
+          pal(colors.black, colors.forest)
+        elseif self.name == "score" then
+          pal(colors.black, colors.brown)
+        end
+        spr(sprites.charge, self.s[1] + 1, self.s[2] - 1)
+      end
     end,
   }
   add(buttons, new_button)
@@ -1583,14 +1633,14 @@ __gfx__
 000000000007000ff07070ff000c000ff0c0c0ff000b000ff0b0b0fff111111ff333333ff222222ff444444f70666607efeeeefe000000000000000000000000
 00000000f07070fff07070fff0c0c0fff0c0c0fff0b0b0fff0b0b0ffff1111ffff3333ffff2222ffff4444ff77600677effffffe000000000000000000000000
 00000000f00000fff00000fff00000fff00000fff00000fff00000ffffffffffffffffffffffffffffffffff77777777eeeeeeee000000000000000000000000
-00000000000070707000700070007000000000000000000007070000000000000000000000000000000000000000000000000000000000000000000000000000
-00000000707000700000000000000000000000000000000007070700000000000000000000000000000000000000000000000000000000000000000000000000
-00000000007000707007070070070700000000000000000007070007000000000000000000000000000000000000000000000000000000000000000000000000
-00000000700070707070007070700070000000000000000007000700000000000000000000000000000000000000000000000000000000000000000000000000
-00000000000070700000000000000000000000000000000007070000000000000000000000000000000000000000000000000000000000000000000000000000
-00000000707000707707770777077707000000000000000007070700000000000000000000000000000000000000000000000000000000000000000000000000
-00000000007000700000000000000000000000000000000007070007000000000000000000000000000000000000000000000000000000000000000000000000
-00000000700070707777777777777777000000000000000007000700000000000000000000000000000000000000000000000000000000000000000000000000
+00000000000070707000700070007000000000000000000007070000ffffff0f0000000000000000000000000000000000000000000000000000000000000000
+00000000707000700000000000000000000000000000000007070700fffff0000000000000000000000000000000000000000000000000000000000000000000
+00000000007000707007070070070700000000000000000007070007ffffff0f0000000000000000000000000000000000000000000000000000000000000000
+00000000700070707070007070700070000000000000000007000700ffffffff0000000000000000000000000000000000000000000000000000000000000000
+00000000000070700000000000000000000000000000000007070000ffffffff0000000000000000000000000000000000000000000000000000000000000000
+00000000707000707707770777077707000000000000000007070700ffffffff0000000000000000000000000000000000000000000000000000000000000000
+00000000007000700000000000000000000000000000000007070007ffffffff0000000000000000000000000000000000000000000000000000000000000000
+00000000700070707777777777777777000000000000000007000700ffffffff0000000000000000000000000000000000000000000000000000000000000000
 00000000007000700006060000600060000006070000007007070000070000000007070000060060000000000000000000000000000000000000000000000000
 00000000700000700060000660000000600600070070007707070700770700000000007000600600000000000000000000000000000000000000000000000000
 00000000007070700600606000060600006006077000700007000007000707007070700706000006000000000000000000000000000000000000000000000000
