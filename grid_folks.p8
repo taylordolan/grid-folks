@@ -16,6 +16,8 @@ __lua__
 -- [x] move against walls to wait
 -- [x] bring back enemy eggs that can't be attacked. they should not be allowed to deploy next to heroes
 -- [x] charging functionality
+-- [x] I think you should be able to shoot eggs, which means I should bring back rendering their health
+-- [ ] heal only heals the nearest hero, charged heal heals both
 -- [ ] fix heroes walking through heroes
 -- [ ] fix load time on generating walls
 -- [ ] animation for enemy death
@@ -372,6 +374,8 @@ function smallcaps(s)
   return d
 end
 
+-- todo: it feels like some of the stuff that's in here should be in the objects' respective draw() functions instead
+-- like adjusting the frames_so_far values
 function update_screen_position(thing)
   if thing.td and thing.td > 0 then
     thing.td -= 1
@@ -1124,17 +1128,15 @@ end
 -- given an enemy and an amount of damage,
 -- hit it and then kill if it has no health
 function hit_enemy(enemy, damage)
-  if not enemy.stunned then
-    enemy.health -= damage
-    if (enemy.health <= 0) then
-      has_killed = true
-      local button = find_type_in_tile("button", {enemy.x, enemy.y})
-      if button then
-        button.charged = true
-      end
-      del(board[enemy.x][enemy.y], enemy)
-      del(enemies, enemy)
+  enemy.health -= damage
+  if (enemy.health <= 0) then
+    has_killed = true
+    local button = find_type_in_tile("button", {enemy.x, enemy.y})
+    if button then
+      button.charged = true
     end
+    del(board[enemy.x][enemy.y], enemy)
+    del(enemies, enemy)
   end
 end
 
@@ -1250,9 +1252,7 @@ function new_enemy()
 		end,
     draw = function(self)
       spr(self.sprite, self.s[1], self.s[2])
-      if not self.stunned then
-        draw_health(self.s[1], self.s[2], self.health)
-      end
+      draw_health(self.s[1], self.s[2], self.health)
     end,
     deploy = function(self)
 
