@@ -12,19 +12,15 @@ __lua__
 -- [x] heroes hop when activated
 -- [x] objects should contain their own draw functions
 -- [x] support for manually setting spawn rates
--- [ ] try replacing dash with moving and hitting through walls
--- [ ] move against walls to wait?
--- [ ] bring back enemy eggs that can't be attacked. they should not be allowed to deploy next to heroes, but blocking this doesn't take damage
--- [ ] or allow them to be deployed next to heroes, but blocking them takes one damage
+-- [x] replace dash with moving and hitting through walls
+-- [x] move against walls to wait
+-- [x] bring back enemy eggs that can't be attacked. they should not be allowed to deploy next to heroes
 -- [ ] fix load time on generating walls
--- [ ] shoot should go through enemies (and walls?)
--- [ ] dash should stop on enemies and do one damage
--- [ ] it looks like the stun style isn't showing
 -- [ ] animation for enemy death
 -- [ ] when multiple enemies are present, they should act in random order
 -- [ ] randomly distribute starting abilities
 -- [ ] convert s{} to sx and sy
--- [ ] new enemy types
+-- [ ] new enemy types?
 
 -- game state that gets refreshed on restart
 function _init()
@@ -229,7 +225,8 @@ end
 
 function spawn_enemy()
   local new_enemy = new_enemy()
-  deploy(new_enemy, {"hero", "enemy"})
+  -- deploy(new_enemy, {"hero", "enemy"})
+  new_enemy.deploy(new_enemy)
   last_spawned_turn = turns
 end
 
@@ -953,50 +950,45 @@ function create_hero()
         end
       end
 
+      -- shoot, if possible
+      shoot_target = get_shoot_target(direction)
       if
-        -- location_exists(next_tile) and
-        -- not is_wall_between({self.x, self.y}, next_tile) and
-        -- not find_type_in_tile("hero", next_tile)
-        true
+        location_exists(next_tile) and
+        self.shoot and shoot_target
       then
-        shoot_target = get_shoot_target(direction)
-        if location_exists(next_tile) and self.shoot and shoot_target then
-          -- shoot_target.stunned = true
-          -- shoot_target.sprite = sprites.enemy_stunned
-          hit_enemy(shoot_target, 1)
+        hit_enemy(shoot_target, 1)
+        delay += transition_frames
+        sfx(sounds.shoot, 3)
+        shot_points = {self.s, shoot_target.s}
+        shot_direction = direction
+        remaining_shot_frames = transition_frames
+        player_turn = false
+      elseif self.dash then
+        -- move through a wall
+        if location_exists(next_tile) then
+          step_or_bump(direction)
           delay += transition_frames
-          sfx(sounds.shoot, 3)
-          shot_points = {self.s, shoot_target.s}
-          shot_direction = direction
-          remaining_shot_frames = transition_frames
+          sfx(sounds.dash, 3)
           player_turn = false
-        elseif self.dash then
-          if location_exists(next_tile) then
-            -- local dest = get_dash_dest(direction)
-            step_or_bump(direction)
-            delay += transition_frames
-            player_turn = false
-            -- local targets = get_dash_targets(direction)
-            -- for next in all(targets) do
-            --   hit_enemy(next, 2)
-            -- end
-            -- set_tile(self, dest)
-            -- delay += transition_frames
-            -- sfx(sounds.dash, 3)
-          else
-            set_bump_transition(self, direction, 2, 0)
-            delay += transition_frames
-            player_turn = false
-          end
-        elseif not location_exists(next_tile) or is_wall_between({self.x, self.y}, next_tile) then
+        -- wait
+        else
           set_bump_transition(self, direction, 2, 0)
           delay += transition_frames
           player_turn = false
-        elseif not is_wall_between({self.x, self.y}, next_tile) then
-          step_or_bump(direction)
-          delay += transition_frames
-          player_turn = false
         end
+      -- wait
+      elseif
+        not location_exists(next_tile) or
+        is_wall_between({self.x, self.y}, next_tile)
+      then
+        set_bump_transition(self, direction, 2, 0)
+        delay += transition_frames
+        player_turn = false
+      -- normal step/bump
+      elseif not is_wall_between({self.x, self.y}, next_tile) then
+        step_or_bump(direction)
+        delay += transition_frames
+        player_turn = false
       end
     end,
     draw = function(self)
@@ -1099,12 +1091,13 @@ end
 -- given an enemy and an amount of damage,
 -- hit it and then kill if it has no health
 function hit_enemy(enemy, damage)
-
-  enemy.health -= damage
-  if (enemy.health <= 0) then
-    has_killed = true
-    del(board[enemy.x][enemy.y], enemy)
-    del(enemies, enemy)
+  if not enemy.stunned then
+    enemy.health -= damage
+    if (enemy.health <= 0) then
+      has_killed = true
+      del(board[enemy.x][enemy.y], enemy)
+      del(enemies, enemy)
+    end
   end
 end
 
@@ -1220,8 +1213,49 @@ function new_enemy()
 		end,
     draw = function(self)
       spr(self.sprite, self.s[1], self.s[2])
-      draw_health(self.s[1], self.s[2], self.health)
+      if not self.stunned then
+        draw_health(self.s[1], self.s[2], self.health)
+      end
     end,
+    deploy = function(self)
+
+      local valid_tiles = {}
+      local avoid_list = {"hero", "enemy"}
+
+      for x = 1, cols do
+        for y = 1, rows do
+          local tile_is_valid = true
+          local tile = board[x][y]
+          for tile_item in all(tile) do
+            for avoid_item in all(avoid_list) do
+              -- check everything in the tile to see if it matches anything in the avoid list
+              if tile_item.type == avoid_item then
+                tile_is_valid = false
+              end
+            end
+          end
+          if tile_is_valid then
+            add(valid_tiles, {x,y})
+          end
+        end
+      end
+
+      for next in all(valid_tiles) do
+        for dir in all({{-1, 0}, {1, 0}, {0, -1}, {0, 1}}) do
+          local spot = {next[1] + dir[1], next[2] + dir[2]}
+          if location_exists(spot) and find_type_in_tile("hero", spot) then
+            del(valid_tiles, next)
+          end
+        end
+      end
+
+      local index = flr(rnd(#valid_tiles)) + 1
+      local dest = valid_tiles[index]
+      printh(dest[1])
+      printh(dest[2])
+
+      set_tile(self, dest)
+    end
 	}
 	add(enemies, enemy)
   return enemy
