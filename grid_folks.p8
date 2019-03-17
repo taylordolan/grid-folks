@@ -16,8 +16,11 @@ __lua__
 -- [x] move against walls to wait
 -- [x] bring back enemy eggs that can't be attacked. they should not be allowed to deploy next to heroes
 -- [x] charging functionality
--- [x] I think you should be able to shoot eggs, which means I should bring back rendering their health
--- [ ] heal only heals the nearest hero, charged heal heals both
+-- [x] i think you should be able to shoot eggs, which means i should bring back rendering their health
+-- [x] shoot should go through enemies
+-- [ ] bring charging back
+-- [ ] gold buttons generate 1 or 2 coins somewhere
+-- [ ] red buttons generate 1 or 2 health somewhere
 -- [ ] fix heroes walking through heroes
 -- [ ] fix load time on generating walls
 -- [ ] animation for enemy death
@@ -983,22 +986,27 @@ function create_hero()
       end
 
       -- shoot, if possible
-      shoot_target = get_shoot_target(direction)
+      shoot_targets = get_dash_targets(direction)
       if
         location_exists(next_tile) and
-        self.shoot and shoot_target
+        self.shoot and
+        #shoot_targets > 0
       then
         local bonus_damage = 0
         if ally_button.charged == true then
           bonus_damage = 1
           ally_button.charged = false
         end
-        hit_enemy(shoot_target, 1 + bonus_damage)
+        for next in all(shoot_targets) do
+          hit_enemy(next, 1 + bonus_damage)
+        end
+        local shot_dest = get_dash_dest(direction)
+        local screen_shot_dest = board_position_to_screen_position(shot_dest)
         delay += transition_frames
-        sfx(sounds.shoot, 3)
-        shot_points = {self.s, shoot_target.s}
+        shot_points = {self.s, screen_shot_dest}
         shot_direction = direction
         remaining_shot_frames = transition_frames
+        sfx(sounds.shoot, 3)
         player_turn = false
       elseif self.dash then
         -- move through a wall
