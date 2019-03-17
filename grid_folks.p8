@@ -237,9 +237,9 @@ function _update()
 
   update_hero_sprites()
 
-  -- if btnp(4) then
-  --   debug_mode = not debug_mode
-  -- end
+  if btnp(4) then
+    debug_mode = not debug_mode
+  end
 
   if game_won or game_lost then
     if btnp(5) then
@@ -265,8 +265,6 @@ function _update()
     -- down
     elseif btnp(3) then
       input = {0, 1}
-    elseif btnp(4) then
-      input = 4
     elseif btnp(5) then
       input = 5
     end
@@ -277,9 +275,7 @@ function _update()
     delay -= 1
   -- player turn
   elseif player_turn == true and #input_queue > 0 then
-    if input_queue[1] == 4 then
-      player_turn = false
-    elseif input_queue[1] == 5 then
+    if input_queue[1] == 5 then
       hero_a_active = not hero_a_active
       local active_hero
       if hero_a_active then
@@ -854,8 +850,8 @@ function create_hero()
 		type = "hero",
     base_sprite = sprites.hero,
     sprite = null,
-    max_health = 3,
-    health = 3,
+    max_health = 2,
+    health = 2,
     -- buttons
     dash = false,
     shoot = false,
@@ -958,12 +954,13 @@ function create_hero()
       end
 
       if
-        location_exists(next_tile) and
+        -- location_exists(next_tile) and
         -- not is_wall_between({self.x, self.y}, next_tile) and
-        not find_type_in_tile("hero", next_tile)
+        -- not find_type_in_tile("hero", next_tile)
+        true
       then
         shoot_target = get_shoot_target(direction)
-        if self.shoot and shoot_target then
+        if location_exists(next_tile) and self.shoot and shoot_target then
           -- shoot_target.stunned = true
           -- shoot_target.sprite = sprites.enemy_stunned
           hit_enemy(shoot_target, 1)
@@ -974,17 +971,27 @@ function create_hero()
           remaining_shot_frames = transition_frames
           player_turn = false
         elseif self.dash then
-          -- local dest = get_dash_dest(direction)
-          step_or_bump(direction)
+          if location_exists(next_tile) then
+            -- local dest = get_dash_dest(direction)
+            step_or_bump(direction)
+            delay += transition_frames
+            player_turn = false
+            -- local targets = get_dash_targets(direction)
+            -- for next in all(targets) do
+            --   hit_enemy(next, 2)
+            -- end
+            -- set_tile(self, dest)
+            -- delay += transition_frames
+            -- sfx(sounds.dash, 3)
+          else
+            set_bump_transition(self, direction, 2, 0)
+            delay += transition_frames
+            player_turn = false
+          end
+        elseif not location_exists(next_tile) or is_wall_between({self.x, self.y}, next_tile) then
+          set_bump_transition(self, direction, 2, 0)
           delay += transition_frames
           player_turn = false
-          -- local targets = get_dash_targets(direction)
-          -- for next in all(targets) do
-          --   hit_enemy(next, 2)
-          -- end
-          -- set_tile(self, dest)
-          -- delay += transition_frames
-          -- sfx(sounds.dash, 3)
         elseif not is_wall_between({self.x, self.y}, next_tile) then
           step_or_bump(direction)
           delay += transition_frames
