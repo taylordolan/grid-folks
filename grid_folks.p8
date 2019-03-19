@@ -18,7 +18,8 @@ __lua__
 -- [x] charging functionality
 -- [x] i think you should be able to shoot eggs, which means i should bring back rendering their health
 -- [x] shoot should go through enemies
--- [ ] bring charging back
+-- [x] bring charging back
+-- [x] nevermind
 -- [ ] gold buttons generate 1 or 2 coins somewhere
 -- [ ] red buttons generate 1 or 2 health somewhere
 -- [ ] fix heroes walking through heroes
@@ -760,12 +761,9 @@ end
 
 function trigger_enemy_buttons(enemy_tile)
 
-  function gain_health(charged)
+  function gain_health()
     for next in all(heroes) do
       next.health = next.health + 1
-      if charged then
-        next.health = next.health + 1
-      end
       if next.health > next.max_health then
         next.health = next.max_health
       end
@@ -773,23 +771,18 @@ function trigger_enemy_buttons(enemy_tile)
     sfx(sounds.health, 3)
   end
 
-  function gain_score(charged)
+  function gain_score()
     score += 1
-    if charged then
-      score += 1
-    end
     sfx(sounds.score, 3)
   end
 
   local button = find_type_in_tile("button", enemy_tile)
   if button then
     if button.name == "health" then
-      gain_health(button.charged)
-      button.charged = false
+      gain_health()
     end
     if button.name == "score" then
-      gain_score(button.charged)
-      button.charged = false
+      gain_score()
     end
   end
 end
@@ -866,8 +859,8 @@ function create_hero()
 		type = "hero",
     base_sprite = sprites.hero,
     sprite = null,
-    max_health = 3,
-    health = 3,
+    max_health = 2,
+    health = 2,
     -- buttons
     dash = false,
     shoot = false,
@@ -890,15 +883,8 @@ function create_hero()
       function step_or_bump(direction)
         local target_tile = {self.x + direction[1], self.y + direction[2]}
         local enemy = find_type_in_tile("enemy", target_tile)
-        local bonus_damage = 0
         if enemy then
-          if ally_button and ally_button.name == "dash" then
-            if ally_button.charged == true then
-              bonus_damage = 1
-              ally_button.charged = false
-            end
-          end
-          hit_enemy(enemy, 1 + bonus_damage)
+          hit_enemy(enemy, 1)
           set_bump_transition(self, direction, 2, 0)
           set_bump_transition(enemy, direction, 2, 2)
           sfx(sounds.hero_bump, 3)
@@ -992,13 +978,8 @@ function create_hero()
         self.shoot and
         #shoot_targets > 0
       then
-        local bonus_damage = 0
-        if ally_button.charged == true then
-          bonus_damage = 1
-          ally_button.charged = false
-        end
         for next in all(shoot_targets) do
-          hit_enemy(next, 1 + bonus_damage)
+          hit_enemy(next, 1)
         end
         local shot_dest = get_dash_dest(direction)
         local screen_shot_dest = board_position_to_screen_position(shot_dest)
@@ -1139,10 +1120,6 @@ function hit_enemy(enemy, damage)
   enemy.health -= damage
   if (enemy.health <= 0) then
     has_killed = true
-    local button = find_type_in_tile("button", {enemy.x, enemy.y})
-    if button then
-      button.charged = true
-    end
     del(board[enemy.x][enemy.y], enemy)
     del(enemies, enemy)
   end
@@ -1601,23 +1578,10 @@ function new_button(name)
     s = {},
     type = "button",
     name = name,
-    charged = false,
     sprite = sprites["button_" ..name],
     hero_sprite = sprites["hero_" ..name],
     draw = function(self)
       spr(self.sprite, self.s[1], self.s[2])
-      if self.charged then
-        if self.name == "dash" then
-          pal(colors.black, colors.navy)
-        elseif self.name == "health" then
-          pal(colors.black, colors.maroon)
-        elseif self.name == "shoot" then
-          pal(colors.black, colors.forest)
-        elseif self.name == "score" then
-          pal(colors.black, colors.brown)
-        end
-        spr(sprites.charge, self.s[1] + 1, self.s[2] - 1)
-      end
     end,
   }
   add(buttons, new_button)
