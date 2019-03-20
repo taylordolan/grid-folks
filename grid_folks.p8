@@ -20,9 +20,7 @@ __lua__
 -- [x] shoot should go through enemies
 -- [x] bring charging back
 -- [x] nevermind
--- [ ] gold buttons generate 1 or 2 coins somewhere
--- [ ] red buttons generate 1 or 2 health somewhere
--- [ ] fix heroes walking through heroes
+-- [x] fix heroes walking through heroes
 -- [ ] fix load time on generating walls
 -- [ ] animation for enemy death
 -- [ ] when multiple enemies are present, they should act in random order
@@ -876,8 +874,8 @@ function create_hero()
         ally = heroes[1]
       end
 
+      -- todo: maybe I can use this to remove update_hero_abilities()
       local ally_button = find_type_in_tile("button", {ally.x, ally.y})
-
       local next_tile = {self.x + direction[1], self.y + direction[2]}
 
       function step_or_bump(direction)
@@ -971,50 +969,73 @@ function create_hero()
         end
       end
 
-      -- shoot, if possible
-      shoot_targets = get_dash_targets(direction)
-      if
-        location_exists(next_tile) and
-        self.shoot and
-        #shoot_targets > 0
-      then
-        for next in all(shoot_targets) do
-          hit_enemy(next, 1)
-        end
-        local shot_dest = get_dash_dest(direction)
-        local screen_shot_dest = board_position_to_screen_position(shot_dest)
-        delay += transition_frames
-        shot_points = {self.s, screen_shot_dest}
-        shot_direction = direction
-        remaining_shot_frames = transition_frames
-        sfx(sounds.shoot, 3)
-        player_turn = false
-      elseif self.dash then
-        -- move through a wall
-        if location_exists(next_tile) then
-          step_or_bump(direction)
-          delay += transition_frames
-          sfx(sounds.dash, 3)
-          player_turn = false
-        -- wait
-        else
-          set_bump_transition(self, direction, 2, 0)
-          delay += transition_frames
-          player_turn = false
-        end
-      -- wait
-      elseif
-        not location_exists(next_tile) or
-        is_wall_between({self.x, self.y}, next_tile)
-      then
+      -- this is where the actual acting starts
+
+      -- if the destination doesn't exist, then wait
+      if location_exists(next_tile) == false then
         set_bump_transition(self, direction, 2, 0)
         delay += transition_frames
         player_turn = false
-      -- normal step/bump
-      elseif not is_wall_between({self.x, self.y}, next_tile) then
-        step_or_bump(direction)
-        delay += transition_frames
-        player_turn = false
+
+      -- otherwise, if there's no hero in the next tile, then continue
+      elseif not find_type_in_tile("hero", next_tile) then
+
+        local enemy = find_type_in_tile("enemy", next_tile)
+        local wall = is_wall_between({self.x, self.y}, next_tile)
+
+        -- if ghost is enabled and there's a wall in the way
+        if self.dash and wall then
+          if enemy then
+            hit_enemy(enemy, 2)
+            delay += transition_frames
+            player_turn = false
+          end
+          set_tile(self, next_tile)
+          delay += transition_frames
+          player_turn = false
+
+        -- otherwise, if there's a wall in the way, then wait
+        elseif wall then
+          set_bump_transition(self, direction, 2, 0)
+          delay += transition_frames
+          player_turn = false
+
+        -- if there's no wall
+        else
+
+          -- if shoot is enabled and shoot targets exist
+          local shoot_targets = get_dash_targets(direction)
+          if self.shoot and #shoot_targets > 0 then
+            for next in all(shoot_targets) do
+              hit_enemy(next, 1)
+            end
+            local shot_dest = get_dash_dest(direction)
+            local screen_shot_dest = board_position_to_screen_position(shot_dest)
+
+            shot_points = {self.s, screen_shot_dest}
+            shot_direction = direction
+            remaining_shot_frames = transition_frames
+            sfx(sounds.shoot, 3)
+
+            delay += transition_frames
+            player_turn = false
+
+          -- otherwise, if there's an enemy in the destination, hit it
+          elseif enemy then
+            hit_enemy(enemy, 1)
+            set_bump_transition(self, direction, 2, 0)
+            set_bump_transition(enemy, direction, 2, 2)
+            sfx(sounds.hero_bump, 3)
+            delay += transition_frames
+            player_turn = false
+
+          -- otherwise, move to the destination
+          else
+            set_tile(self, next_tile)
+            delay += transition_frames
+            player_turn = false
+          end
+        end
       end
     end,
     draw = function(self)
