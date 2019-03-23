@@ -243,7 +243,7 @@ function spawn_enemy()
   last_spawned_turn = turns
 end
 
-function _update()
+function _update60()
 
   update_hero_sprites()
 
@@ -886,8 +886,8 @@ function create_hero()
 		type = "hero",
     base_sprite = sprites.hero,
     sprite = null,
-    max_health = 3,
-    health = 3,
+    max_health = 2,
+    health = 2,
     -- buttons
     dash = false,
     shoot = false,
@@ -1013,7 +1013,7 @@ function create_hero()
         local wall = is_wall_between({self.x, self.y}, next_tile)
 
         -- if ghost is enabled and there's a wall in the way
-        if self.dash and wall then
+        if self.dash then
           if enemy then
             hit_enemy(enemy, 2)
             delay += transition_frames
@@ -1041,7 +1041,7 @@ function create_hero()
           local shoot_targets = get_dash_targets(direction)
           if self.shoot and #shoot_targets > 0 then
             for next in all(shoot_targets) do
-              hit_enemy(next, 1)
+              hit_enemy(next, 2)
             end
             local shot_dest = get_dash_dest(direction)
             local screen_shot_dest = board_position_to_screen_position(shot_dest)
