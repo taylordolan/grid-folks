@@ -122,7 +122,6 @@ function _init()
     pad_score = 010,
     exit = 028,
     charge = 039,
-    bolt = 046,
     gold = 063,
   }
 
@@ -136,7 +135,6 @@ function _init()
   has_killed = false
   debug_mode = false
   delay = 0
-  bolts = 0
 
   -- lists of things
   heroes = {}
@@ -148,7 +146,6 @@ function _init()
   -- that means the things at the end will appear on top
   sprite_layers = {
     "pad",
-    "bolt",
     "button",
     "exit",
     "enemy",
@@ -185,13 +182,13 @@ function _init()
     [1] = 14,
     [30] = 12,
     [60] = 10,
-    [105] = 8,
-    [160] = 6,
-    [220] = 5,
-    [280] = 4,
-    [350] = 3,
-    [420] = 2,
-    [510] = 1,
+    [95] = 8,
+    [130] = 6,
+    [160] = 5,
+    [200] = 4,
+    [240] = 3,
+    [300] = 2,
+    [360] = 1,
   }
   spawn_rate = spawn_rates[1]
   -- this gets updated whenever an enemy spawns
@@ -275,9 +272,6 @@ function _update60()
     -- down
     elseif btnp(3) then
       input = {0, 1}
-    -- z
-    elseif btnp(4) then
-      input = 4
     -- x
     elseif btnp(5) then
       input = 5
@@ -289,14 +283,7 @@ function _update60()
     delay -= 1
   -- player turn
   elseif player_turn == true and #input_queue > 0 then
-    if input_queue[1] == 4 then
-      if bolts > 0 then
-        bolts -= 1
-        for next in all(enemies) do
-          hit_enemy(next, 1)
-        end
-      end
-    elseif input_queue[1] == 5 then
+    if input_queue[1] == 5 then
       hero_a_active = not hero_a_active
       local active_hero
       if hero_a_active then
@@ -327,9 +314,6 @@ function _update60()
       refresh_pads()
       refresh_walls()
       set_border_color()
-    end
-    if turns > 0 and turns % 100 == 0 then
-      create_bolt()
     end
     for next in all(enemies) do
       next.update(next)
@@ -640,17 +624,10 @@ function _draw()
 
   function draw_score()
     if not debug_mode then
-      -- print(smallcaps("gold"), 102, 100, colors.orange)
       pal(colors.tan, false)
       spr(sprites.gold, 112, 98)
       local score_text = score.. ""
-      -- local score_text = "10"
       print(score_text, 112 - #score_text * 4, 100, colors.orange)
-      if bolts > 0 then
-        spr(sprites.bolt, 102 - #score_text * 4, 98)
-        local bolt_text = bolts.. ""
-        print(bolt_text, 98 - #score_text * 4, 100, colors.pink)
-      end
       pal()
     else
       local text = turns .."/"..spawn_rate.."/"..score
@@ -1000,14 +977,8 @@ function create_hero()
 
       -- this is where the actual acting starts
 
-      -- if the destination doesn't exist, or the tile is occupied by your ally, then wait
-      if not location_exists(next_tile) or find_type_in_tile("hero", next_tile) then
-        set_bump_transition(self, direction, 2, 0)
-        delay += transition_frames
-        player_turn = false
-
-      -- otherwise
-      else
+      -- if the destination exists and the tile isn't occupied by your ally
+      if location_exists(next_tile) and not find_type_in_tile("hero", next_tile) then
 
         local enemy = find_type_in_tile("enemy", next_tile)
         local wall = is_wall_between({self.x, self.y}, next_tile)
@@ -1020,22 +991,11 @@ function create_hero()
             player_turn = false
           end
           set_tile(self, next_tile)
-          local bolt = find_type_in_tile("bolt", next_tile)
-          if bolt then
-            bolts += 1
-            del(board[next_tile[1]][next_tile[2]], bolt)
-          end
-          delay += transition_frames
-          player_turn = false
-
-        -- otherwise, if there's a wall in the way, then wait
-        elseif wall then
-          set_bump_transition(self, direction, 2, 0)
           delay += transition_frames
           player_turn = false
 
         -- if there's no wall
-        else
+        elseif not wall then
 
           -- if shoot is enabled and shoot targets exist
           local shoot_targets = get_dash_targets(direction)
@@ -1066,11 +1026,6 @@ function create_hero()
           -- otherwise, move to the destination
           else
             set_tile(self, next_tile)
-            local bolt = find_type_in_tile("bolt", next_tile)
-            if bolt then
-              bolts += 1
-              del(board[next_tile[1]][next_tile[2]], bolt)
-            end
             delay += transition_frames
             player_turn = false
           end
@@ -1474,7 +1429,7 @@ end
 
 function generate_walls()
 
-  for i = 1, 14 do
+  for i = 1, 12 do
     local wall_right = {
       x = null,
       y = null,
@@ -1500,7 +1455,7 @@ function generate_walls()
     }
     deploy(wall_right, {"wall_right"})
   end
-  for i = 1, 10 do
+  for i = 1, 9 do
     local wall_down = {
       x = null,
       y = null,
@@ -1646,26 +1601,6 @@ function new_button(name)
   }
   add(buttons, new_button)
   return new_button
-end
-
-function new_bolt()
-
-  local new_bolt = {
-    x = null,
-    y = null,
-    s = {},
-    type = "bolt",
-    sprite = sprites.bolt,
-    draw = function(self)
-      spr(self.sprite, self.s[1], self.s[2])
-    end,
-  }
-  return new_bolt
-end
-
-function create_bolt()
-  local new_bolt = new_bolt()
-  deploy(new_bolt, {"hero", "button", "exit"})
 end
 
 __gfx__
