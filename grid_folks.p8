@@ -5,30 +5,18 @@ __lua__
 -- taylor d
 
 -- todo
--- [x] try a 5 x 7 board instead
--- [x] maybe i can avoid placing pads on heroes' tiles now?
--- [x] clean up
--- [x] fix bug: when a button appears where an enemy becomes un-stunned, it appears on top
--- [x] heroes hop when activated
--- [x] objects should contain their own draw functions
--- [x] support for manually setting spawn rates
--- [x] replace dash with moving and hitting through walls
--- [x] move against walls to wait
--- [x] bring back enemy eggs that can't be attacked. they should not be allowed to deploy next to heroes
--- [x] charging functionality
--- [x] i think you should be able to shoot eggs, which means i should bring back rendering their health
--- [x] shoot should go through enemies
--- [x] bring charging back
--- [x] nevermind
--- [x] fix heroes walking through heroes
--- [ ] what happens if the game tries to create a bolt when the board is full?
--- [ ] move into a hero to wait
--- [ ] fix load time on generating walls
+-- [ ] refactor sprite coloring
+-- [ ] balance enemy spawn rate
+-- [ ] affordance for stepping on pads
+-- [ ] affordance for shooting
+-- [ ] affordance for walking through walls
+-- [ ] transitions for taking damage (hero and enemy)
 -- [ ] animation for enemy death
 -- [ ] when multiple enemies are present, they should act in random order
--- [ ] randomly distribute starting abilities
--- [ ] convert s{} to sx and sy
--- [ ] new enemy types?
+-- [ ] nice looking end game states
+-- [ ] title screen?
+-- [ ] better instructions presentation?
+-- [ ] convert s{} to sx and sy?
 
 -- game state that gets refreshed on restart
 function _init()
@@ -85,7 +73,6 @@ function _init()
   remaining_shot_frames = 0 -- for how many frames should the current shot be drawn?
   border_color = 0
   set_border_color()
-  -- wall_color = border_color
 
   -- sounds dictionary
   sounds = {
@@ -93,7 +80,7 @@ function _init()
     health = 026,
     score = 022,
     shoot = 029,
-    dash = 025,
+    ghost = 025,
     step = 021,
     advance = 027,
     pad_step = 028,
@@ -106,17 +93,17 @@ function _init()
   sprites = {
     floor = 003,
     hero = 017,
-    hero_dash = 019,
+    hero_ghost = 019,
     hero_shoot = 021,
     enemy = 002,
     enemy_stunned = 004,
     wall_right = 005,
     wall_down = 006,
-    button_dash = 023,
+    button_ghost = 023,
     button_shoot = 024,
     button_health = 025,
     button_score = 026,
-    pad_dash = 007,
+    pad_ghost = 007,
     pad_shoot = 008,
     pad_health = 009,
     pad_score = 010,
@@ -156,17 +143,17 @@ function _init()
   input_queue = {}
 
   -- initial buttons
-  set_tile(new_button("dash"), {4,2})
-  set_tile(new_button("shoot"), {4,4})
-  set_tile(new_button("health"), {5,3})
-  set_tile(new_button("score"), {3,3})
+  -- set_tile(new_button("ghost"), {4,2})
+  -- set_tile(new_button("shoot"), {4,4})
+  -- set_tile(new_button("health"), {5,3})
+  -- set_tile(new_button("score"), {3,3})
 
   -- heroes
   hero_a = create_hero()
   hero_b = create_hero()
   heroes = {hero_a, hero_b}
-  set_tile(hero_a, {3,2})
-  set_tile(hero_b, {5,4})
+  set_tile(hero_a, {3,3})
+  set_tile(hero_b, {5,3})
 
   -- initial walls
   refresh_walls()
@@ -179,13 +166,13 @@ function _init()
 
   -- spawn rate stuff
   spawn_rates = {
-    [1] = 14,
-    [30] = 12,
+    [1] = 15,
+    [30] = 13,
     [60] = 10,
-    [95] = 8,
-    [130] = 6,
-    [160] = 5,
-    [200] = 4,
+    [100] = 8,
+    [140] = 6,
+    [180] = 5,
+    [210] = 4,
     [240] = 3,
     [300] = 2,
     [360] = 1,
@@ -588,12 +575,12 @@ function _draw()
     spr(012, x_pos + 48, y_pos - 2)
     y_pos += line_height
 
-    -- dash
+    -- ghost
     spr(sprites.hero, x_pos, y_pos - 2)
-    spr(sprites.button_dash, x_pos + 7, y_pos - 2)
+    spr(sprites.button_ghost, x_pos + 7, y_pos - 2)
     print("=", x_pos + 18, y_pos, 06)
     spr(sprites.hero + 1, x_pos + 24, y_pos - 2)
-    print(smallcaps("dash"), x_pos + 32, y_pos, text_color)
+    print(smallcaps("ghost"), x_pos + 32, y_pos, text_color)
     y_pos += line_height
 
     -- shoot
@@ -624,11 +611,10 @@ function _draw()
 
   function draw_score()
     if not debug_mode then
-      pal(colors.tan, false)
-      spr(sprites.gold, 112, 98)
-      local score_text = score.. ""
-      print(score_text, 112 - #score_text * 4, 100, colors.orange)
-      pal()
+      local text = smallcaps("gold")
+      local num = score .. ""
+      print(text, 118 - #text * 4, 100, colors.orange)
+      print(num, 99 - #num * 4, 100, colors.orange)
     else
       local text = turns .."/"..spawn_rate.."/"..score
       print(text, 118 - #text * 4, 100, colors.white)
@@ -863,10 +849,10 @@ function create_hero()
 		type = "hero",
     base_sprite = sprites.hero,
     sprite = null,
-    max_health = 2,
-    health = 2,
+    max_health = 3,
+    health = 3,
     -- buttons
-    dash = false,
+    ghost = false,
     shoot = false,
 
       -- this is called when the player hits a direction on their turn.
@@ -899,34 +885,34 @@ function create_hero()
 
       -- given a direction, this returns the nearest enemy in line of sight
       -- or `false` if there's not one
-      function get_shoot_target(direction)
+      -- function get_shoot_target(direction)
 
-        local now_tile = {self.x, self.y}
-        local x_vel = direction[1]
-        local y_vel = direction[2]
+      --   local now_tile = {self.x, self.y}
+      --   local x_vel = direction[1]
+      --   local y_vel = direction[2]
 
-        while true do
-          -- define the current target
-          local next_tile = {now_tile[1] + x_vel, now_tile[2] + y_vel}
-          -- if `next_tile` is off the map, or there's a wall in the way, return false
-          if
-            location_exists(next_tile) == false or
-            is_wall_between(now_tile, next_tile) or
-            find_type_in_tile("hero", next_tile)
-          then
-            return false
-          end
-          -- if there's an enemy in the target, return it
-          local enemy = find_type_in_tile("enemy", next_tile)
-          if enemy then
-            return enemy
-          end
-          -- set `current` to `next_tile` and keep going
-          now_tile = next_tile
-        end
-      end
+      --   while true do
+      --     -- define the current target
+      --     local next_tile = {now_tile[1] + x_vel, now_tile[2] + y_vel}
+      --     -- if `next_tile` is off the map, or there's a wall in the way, return false
+      --     if
+      --       location_exists(next_tile) == false or
+      --       is_wall_between(now_tile, next_tile) or
+      --       find_type_in_tile("hero", next_tile)
+      --     then
+      --       return false
+      --     end
+      --     -- if there's an enemy in the target, return it
+      --     local enemy = find_type_in_tile("enemy", next_tile)
+      --     if enemy then
+      --       return enemy
+      --     end
+      --     -- set `current` to `next_tile` and keep going
+      --     now_tile = next_tile
+      --   end
+      -- end
 
-      function get_dash_dest(direction)
+      function get_shoot_dest(direction)
 
         local now_tile = {self.x, self.y}
         local x_vel = direction[1]
@@ -947,7 +933,7 @@ function create_hero()
         end
       end
 
-      function get_dash_targets(direction)
+      function get_shoot_targets(direction)
 
         local now_tile = {self.x, self.y}
         local x_vel = direction[1]
@@ -984,7 +970,7 @@ function create_hero()
         local wall = is_wall_between({self.x, self.y}, next_tile)
 
         -- if ghost is enabled and there's a wall in the way
-        if self.dash then
+        if self.ghost then
           if enemy then
             hit_enemy(enemy, 2)
             delay += transition_frames
@@ -998,12 +984,12 @@ function create_hero()
         elseif not wall then
 
           -- if shoot is enabled and shoot targets exist
-          local shoot_targets = get_dash_targets(direction)
+          local shoot_targets = get_shoot_targets(direction)
           if self.shoot and #shoot_targets > 0 then
             for next in all(shoot_targets) do
               hit_enemy(next, 2)
             end
-            local shot_dest = get_dash_dest(direction)
+            local shot_dest = get_shoot_dest(direction)
             local screen_shot_dest = board_position_to_screen_position(shot_dest)
 
             shot_points = {self.s, screen_shot_dest}
@@ -1058,14 +1044,14 @@ function update_hero_abilities()
     local ally_xy = {ally.x, ally.y}
 
     -- set hero deets to their defaults
-    next.dash = false
+    next.ghost = false
     next.shoot = false
     next.base_sprite = sprites.hero
 
     -- if the ally's tile is a button, update the hero's deets
     local button = find_type_in_tile("button", ally_xy)
     if button then
-      if button.name == "dash" or button.name == "shoot" then
+      if button.name == "ghost" or button.name == "shoot" then
         next[button.name] = true
         next.base_sprite = button.hero_sprite
       end
@@ -1560,7 +1546,7 @@ function refresh_pads()
   end
 
   local current_types = {
-    "dash",
+    "ghost",
     "shoot",
     "health",
     "score"
