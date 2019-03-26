@@ -1110,10 +1110,10 @@ function add_button()
   end
 
   -- put an button button in its position
-  local button_name = other_p.name
+  local button_color = other_p.color
   local button_x = other_p.x
   local button_y = other_p.y
-  local new_button = new_button(button_name)
+  local new_button = new_button(button_color)
   set_tile(new_button, {button_x, button_y})
 
   -- make the advance sound
@@ -1566,10 +1566,11 @@ function refresh_pads()
       type = "pad",
       color = next,
       draw = function(self)
+        local sprite = sprites.pad
         palt(colors.tan, true)
         palt(colors.black, false)
         pal(colors.light_gray, colors[self.color])
-        spr(sprites.pad, self.s[1], self.s[2])
+        spr(sprite, self.s[1], self.s[2])
         pal()
       end,
     }
