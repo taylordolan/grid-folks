@@ -91,25 +91,12 @@ function _init()
 
   -- sprites dictionary
   sprites = {
-    floor = 003,
-    hero = 017,
-    hero_ghost = 019,
-    hero_shoot = 021,
-    enemy = 002,
-    enemy_stunned = 004,
-    wall_right = 005,
-    wall_down = 006,
-    button_ghost = 023,
-    button_shoot = 024,
-    button_health = 025,
-    button_score = 026,
-    pad_ghost = 007,
-    pad_shoot = 008,
-    pad_health = 009,
-    pad_score = 010,
-    exit = 028,
-    charge = 039,
-    gold = 063,
+    hero_inactive = 001,
+    hero_active = 002,
+    enemy = 003,
+    pad = 017,
+    button = 018,
+    exit = 019,
   }
 
   -- some game state
@@ -118,7 +105,6 @@ function _init()
   player_turn = true
 	game_lost = false
   game_won = false
-  hero_a_active = true
   has_killed = false
   debug_mode = false
   delay = 0
@@ -142,15 +128,16 @@ function _init()
   -- log of recent user input
   input_queue = {}
 
-  -- initial buttons
-  -- set_tile(new_button("ghost"), {4,2})
-  -- set_tile(new_button("shoot"), {4,4})
-  -- set_tile(new_button("health"), {5,3})
-  -- set_tile(new_button("score"), {3,3})
+  -- initial buttons (for testing)
+  set_tile(new_button("ghost"), {4,2})
+  set_tile(new_button("shoot"), {4,4})
+  set_tile(new_button("health"), {5,3})
+  set_tile(new_button("score"), {3,3})
 
   -- heroes
   hero_a = create_hero()
   hero_b = create_hero()
+  hero_a.active = true
   heroes = {hero_a, hero_b}
   set_tile(hero_a, {3,3})
   set_tile(hero_b, {5,3})
@@ -229,8 +216,6 @@ end
 
 function _update60()
 
-  update_hero_sprites()
-
   if btnp(4) then
     debug_mode = not debug_mode
   end
@@ -271,26 +256,14 @@ function _update60()
   -- player turn
   elseif player_turn == true and #input_queue > 0 then
     if input_queue[1] == 5 then
-      hero_a_active = not hero_a_active
-      local active_hero
-      if hero_a_active then
-        active_hero = hero_a
-      else
-        active_hero = hero_b
+      for next in all(heroes) do
+        next.active = not next.active
       end
-      set_bump_transition(active_hero, {0, -2}, 4, 0)
+      set_bump_transition(active_hero(), {0, -2}, 4, 0)
       delay += transition_frames
       sfx(sounds.switch_heroes, 3)
     else
-      local active_hero
-      if hero_a_active then
-        active_hero = hero_a
-      else
-        active_hero = hero_b
-      end
-      -- act() controls whether `player_turn` is set to false because
-      -- it's possible to not act (e.g. moving toward a wall)
-      active_hero.act(active_hero, input_queue[1])
+      active_hero().act(active_hero(), input_queue[1])
     end
     del(input_queue, input_queue[1])
   -- enemy turn
@@ -337,6 +310,14 @@ function _update60()
     if hero_a.health <= 0 or hero_b.health <= 0 then
       game_lost = true
     end
+  end
+end
+
+function active_hero()
+  if hero_a.active then
+    return hero_a
+  else
+    return hero_b
   end
 end
 
@@ -493,9 +474,6 @@ function _draw()
 
             -- draw sprites
             else
-              palt(15, true)
-              palt(0, false)
-              pal(0, bg_color)
               -- render sprites in the order defined by sprite_layers
               -- todo: this isn't actually working
               for type in all(sprite_layers) do
@@ -503,8 +481,6 @@ function _draw()
                   next.draw(next)
                 end
               end
-              palt()
-              pal()
             end
           end
         end
@@ -566,28 +542,28 @@ function _draw()
     local line_height = 9
 
     -- advance
-    spr(sprites.hero, x_pos, y_pos - 2)
+    spr(sprites.hero_inactive, x_pos, y_pos - 2)
     spr(011, x_pos + 7, y_pos - 2)
     print("+", x_pos + 18, y_pos, 06)
-    spr(sprites.hero + 1, x_pos + 24, y_pos - 2)
+    spr(sprites.hero_active + 1, x_pos + 24, y_pos - 2)
     spr(011, x_pos + 31, y_pos - 2)
     print("=", x_pos + 42, y_pos, 06)
     spr(012, x_pos + 48, y_pos - 2)
     y_pos += line_height
 
     -- ghost
-    spr(sprites.hero, x_pos, y_pos - 2)
-    spr(sprites.button_ghost, x_pos + 7, y_pos - 2)
+    spr(sprites.hero_inactive, x_pos, y_pos - 2)
+    spr(sprites.button, x_pos + 7, y_pos - 2)
     print("=", x_pos + 18, y_pos, 06)
-    spr(sprites.hero + 1, x_pos + 24, y_pos - 2)
+    spr(sprites.hero_active + 1, x_pos + 24, y_pos - 2)
     print(smallcaps("ghost"), x_pos + 32, y_pos, text_color)
     y_pos += line_height
 
     -- shoot
-    spr(sprites.hero, x_pos, y_pos - 2)
-    spr(sprites.button_shoot, x_pos + 7, y_pos - 2)
+    spr(sprites.hero_inactive, x_pos, y_pos - 2)
+    spr(sprites.button, x_pos + 7, y_pos - 2)
     print("=", x_pos + 18, y_pos, 06)
-    spr(sprites.hero + 1, x_pos + 24, y_pos - 2)
+    spr(sprites.hero_active + 1, x_pos + 24, y_pos - 2)
     print(smallcaps("shoot"), x_pos + 32, y_pos, text_color)
 
     x_pos += 67
@@ -595,14 +571,14 @@ function _draw()
 
     -- gold
     spr(sprites.enemy, x_pos, y_pos - 2)
-    spr(sprites.button_score, x_pos + 7, y_pos - 2)
+    spr(sprites.button, x_pos + 7, y_pos - 2)
     print("=", x_pos + 18, y_pos, 06)
     print(smallcaps("gold"), x_pos + 25, y_pos, text_color)
     y_pos += line_height
 
     -- health
     spr(sprites.enemy, x_pos, y_pos - 2)
-    spr(sprites.button_health, x_pos + 7, y_pos - 2)
+    spr(sprites.button, x_pos + 7, y_pos - 2)
     print("=", x_pos + 18, y_pos, 06)
     print(smallcaps("heal"), x_pos + 25, y_pos, text_color)
 
@@ -847,10 +823,9 @@ function create_hero()
     transition_speed = 1, -- in frames
     -- other stuff
 		type = "hero",
-    base_sprite = sprites.hero,
-    sprite = null,
     max_health = 3,
     health = 3,
+    active = false,
     -- buttons
     ghost = false,
     shoot = false,
@@ -1019,8 +994,20 @@ function create_hero()
       end
     end,
     draw = function(self)
-      spr(self.sprite, self.s[1], self.s[2])
+      palt(colors.tan, true)
+      palt(colors.black, false)
+      local sprite = sprites.hero_inactive
+      if self.active then
+        sprite = sprites.hero_active
+      end
+      if self.shoot then
+        pal(colors.white, colors.green)
+      elseif self.ghost then
+        pal(colors.white, colors.blue)
+      end
+      spr(sprite, self.s[1], self.s[2])
       draw_health(self.s[1], self.s[2], self.health)
+      pal()
     end,
 	}
   return hero
@@ -1046,14 +1033,12 @@ function update_hero_abilities()
     -- set hero deets to their defaults
     next.ghost = false
     next.shoot = false
-    next.base_sprite = sprites.hero
 
     -- if the ally's tile is a button, update the hero's deets
     local button = find_type_in_tile("button", ally_xy)
     if button then
       if button.name == "ghost" or button.name == "shoot" then
         next[button.name] = true
-        next.base_sprite = button.hero_sprite
       end
     end
   end
@@ -1105,16 +1090,6 @@ function add_button()
   sfx(sounds.advance, 3)
 end
 
-function update_hero_sprites()
-  if hero_a_active then
-    hero_a.sprite = hero_a.base_sprite + 1
-    hero_b.sprite = hero_b.base_sprite
-  else
-    hero_a.sprite = hero_a.base_sprite
-    hero_b.sprite = hero_b.base_sprite + 1
-  end
-end
-
 -- given an enemy and an amount of damage,
 -- hit it and then kill if it has no health
 function hit_enemy(enemy, damage)
@@ -1132,7 +1107,7 @@ end
 
 -- create an enemy and add it to the array of enemies
 function new_enemy()
-	enemy = {
+	local new_enemy = {
     -- board position
     x = null,
     y = null,
@@ -1150,13 +1125,11 @@ function new_enemy()
 		type = "hero",
     type = "enemy",
     stunned = true,
-    sprite = sprites.enemy_stunned, -- stunned by default
     health = 2,
     update = function(self)
 
       if self.stunned == true then
         self.stunned = false
-        self.sprite = sprites.enemy
         player_turn = true
         return
       end
@@ -1237,8 +1210,14 @@ function new_enemy()
       end
 		end,
     draw = function(self)
-      spr(self.sprite, self.s[1], self.s[2])
+      palt(colors.tan, true)
+      palt(colors.black, false)
+      if self.stunned then
+        pal(colors.black, colors.light_gray)
+      end
+      spr(sprites.enemy, self.s[1], self.s[2])
       draw_health(self.s[1], self.s[2], self.health)
+      pal()
     end,
     deploy = function(self)
 
@@ -1280,8 +1259,8 @@ function new_enemy()
       set_tile(self, dest)
     end
 	}
-	add(enemies, enemy)
-  return enemy
+	add(enemies, new_enemy)
+  return new_enemy
 end
 
 function get_direction(a, b)
@@ -1420,7 +1399,6 @@ function generate_walls()
       x = null,
       y = null,
       type = "wall_right",
-      sprite = sprites.wall_right,
       draw = function(x_pos, y_pos)
         palt(0, false)
 
@@ -1446,7 +1424,6 @@ function generate_walls()
       x = null,
       y = null,
       type = "wall_down",
-      sprite = sprites.wall_down,
       draw = function(x_pos, y_pos)
         palt(0, false)
 
@@ -1563,7 +1540,10 @@ function refresh_pads()
       name = next,
       sprite = sprites["pad_" ..next],
       draw = function(self)
-        spr(self.sprite, self.s[1], self.s[2])
+        palt(colors.tan, true)
+        palt(colors.black, false)
+        spr(sprites.pad, self.s[1], self.s[2])
+        pal()
       end,
     }
     add(pads, new_pad)
@@ -1580,9 +1560,11 @@ function new_button(name)
     type = "button",
     name = name,
     sprite = sprites["button_" ..name],
-    hero_sprite = sprites["hero_" ..name],
     draw = function(self)
-      spr(self.sprite, self.s[1], self.s[2])
+      palt(colors.tan, true)
+      palt(colors.black, false)
+      spr(sprites.button, self.s[1], self.s[2])
+      pal()
     end,
   }
   add(buttons, new_button)
@@ -1590,38 +1572,38 @@ function new_button(name)
 end
 
 __gfx__
-0000000000000000ffffffff00000000ffffffff0000000d00000000ffffffffffffffffffffffffffffffffffffffffffffffff777777777777757700000000
-0000000000000000ffffffff00000000ffffffff0000000d00000000ffcffcffffbffbffff8ff8ffff9ff9ffff7ff7ffff7777ff777775777777577700000000
-0000000000000000000000ff00000000666666ff0000000d00000000fccffccffbbffbbff88ff88ff99ff99ff77ff77ff777777f777757777775577700000000
-0000000000000000077770ff00000000677776ff0000000d00000000fffffffffffffffffffffffffffffffffffffffff777777f777555777755555700000000
-0000000000000000007070ff00000000667676ff0000000d00000000fffffffffffffffffffffffffffffffffffffffff677776f775557777555557700000000
-0000000000000000077770ff00000000677776ff0000000d00000000fccffccffbbffbbff88ff88ff99ff99ff77ff77ff666666f777577777775577700000000
-0000000000000000007700ff00000000667766ff0000000d00000000ffcffcffffbffbffff8ff8ffff9ff9ffff7ff7ffff6666ff775777777775777700000000
-0000000000000000f0000fff00000000f6666fff0000000dddddddddffffffffffffffffffffffffffffffffffffffffffffffff777777777757777700000000
-00000000ffffffffff000fffffffffffff000fffffffffffff000fffffffffffffffffffffffffffffffffff77777777eeeeeeee777000777777000777777777
-00000000ffffffffff070fffffffffffff0c0fffffffffffff0b0fffffccccffffbbbbffff8888ffff9999ff77677677effffffe7700a07777700a0777700077
-00000000ff000fff0007000fff000fff000c000fff000fff000b000ffccccccffbbbbbbff888888ff999999f77655677efeeeefe770a00077700a0077000a077
-000000000007000f0777770f000c000f0ccccc0f000b000f0bbbbb0ffccccccffbbbbbbff888888ff999999f75666657efeffefe700a0a07700a0a0770990007
-000000000777770f0007000f0ccccc0f000c000f0bbbbb0f000b000ff1cccc1ff3bbbb3ff288882ff499994f70600607efeffefe70a0a00770a0a0077000aa07
-000000000007000ff07070ff000c000ff0c0c0ff000b000ff0b0b0fff111111ff333333ff222222ff444444f70666607efeeeefe7000a077700a007777090007
-00000000f07070fff07070fff0c0c0fff0c0c0fff0b0b0fff0b0b0ffff1111ffff3333ffff2222ffff4444ff77600677effffffe770a007770a0077777000777
-00000000f00000fff00000fff00000fff00000fff00000fff00000ffffffffffffffffffffffffffffffffff77777777eeeeeeee770007777000777777777777
-00000000000070707000700070007000000000000000000007070000ffffff0f7777707777700077ffffffffffffffffffffffff77770007ffffffffffffffff
-00000000707000700000000000000000000000000000000007070700fffff000777707777700a077fffccfffffddddffffeeeeff77700a07ffffffff000000ff
-00000000007000707007070070070700000000000000000007070007ffffff0f77700777700aa000ffccccfffddddddffeeeeeef7000a007f000ffff077700ff
-00000000700070707070007070700070000000000000000007000700ffffffff770a000700aaa0a0ffccccfffddddddffeeeeeef70aaa007f0e000ff000000ff
-00000000000070700000000000000000000000000000000007070000ffffffff7000a0770a0aaa00ff1cc1fff1dddd1ff2eeee2f700aaa07000ee0ff070000ff
-00000000707000707707770777077707000000000000000007070700ffffffff77700777000aa007ff1111fff111111ff222222f700a00070ee000ff070700ff
-00000000007000700000000000000000000000000000000007070007ffffffff77707777770a0077fff11fffff1111ffff2222ff70a00777000e0fff07770fff
-00000000700070707777777777777777000000000000000007000700ffffffff7707777777000777ffffffffffffffffffffffff70007777ff000fff00000fff
-0000000000700070000606000060006000000607000000700707000007000000000707000006006000077700000070000007777777700000ffffffffffffffff
-000000007000007000600006600000006006000700700077070707007707000000000070006006000007700000077000000777707770aa07ffffffffffffffff
-000000000070707006006060000606000060060770007000070000070007070070707007060000060077000000767000007777007700a077f888fffff0000fff
-00000000000070700006000000600060000060070070777707000700077700070000070000006000007777000776677000777000770aa007f87888ff00990fff
-00000000007000700600060660006000006006077070000007070000000007070777000000600060077770000007670007777700700a0077888778ff090000ff
-00000000700000700006000006060606600600077777707007070700707077770007070006000600000700000007700000077000777a0777877888ff000090ff
-00000000007070700060060700000000000006070070000007000007000007007707000700060007007000000007000000070000770a777788878ffff09900ff
-0000000000007070060060077777777706006007707707000700070007077707070007000000060700000000000000000070000077077777ff888ffff0000fff
+00000000ffffffffff000fffffffffffffffffff0000000000000000ffffffffffffffffffffffffffffffffffffffffffffffff000000000000000000000000
+00000000ffffffffff070fffffffffffffffffff0000000000000000ffcffcffffbffbffff8ff8ffff9ff9ffff7ff7ffff7777ff000000000000000000000000
+00000000ff000fff0007000f000000ff666666ff0000000000000000fccffccffbbffbbff88ff88ff99ff99ff77ff77ff777777f000000000000000000000000
+000000000007000f0777770f077770ff677776ff0000000000000000fffffffffffffffffffffffffffffffffffffffff777777f000000000000000000000000
+000000000777770f0007000f007070ff667676ff0000000000000000fffffffffffffffffffffffffffffffffffffffff677776f000000000000000000000000
+000000000007000ff07070ff077770ff677776ff0000000000000000fccffccffbbffbbff88ff88ff99ff99ff77ff77ff666666f000000000000000000000000
+00000000f07070fff07070ff007700ff667766ff0000000000000000ffcffcffffbffbffff8ff8ffff9ff9ffff7ff7ffff6666ff000000000000000000000000
+00000000f00000fff00000fff0000ffff6666fff0000000000000000ffffffffffffffffffffffffffffffffffffffffffffffff000000000000000000000000
+00000000ffffffffffffffffeeeeeeee000000000000000000000000ffffffffffffffffffffffffffffffff77777777eeeeeeee000000000000000000000000
+00000000ff6ff6ffff6666ffeffffffe000000000000000000000000ffccccffffbbbbffff8888ffff9999ff77677677effffffe000000000000000000000000
+00000000f66ff66ff666666fefeeeefe000000000000000000000000fccccccffbbbbbbff888888ff999999f77655677efeeeefe000000000000000000000000
+00000000fffffffff666666fefeffefe000000000000000000000000fccccccffbbbbbbff888888ff999999f75666657efeffefe000000000000000000000000
+00000000fffffffff566665fefeffefe000000000000000000000000f1cccc1ff3bbbb3ff288882ff499994f70600607efeffefe000000000000000000000000
+00000000f66ff66ff555555fefeeeefe000000000000000000000000f111111ff333333ff222222ff444444f70666607efeeeefe000000000000000000000000
+00000000ff6ff6ffff5555ffeffffffe000000000000000000000000ff1111ffff3333ffff2222ffff4444ff77600677effffffe000000000000000000000000
+00000000ffffffffffffffffeeeeeeee000000000000000000000000ffffffffffffffffffffffffffffffff77777777eeeeeeee000000000000000000000000
+00000000000070707000700070007000000000000000000007070000ffffff0f7777707777700077ffffffffffffffffffffffff000000000000000000000000
+00000000707000700000000000000000000000000000000007070700fffff000777707777700a077fffccfffffddddffffeeeeff000000000000000000000000
+00000000007000707007070070070700000000000000000007070007ffffff0f77700777700aa000ffccccfffddddddffeeeeeef000000000000000000000000
+00000000700070707070007070700070000000000000000007000700ffffffff770a000700aaa0a0ffccccfffddddddffeeeeeef000000000000000000000000
+00000000000070700000000000000000000000000000000007070000ffffffff7000a0770a0aaa00ff1cc1fff1dddd1ff2eeee2f000000000000000000000000
+00000000707000707707770777077707000000000000000007070700ffffffff77700777000aa007ff1111fff111111ff222222f000000000000000000000000
+00000000007000700000000000000000000000000000000007070007ffffffff77707777770a0077fff11fffff1111ffff2222ff000000000000000000000000
+00000000700070707777777777777777000000000000000007000700ffffffff7707777777000777ffffffffffffffffffffffff000000000000000000000000
+00000000007000700006060000600060000006070000007007070000070000000007070000060060000777000000700000077777000000000000000000000000
+00000000700000700060000660000000600600070070007707070700770700000000007000600600000770000007700000077770000000000000000000000000
+00000000007070700600606000060600006006077000700007000007000707007070700706000006007700000076700000777700000000000000000000000000
+00000000000070700006000000600060000060070070777707000700077700070000070000006000007777000776677000777000000000000000000000000000
+00000000007000700600060660006000006006077070000007070000000007070777000000600060077770000007670007777700000000000000000000000000
+00000000700000700006000006060606600600077777707007070700707077770007070006000600000700000007700000077000000000000000000000000000
+00000000007070700060060700000000000006070070000007000007000007007707000700060007007000000007000000070000000000000000000000000000
+00000000000070700600600777777777060060077077070007000700070777070700070000000607000000000000000000700000000000000000000000000000
 0000000000000000000000000000000000000000000000000000000000000000000000000e00e000000000000000000000000000000000000000000000000000
 __label__
 00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
