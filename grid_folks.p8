@@ -5,11 +5,11 @@ __lua__
 -- taylor d
 
 -- todo
--- [ ] refactor sprite coloring
--- [ ] balance enemy spawn rate
+-- [x] refactor sprite coloring
 -- [ ] affordance for stepping on pads
 -- [ ] affordance for shooting
 -- [ ] affordance for walking through walls
+-- [ ] balance enemy spawn rate
 -- [ ] transitions for taking damage (hero and enemy)
 -- [ ] animation for enemy death
 -- [ ] when multiple enemies are present, they should act in random order
@@ -129,10 +129,10 @@ function _init()
   input_queue = {}
 
   -- initial buttons (for testing)
-  set_tile(new_button("ghost"), {4,2})
-  set_tile(new_button("shoot"), {4,4})
-  set_tile(new_button("health"), {5,3})
-  set_tile(new_button("score"), {3,3})
+  set_tile(new_button("blue"), {4,2})
+  set_tile(new_button("green"), {4,4})
+  set_tile(new_button("red"), {5,3})
+  set_tile(new_button("orange"), {3,3})
 
   -- heroes
   hero_a = create_hero()
@@ -534,55 +534,79 @@ function _draw()
   end
 
   function draw_instructions()
-    palt(0, false)
-    palt(15, true)
-    pal(colors.black, bg_color)
     local x_pos = padding_left - 5
     local y_pos = 100
     local line_height = 9
 
     -- advance
+    palt(colors.black, false)
+    palt(colors.tan, true)
+    pal(colors.light_gray, colors.white)
+    pal(colors.dark_gray, colors.light_gray)
     spr(sprites.hero_inactive, x_pos, y_pos - 2)
     spr(011, x_pos + 7, y_pos - 2)
-    print("+", x_pos + 18, y_pos, 06)
-    spr(sprites.hero_active + 1, x_pos + 24, y_pos - 2)
+    spr(sprites.hero_active, x_pos + 24, y_pos - 2)
     spr(011, x_pos + 31, y_pos - 2)
+    spr(sprites.button, x_pos + 48, y_pos - 2)
+    pal()
+    print("+", x_pos + 18, y_pos, 06)
     print("=", x_pos + 42, y_pos, 06)
-    spr(012, x_pos + 48, y_pos - 2)
+
     y_pos += line_height
 
     -- ghost
-    spr(sprites.hero_inactive, x_pos, y_pos - 2)
+    palt(colors.black, false)
+    palt(colors.tan, true)
+    pal(colors.light_gray, colors.blue)
+    pal(colors.dark_gray, colors.navy)
     spr(sprites.button, x_pos + 7, y_pos - 2)
-    print("=", x_pos + 18, y_pos, 06)
-    spr(sprites.hero_active + 1, x_pos + 24, y_pos - 2)
+    spr(sprites.hero_inactive, x_pos, y_pos - 2)
+    spr(sprites.hero_active, x_pos + 24, y_pos - 2)
     print(smallcaps("ghost"), x_pos + 32, y_pos, text_color)
+    pal()
+    print("=", x_pos + 18, y_pos, 06)
+
     y_pos += line_height
 
     -- shoot
+    palt(colors.black, false)
+    palt(colors.tan, true)
+    pal(colors.light_gray, colors.green)
+    pal(colors.dark_gray, colors.forest)
     spr(sprites.hero_inactive, x_pos, y_pos - 2)
     spr(sprites.button, x_pos + 7, y_pos - 2)
-    print("=", x_pos + 18, y_pos, 06)
-    spr(sprites.hero_active + 1, x_pos + 24, y_pos - 2)
+    spr(sprites.hero_active, x_pos + 24, y_pos - 2)
     print(smallcaps("shoot"), x_pos + 32, y_pos, text_color)
+    pal()
+    print("=", x_pos + 18, y_pos, 06)
 
     x_pos += 67
     y_pos -= line_height
 
     -- gold
+    palt(colors.black, false)
+    palt(colors.tan, true)
+    pal(colors.light_gray, colors.orange)
+    pal(colors.dark_gray, colors.brown)
     spr(sprites.enemy, x_pos, y_pos - 2)
     spr(sprites.button, x_pos + 7, y_pos - 2)
-    print("=", x_pos + 18, y_pos, 06)
     print(smallcaps("gold"), x_pos + 25, y_pos, text_color)
+    pal()
+    print("=", x_pos + 18, y_pos, 06)
+
     y_pos += line_height
 
     -- health
+    palt(colors.black, false)
+    palt(colors.tan, true)
+    pal(colors.light_gray, colors.red)
+    pal(colors.dark_gray, colors.maroon)
     spr(sprites.enemy, x_pos, y_pos - 2)
     spr(sprites.button, x_pos + 7, y_pos - 2)
-    print("=", x_pos + 18, y_pos, 06)
     print(smallcaps("heal"), x_pos + 25, y_pos, text_color)
+    pal()
+    print("=", x_pos + 18, y_pos, 06)
 
-    palt()
   end
 
   function draw_score()
@@ -1037,8 +1061,10 @@ function update_hero_abilities()
     -- if the ally's tile is a button, update the hero's deets
     local button = find_type_in_tile("button", ally_xy)
     if button then
-      if button.name == "ghost" or button.name == "shoot" then
-        next[button.name] = true
+      if button.color == "blue" then
+        next.ghost = true
+      elseif button.color == "green" then
+        next.shoot = true
       end
     end
   end
@@ -1511,9 +1537,8 @@ function refresh_pads()
         x = null,
         y = null,
         type = "exit",
-        sprite = sprites.exit,
         draw = function(self)
-          spr(self.sprite, self.s[1], self.s[2])
+          spr(sprites.exit, self.s[1], self.s[2])
         end,
       }
       add(exits, exit)
@@ -1522,26 +1547,26 @@ function refresh_pads()
     return
   end
 
-  local current_types = {
-    "ghost",
-    "shoot",
-    "health",
-    "score"
+  local current_colors = {
+    "blue",
+    "green",
+    "red",
+    "orange"
   }
-  local index = flr(rnd(#current_types)) + 1
-  local to_remove = current_types[index]
-  del(current_types, to_remove)
+  local index = flr(rnd(#current_colors)) + 1
+  local to_remove = current_colors[index]
+  del(current_colors, to_remove)
 
   -- place new pads
-  for next in all(current_types) do
+  for next in all(current_colors) do
     local new_pad = {
       s = {},
       type = "pad",
-      name = next,
-      sprite = sprites["pad_" ..next],
+      color = next,
       draw = function(self)
         palt(colors.tan, true)
         palt(colors.black, false)
+        pal(colors.light_gray, colors[self.color])
         spr(sprites.pad, self.s[1], self.s[2])
         pal()
       end,
@@ -1551,18 +1576,27 @@ function refresh_pads()
   end
 end
 
-function new_button(name)
+function new_button(color)
 
   local new_button = {
     x = null,
     y = null,
     s = {},
     type = "button",
-    name = name,
-    sprite = sprites["button_" ..name],
+    color = color,
     draw = function(self)
       palt(colors.tan, true)
       palt(colors.black, false)
+      pal(colors.light_gray, colors[self.color])
+      if self.color == "blue" then
+        pal(colors.dark_gray, colors.navy)
+      elseif self.color == "green" then
+        pal(colors.dark_gray, colors.forest)
+      elseif self.color == "red" then
+        pal(colors.dark_gray, colors.maroon)
+      elseif self.color == "orange" then
+        pal(colors.dark_gray, colors.brown)
+      end
       spr(sprites.button, self.s[1], self.s[2])
       pal()
     end,
