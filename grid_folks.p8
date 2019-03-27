@@ -7,7 +7,7 @@ __lua__
 -- todo
 -- [x] refactor sprite coloring
 -- [x] affordance for stepping on pads
--- [ ] affordance for shooting
+-- [x] affordance for shooting
 -- [ ] affordance for walking through walls
 -- [ ] balance enemy spawn rate
 -- [ ] transitions for taking damage (hero and enemy)
@@ -94,6 +94,7 @@ function _init()
     hero_inactive = 001,
     hero_active = 002,
     enemy = 003,
+    crosshair = 004,
     pad_1 = 017,
     pad_2 = 018,
     button = 019,
@@ -232,7 +233,6 @@ function _update60()
     return
   end
 
-
   -- for complicated reasons, this value should be set to
   -- one *less* than the maximum allowed number of rapid player inputs
   if #input_queue < 2 then
@@ -264,8 +264,7 @@ function _update60()
       for next in all(heroes) do
         next.active = not next.active
       end
-      set_bump_transition(active_hero(), {0, -2}, 4, 0)
-      delay += transition_frames
+      update_shoot_targets()
       sfx(sounds.switch_heroes, 3)
     else
       active_hero().act(active_hero(), input_queue[1])
@@ -286,6 +285,7 @@ function _update60()
     if should_spawn() then
       spawn_enemy()
     end
+    update_shoot_targets()
     -- update game state
     turns = turns + 1
     player_turn = true
@@ -937,33 +937,33 @@ function create_hero()
         end
       end
 
-      function get_shoot_targets(direction)
+      -- function get_shoot_targets(direction)
 
-        local now_tile = {self.x, self.y}
-        local x_vel = direction[1]
-        local y_vel = direction[2]
-        local targets = {}
+      --   local now_tile = {self.x, self.y}
+      --   local x_vel = direction[1]
+      --   local y_vel = direction[2]
+      --   local targets = {}
 
-        while true do
-          -- define the current target
-          local next_tile = {now_tile[1] + x_vel, now_tile[2] + y_vel}
-          -- if `next_tile` is off the map, or there's a wall in the way, return false
-          if
-            location_exists(next_tile) == false or
-            is_wall_between(now_tile, next_tile) or
-            find_type_in_tile("hero", next_tile)
-          then
-            return targets
-          end
-          -- if there's an enemy in the target, return it
-          local enemy = find_type_in_tile("enemy", next_tile)
-          if enemy then
-            add(targets, enemy)
-          end
-          -- set `current` to `next_tile` and keep going
-          now_tile = next_tile
-        end
-      end
+      --   while true do
+      --     -- define the current target
+      --     local next_tile = {now_tile[1] + x_vel, now_tile[2] + y_vel}
+      --     -- if `next_tile` is off the map, or there's a wall in the way, return false
+      --     if
+      --       location_exists(next_tile) == false or
+      --       is_wall_between(now_tile, next_tile) or
+      --       find_type_in_tile("hero", next_tile)
+      --     then
+      --       return targets
+      --     end
+      --     -- if there's an enemy in the target, return it
+      --     local enemy = find_type_in_tile("enemy", next_tile)
+      --     if enemy then
+      --       add(targets, enemy)
+      --     end
+      --     -- set `current` to `next_tile` and keep going
+      --     now_tile = next_tile
+      --   end
+      -- end
 
       -- this is where the actual acting starts
 
@@ -988,7 +988,7 @@ function create_hero()
         elseif not wall then
 
           -- if shoot is enabled and shoot targets exist
-          local shoot_targets = get_shoot_targets(direction)
+          local shoot_targets = get_shoot_targets(self, direction)
           if self.shoot and #shoot_targets > 0 then
             for next in all(shoot_targets) do
               hit_enemy(next, 2)
@@ -1040,6 +1040,50 @@ function create_hero()
     end,
 	}
   return hero
+end
+
+function get_shoot_targets(hero, direction)
+
+  local now_tile = {hero.x, hero.y}
+  local x_vel = direction[1]
+  local y_vel = direction[2]
+  local targets = {}
+
+  while true do
+    -- define the current target
+    local next_tile = {now_tile[1] + x_vel, now_tile[2] + y_vel}
+    -- if `next_tile` is off the map, or there's a wall in the way, return false
+    if
+      location_exists(next_tile) == false or
+      is_wall_between(now_tile, next_tile) or
+      find_type_in_tile("hero", next_tile)
+    then
+      return targets
+    end
+    -- if there's an enemy in the target, return it
+    local enemy = find_type_in_tile("enemy", next_tile)
+    if enemy then
+      add(targets, enemy)
+    end
+    -- set `current` to `next_tile` and keep going
+    now_tile = next_tile
+  end
+end
+
+function update_shoot_targets()
+  for next in all(enemies) do
+    next.is_shoot_target = false
+  end
+  for h in all(heroes) do
+    if h.shoot and h.active then
+      for d in all({{0, -1}, {0, 1}, {-1, 0}, {1, 0}}) do
+        local targets = get_shoot_targets(h, d)
+        for t in all(targets) do
+          t.is_shoot_target = true
+        end
+      end
+    end
+  end
 end
 
 -- updates both heroes' abilities and sprites
@@ -1247,6 +1291,10 @@ function new_enemy()
         pal(colors.black, colors.light_gray)
       end
       spr(sprites.enemy, self.s[1], self.s[2])
+      if self.is_shoot_target then
+        pal(colors.light_gray, colors.green)
+        spr(sprites.crosshair, self.s[1], self.s[2])
+      end
       draw_health(self.s[1], self.s[2], self.health)
       pal()
     end,
@@ -1617,21 +1665,21 @@ end
 
 __gfx__
 00000000ffffffffff000fffffffffffffffffff0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-00000000ffffffffff070fffffffffffffffffff0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-00000000ff000fff0007000f000000ff666666ff0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-000000000007000f0777770f077770ff677776ff0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-000000000777770f0007000f007070ff667676ff0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-000000000007000ff07070ff077770ff677776ff0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-00000000f07070fff07070ff007700ff667766ff0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-00000000f00000fff00000fff0000ffff6666fff0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-00000000ffffffffffffffffffffffffeeeeeeeefffffffff6ffff6f000000000000000000000000000000000000000000000000000000000000000000000000
-00000000f66ff66fff6ff6ffff6666ffeffffffeff6ff6ff66ffff66000000000000000000000000000000000000000000000000000000000000000000000000
-00000000f6ffff6ff66ff66ff666666fefeeeefef66ff66fffffffff000000000000000000000000000000000000000000000000000000000000000000000000
-00000000fffffffffffffffff666666fefeffefeffffffffffffffff000000000000000000000000000000000000000000000000000000000000000000000000
-00000000fffffffffffffffff566665fefeffefeffffffffffffffff000000000000000000000000000000000000000000000000000000000000000000000000
-00000000f6ffff6ff66ff66ff555555fefeeeefef66ff66fffffffff000000000000000000000000000000000000000000000000000000000000000000000000
-00000000f66ff66fff6ff6ffff5555ffeffffffeff6ff6ff66ffff66000000000000000000000000000000000000000000000000000000000000000000000000
-00000000ffffffffffffffffffffffffeeeeeeeefffffffff6ffff6f000000000000000000000000000000000000000000000000000000000000000000000000
+00000000ffffffffff070ffffffffffffff6ffff0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00000000ff000fff0007000f000000fffff6ffff0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+000000000007000f0777770f077770ffffffffff0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+000000000777770f0007000f007070ff66f6f66f0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+000000000007000ff07070ff077770ffffffffff0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00000000f07070fff07070ff007700fffff6ffff0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00000000f00000fff00000fff0000ffffff6ffff0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00000000ffffffffffffffffffffffffeeeeeeee0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00000000f66ff66fff6ff6ffff6666ffeffffffe0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00000000f6ffff6ff66ff66ff666666fefeeeefe0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00000000fffffffffffffffff666666fefeffefe0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00000000fffffffffffffffff566665fefeffefe0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00000000f6ffff6ff66ff66ff555555fefeeeefe0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00000000f66ff66fff6ff6ffff5555ffeffffffe0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00000000ffffffffffffffffffffffffeeeeeeee0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 00000000000006070060006000060600000600600000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 00000000600600076000000000600006006006000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 00000000006006070006060006006060060000060000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
