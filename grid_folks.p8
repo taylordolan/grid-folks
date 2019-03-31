@@ -492,23 +492,23 @@ function _draw()
         ax += 3
         bx += 3
         ay -= 2
-        by += 8
+        by -= 1
       -- down
       elseif pair_equal(dir, {0, 1}) then
         ax += 3
         bx += 3
         ay += 9
-        by -= 1
+        by += 7
       -- left
       elseif pair_equal(dir, {-1, 0}) then
         ax -= 2
-        bx += 7
+        bx -= 1
         ay += 3
         by += 3
       -- right
       elseif pair_equal(dir, {1, 0}) then
         ax += 8
-        bx -= 2
+        bx += 8
         ay += 3
         by += 3
       end
