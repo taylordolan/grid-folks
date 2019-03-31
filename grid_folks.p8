@@ -8,7 +8,7 @@ __lua__
 -- [x] refactor sprite coloring
 -- [x] affordance for stepping on pads
 -- [x] affordance for shooting
--- [ ] affordance for walking through walls
+-- [x] affordance for walking through walls
 -- [ ] balance enemy spawn rate
 -- [ ] transitions for taking damage (hero and enemy)
 -- [ ] animation for enemy death
@@ -95,14 +95,13 @@ function _init()
     hero_active = 002,
     enemy = 003,
     crosshair = 004,
-    pad_1 = 017,
-    pad_2 = 018,
-    button = 019,
-    exit = 020,
-    border_left = 33,
-    border_top = 34,
-    border_top_left = 35,
-    border_top_right = 36,
+    pad = 017,
+    button = 018,
+    exit = 019,
+    border_left = 033,
+    border_top = 034,
+    border_top_left = 035,
+    border_top_right = 036,
   }
 
   -- some game state
@@ -123,7 +122,9 @@ function _init()
   exits = {}
   -- when multiple things are in a tile, they'll be rendering in this order
   -- that means the things at the end will appear on top
-  sprite_layers = {
+  layers = {
+    "wall_right",
+    "wall_down",
     "pad",
     "button",
     "exit",
@@ -215,7 +216,6 @@ end
 
 function spawn_enemy()
   local new_enemy = new_enemy()
-  -- deploy(new_enemy, {"hero", "enemy"})
   new_enemy.deploy(new_enemy)
   last_spawned_turn = turns
 end
@@ -264,7 +264,7 @@ function _update60()
       for next in all(heroes) do
         next.active = not next.active
       end
-      update_shoot_targets()
+      update_targets()
       sfx(sounds.switch_heroes, 3)
     else
       active_hero().act(active_hero(), input_queue[1])
@@ -285,7 +285,7 @@ function _update60()
     if should_spawn() then
       spawn_enemy()
     end
-    update_shoot_targets()
+    update_targets()
     -- update game state
     turns = turns + 1
     player_turn = true
@@ -466,26 +466,13 @@ function _draw()
 
     for x = 1, cols do
       for y = 1, rows do
-
-        -- draw the sprite for everything at the current position
-        if #board[x][y] > 0 then
+        -- draw everything at the current position
+        for type in all(layers) do
+          -- render sprites in the order defined by layers
+          -- todo: this isn't actually working
           for next in all(board[x][y]) do
-
-            -- draw walls
-            local x_pos = (x - 1) * sprite_size + (x - 1) * tile_margin + padding_left
-            local y_pos = (y - 1) * sprite_size + (y - 1) * tile_margin + padding_top
-            if next.type == "wall_right" or next.type == "wall_down" then
-              next.draw(x_pos, y_pos)
-
-            -- draw sprites
-            else
-              -- render sprites in the order defined by sprite_layers
-              -- todo: this isn't actually working
-              for type in all(sprite_layers) do
-                if next.type == type then
-                  next.draw(next)
-                end
-              end
+            if next.type == type then
+              next.draw(next)
             end
           end
         end
@@ -549,9 +536,9 @@ function _draw()
     pal(colors.light_gray, colors.white)
     pal(colors.dark_gray, colors.light_gray)
     spr(sprites.hero_inactive, x_pos, y_pos - 2)
-    spr(sprites.pad_1, x_pos + 7, y_pos - 2)
+    spr(sprites.pad, x_pos + 7, y_pos - 2)
     spr(sprites.hero_active, x_pos + 24, y_pos - 2)
-    spr(sprites.pad_2, x_pos + 31, y_pos - 2)
+    spr(sprites.pad, x_pos + 31, y_pos - 2)
     spr(sprites.button, x_pos + 48, y_pos - 2)
     pal()
     print("+", x_pos + 18, y_pos, 06)
@@ -793,12 +780,14 @@ function is_in_tile_array(array, tile)
 end
 
 function find_type_in_tile(type, tile)
-  local x = tile[1]
-  local y = tile[2]
-  for i = 1, #board[x][y] do
-    local next = board[x][y][i]
-    if next.type == type then
-      return next
+  if location_exists(tile) then
+    local x = tile[1]
+    local y = tile[2]
+    for i = 1, #board[x][y] do
+      local next = board[x][y][i]
+      if next.type == type then
+        return next
+      end
     end
   end
   return false
@@ -1070,9 +1059,10 @@ function get_shoot_targets(hero, direction)
   end
 end
 
-function update_shoot_targets()
+function update_targets()
   for next in all(enemies) do
     next.is_shoot_target = false
+    next.is_ghost_target = false
   end
   for h in all(heroes) do
     if h.shoot and h.active then
@@ -1080,6 +1070,15 @@ function update_shoot_targets()
         local targets = get_shoot_targets(h, d)
         for t in all(targets) do
           t.is_shoot_target = true
+        end
+      end
+    end
+    if h.ghost and h.active then
+      local h_tile = {h.x, h.y}
+      for d in all({{0, -1}, {0, 1}, {-1, 0}, {1, 0}}) do
+        local enemy = find_type_in_tile("enemy", {h_tile[1] + d[1], h_tile[2] + d[2]})
+        if enemy then
+          enemy.is_ghost_target = true
         end
       end
     end
@@ -1295,6 +1294,10 @@ function new_enemy()
         pal(colors.light_gray, colors.green)
         spr(sprites.crosshair, self.s[1], self.s[2])
       end
+      if self.is_ghost_target then
+        pal(colors.light_gray, colors.blue)
+        spr(sprites.crosshair, self.s[1], self.s[2])
+      end
       draw_health(self.s[1], self.s[2], self.health)
       pal()
     end,
@@ -1476,8 +1479,19 @@ function generate_walls()
       x = null,
       y = null,
       type = "wall_right",
-      draw = function(x_pos, y_pos)
+      draw = function(self)
         palt(0, false)
+        local x_pos = (self.x - 1) * sprite_size + (self.x - 1) * tile_margin + padding_left
+        local y_pos = (self.y - 1) * sprite_size + (self.y - 1) * tile_margin + padding_top
+
+        local outer_color = bg_color
+        local inner_color = wall_color
+
+        local hero_l = find_type_in_tile("hero", {self.x, self.y})
+        local hero_r = find_type_in_tile("hero", {self.x + 1, self.y})
+        if hero_l and hero_l.ghost or hero_r and hero_r.ghost then
+          inner_color = colors.white
+        end
 
         local x3 = x_pos + sprite_size + flr(tile_margin / 2)
         local y3 = y_pos - ceil(tile_margin / 2)
@@ -1489,8 +1503,8 @@ function generate_walls()
         local x2 = x4 + 1
         local y2 = y4 + 1
 
-        rectfill(x1, y1, x2, y2, bg_color)
-        rectfill(x3, y3, x4, y4, wall_color)
+        rectfill(x1, y1, x2, y2, outer_color)
+        rectfill(x3, y3, x4, y4, inner_color)
         palt()
       end,
     }
@@ -1501,8 +1515,19 @@ function generate_walls()
       x = null,
       y = null,
       type = "wall_down",
-      draw = function(x_pos, y_pos)
+      draw = function(self)
         palt(0, false)
+        local x_pos = (self.x - 1) * sprite_size + (self.x - 1) * tile_margin + padding_left
+        local y_pos = (self.y - 1) * sprite_size + (self.y - 1) * tile_margin + padding_top
+
+        local outer_color = bg_color
+        local inner_color = wall_color
+
+        local hero_u = find_type_in_tile("hero", {self.x, self.y})
+        local hero_d = find_type_in_tile("hero", {self.x, self.y + 1})
+        if hero_u and hero_u.ghost or hero_d and hero_d.ghost then
+          inner_color = colors.white
+        end
 
         local x3 = x_pos - ceil(tile_margin / 2)
         local y3 = y_pos + sprite_size + flr(tile_margin / 2)
@@ -1514,8 +1539,8 @@ function generate_walls()
         local x2 = x4 + 1
         local y2 = y4 + 1
 
-        rectfill(x1, y1, x2, y2, bg_color)
-        rectfill(x3, y3, x4, y4, wall_color)
+        rectfill(x1, y1, x2, y2, outer_color)
+        rectfill(x3, y3, x4, y4, inner_color)
         palt()
       end,
     }
@@ -1615,12 +1640,12 @@ function refresh_pads()
       type = "pad",
       color = next,
       draw = function(self)
-        local sprite = sprites.pad_1
+        local sprite = sprites.pad
         if
           find_type_in_tile("pad", {hero_a.x, hero_a.y}) or
           find_type_in_tile("pad", {hero_b.x, hero_b.y})
         then
-          sprite = sprites.pad_2
+          sprite = sprites.pad
         end
         palt(colors.tan, true)
         palt(colors.black, false)
@@ -1672,14 +1697,14 @@ __gfx__
 000000000007000ff07070ff077770ffffffffff0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 00000000f07070fff07070ff007700fffff6ffff0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 00000000f00000fff00000fff0000ffffff6ffff0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-00000000ffffffffffffffffffffffffeeeeeeee0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-00000000f66ff66fff6ff6ffff6666ffeffffffe0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-00000000f6ffff6ff66ff66ff666666fefeeeefe0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-00000000fffffffffffffffff666666fefeffefe0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-00000000fffffffffffffffff566665fefeffefe0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-00000000f6ffff6ff66ff66ff555555fefeeeefe0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-00000000f66ff66fff6ff6ffff5555ffeffffffe0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-00000000ffffffffffffffffffffffffeeeeeeee0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00000000ffffffffffffffffffffffff000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00000000f66ff66fff6666ffeeeeeeee000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00000000f6ffff6ff666666feffffffe000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00000000fffffffff666666fefeeeefe000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00000000fffffffff566665fefeffefe000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00000000f6ffff6ff555555fefeeeefe000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00000000f66ff66fff5555ffeffffffe000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00000000ffffffffffffffffeeeeeeee000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 00000000000006070060006000060600000600600000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 00000000600600076000000000600006006006000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 00000000006006070006060006006060060000060000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
@@ -1837,7 +1862,7 @@ __map__
 0000000001312222220000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 __sfx__
 000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-01020000217521b7521775214752117520f7520d7520b75209752087520675205752047520475204752037520c7020b7020b7020a7020a7020970209702097020970200702007020070200702007020070200702
+00020000217521b7521775214752117520f7520d7520b75209752087520675205752047520475204752037520c7020b7020b7020a7020a7020970209702097020970200702007020070200702007020070200702
 012000200e7550e7550e7550e7550e7550e7550e7550e7550e7550e7550e7550e7550e7550e7550e7550e75511755117551175511755117551175511755117551075510755107551075510755107550c7550c755
 012000201d755000000000000000217550000000000000001d7550000000000000001d7550000000000000001d7550000000000000001a7550000000000000001d7550000000000000001d755000000000000000
 0140002010037000071003700007100370000710037000071303718007130370000713037180071303700007150370c0071503700007150370c00715037000071d037000071c037000071a037000071803700007
