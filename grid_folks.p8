@@ -9,14 +9,13 @@ __lua__
 -- [x] affordance for stepping on pads
 -- [x] affordance for shooting
 -- [x] affordance for walking through walls
+-- [x] transitions for taking damage (hero and enemy)
 -- [ ] balance enemy spawn rate
--- [ ] transitions for taking damage (hero and enemy)
 -- [ ] animation for enemy death
 -- [ ] when multiple enemies are present, they should act in random order
 -- [ ] nice looking end game states
 -- [ ] title screen?
 -- [ ] better instructions presentation?
--- [ ] convert s{} to sx and sy?
 
 -- game state that gets refreshed on restart
 function _init()
@@ -606,10 +605,10 @@ end
 function transition_to(thing, destinations, frames, delay)
 
   local s = {}
-  local current = thing.s[1]
+  local current = thing.screen_seq[1]
 
   for i = 1, delay do
-    add(s, thing.s[1])
+    add(s, thing.screen_seq[1])
   end
 
   for next in all(destinations) do
@@ -627,7 +626,7 @@ function transition_to(thing, destinations, frames, delay)
     end
   end
 
-  thing.s = s
+  thing.screen_seq = s
 end
 
 -- move a thing to a tile
@@ -650,8 +649,8 @@ function set_tile(thing, dest)
   thing.x = dest[1]
   thing.y = dest[2]
 
-  if thing.s and #thing.s == 0 then
-    add(thing.s, tile_to_screen(dest))
+  if thing.screen_seq and #thing.screen_seq == 0 then
+    add(thing.screen_seq, tile_to_screen(dest))
   end
 
   -- this is here for now because enemy buttons need to be triggered when enemies step or are deployed
@@ -796,8 +795,12 @@ function create_hero()
     -- board position
     x = null,
     y = null,
-    -- screen positions
-    s = {},
+    -- a sequence of screen positions
+    screen_seq = {},
+    -- a sequence of sprites
+    sprite_seq = {sprites.hero_inactive},
+    -- a sequence of palette modifications
+    pal_seq = {{10,10}},
     -- other stuff
 		type = "hero",
     max_health = 3,
@@ -807,6 +810,9 @@ function create_hero()
     ghost = false,
     shoot = false,
 
+    -- base_sprite = function(self)
+    --   return self.active and sprites.hero_active or sprites.hero_inactive
+    -- end,
       -- this is called when the player hits a direction on their turn.
       -- it determines which action should be taken and triggers it.
     act = function(self, direction)
@@ -875,7 +881,7 @@ function create_hero()
             local shot_dest = get_shoot_dest(direction)
             local screen_shot_dest = tile_to_screen(shot_dest)
 
-            shot_points = {self.s[1], screen_shot_dest}
+            shot_points = {self.screen_seq[1], screen_shot_dest}
             shot_direction = direction
             remaining_shot_frames = transition_frames
             sfx(sounds.shoot, 3)
@@ -904,12 +910,19 @@ function create_hero()
       end
     end,
     draw = function(self)
-      local sprite = sprites.hero_inactive
-      if self.active then
+
+      -- set sprite based on the first value in sprite_seq
+      local sprite = self.sprite_seq[1]
+      -- if the sprite is hero_inactive and this hero is active, update the sprite
+      if sprite == sprites.hero_inactive and self.active then
         sprite = sprites.hero_active
       end
-      local sx = self.s[1][1]
-      local sy = self.s[1][2]
+
+      -- set the current screen destination using the first value in screen_seq
+      local sx = self.screen_seq[1][1]
+      local sy = self.screen_seq[1][2]
+
+      -- default palette updates
       palt(colors.tan, true)
       palt(colors.black, false)
       if self.shoot then
@@ -917,11 +930,26 @@ function create_hero()
       elseif self.ghost then
         pal(colors.white, colors.blue)
       end
+
+      -- update the palette based using first value in pal_seq
+      pal(self.pal_seq[1][1], self.pal_seq[1][2])
+
+      -- draw the sprite and the hero's health
       spr(sprite, sx, sy)
       draw_health(sx, sy, self.health)
-      if #self.s > 1 then
-        del(self.s, self.s[1])
+
+      -- for all these lists, if there's more than one value, remove the first one
+      if #self.screen_seq > 1 then
+        del(self.screen_seq, self.screen_seq[1])
       end
+      if #self.sprite_seq > 1 then
+        del(self.sprite_seq, self.sprite_seq[1])
+      end
+      if #self.pal_seq > 1 then
+        del(self.pal_seq, self.pal_seq[1])
+      end
+
+      -- reset the palette
       pal()
     end,
 	}
@@ -1065,6 +1093,8 @@ end
 -- hit it and then kill if it has no health
 function hit_enemy(enemy, damage)
   enemy.health -= damage
+  local b_r = {colors.black, colors.red}
+  enemy.pal_seq = {b_r, b_r, {0,0}}
   if (enemy.health <= 0) then
     has_killed = true
     del(board[enemy.x][enemy.y], enemy)
@@ -1082,8 +1112,12 @@ function new_enemy()
     -- board position
     x = null,
     y = null,
-    -- screen positions
-    s = {},
+    -- a sequence of screen positions
+    screen_seq = {},
+    -- a sequence of sprites
+    sprite_seq = {sprites.enemy},
+    -- a sequence of palette modifications
+    pal_seq = {{10,10}},
     -- other stuff
 		type = "hero",
     type = "enemy",
@@ -1164,6 +1198,8 @@ function new_enemy()
             local here = tile_to_screen({self.x, self.y})
             local bump = {here[1] + direction[1] * 2, here[2] + direction[2] * 2}
             transition_to(self, {bump, here}, 2, 2)
+            local b_r = {colors.black, colors.red}
+            target.pal_seq = {b_r, b_r, {10,10}}
             delay += 4
             sfx(sounds.enemy_bump, 3)
           end
@@ -1175,15 +1211,29 @@ function new_enemy()
       end
 		end,
     draw = function(self)
-      local sprite = sprites.enemy
-      local sx = self.s[1][1]
-      local sy = self.s[1][2]
+
+      -- set sprite based on the first value in sprite_seq
+      local sprite = self.sprite_seq[1]
+
+      -- set the current screen destination using the first value in screen_seq
+      local sx = self.screen_seq[1][1]
+      local sy = self.screen_seq[1][2]
+
+      -- default palette updates
       palt(colors.tan, true)
       palt(colors.black, false)
       if self.stunned then
         pal(colors.black, colors.light_gray)
       end
+
+      -- update the palette based using first value in pal_seq
+      pal(self.pal_seq[1][1], self.pal_seq[1][2])
+
+      -- draw the enemy and its health
       spr(sprites.enemy, sx, sy)
+      draw_health(sx, sy, self.health)
+
+      -- draw crosshairs
       if self.is_shoot_target then
         pal(colors.light_gray, colors.green)
         spr(sprites.crosshair, sx, sy)
@@ -1192,10 +1242,19 @@ function new_enemy()
         pal(colors.light_gray, colors.blue)
         spr(sprites.crosshair, sx, sy)
       end
-      draw_health(sx, sy, self.health)
-      if #self.s > 1 then
-        del(self.s, self.s[1])
+
+      -- for all these lists, if there's more than one value, remove the first one
+      if #self.screen_seq > 1 then
+        del(self.screen_seq, self.screen_seq[1])
       end
+      if #self.sprite_seq > 1 then
+        del(self.sprite_seq, self.sprite_seq[1])
+      end
+      if #self.pal_seq > 1 then
+        del(self.pal_seq, self.pal_seq[1])
+      end
+
+      -- reset the palette
       pal()
     end,
     deploy = function(self)
@@ -1511,7 +1570,7 @@ function refresh_pads()
         y = null,
         type = "exit",
         draw = function(self)
-          spr(sprites.exit, self.s[1], self.s[2])
+          spr(sprites.exit, self.screen_seq[1], self.s[2])
         end,
       }
       add(exits, exit)
@@ -1533,13 +1592,13 @@ function refresh_pads()
   -- place new pads
   for next in all(current_colors) do
     local new_pad = {
-      s = {},
+      screen_seq = {},
       type = "pad",
       color = next,
       draw = function(self)
         local sprite = sprites.pad
-        local sx = self.s[1][1]
-        local sy = self.s[1][2]
+        local sx = self.screen_seq[1][1]
+        local sy = self.screen_seq[1][2]
         if
           find_type_in_tile("pad", {hero_a.x, hero_a.y}) or
           find_type_in_tile("pad", {hero_b.x, hero_b.y})
@@ -1563,13 +1622,13 @@ function new_button(color)
   local new_button = {
     x = null,
     y = null,
-    s = {},
+    screen_seq = {},
     type = "button",
     color = color,
     draw = function(self)
       local sprite = sprites.button
-      local sx = self.s[1][1]
-      local sy = self.s[1][2]
+      local sx = self.screen_seq[1][1]
+      local sy = self.screen_seq[1][2]
       palt(colors.tan, true)
       palt(colors.black, false)
       pal(colors.light_gray, colors[self.color])
