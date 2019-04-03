@@ -1243,17 +1243,19 @@ function new_enemy()
       draw_health(sx, sy, self.health)
 
       -- draw crosshairs
-      if self.is_shoot_target then
-        pal(colors.light_gray, colors.green)
-        spr(sprites.crosshair, sx, sy)
-      end
-      if self.is_ghost_target then
-        pal(colors.light_gray, colors.blue)
-        spr(sprites.crosshair, sx, sy)
+      if self.health >= 1 then
+        if self.is_shoot_target then
+          pal(colors.light_gray, colors.green)
+          spr(sprites.crosshair, sx, sy)
+        end
+        if self.is_ghost_target then
+          pal(colors.light_gray, colors.blue)
+          spr(sprites.crosshair, sx, sy)
+        end
       end
 
       -- after drawing, if the enemy is dead and done rendering all its sprites, delete it
-      if self.health <= 0 and #self.screen_seq <= 1 and #self.sprite_seq <= 1 then
+      if self.health <= 0 and #self.sprite_seq <= 1 then
         del(board[self.x][self.y], self)
         del(enemies, self)
       end
