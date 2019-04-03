@@ -1094,7 +1094,7 @@ end
 function hit_enemy(enemy, damage)
   enemy.health -= damage
   local b_r = {colors.black, colors.red}
-  enemy.pal_seq = {b_r, b_r, {0,0}}
+  enemy.pal_seq = {b_r, b_r, b_r, b_r, {10,10}}
   if (enemy.health <= 0) then
     has_killed = true
     del(board[enemy.x][enemy.y], enemy)
@@ -1199,7 +1199,7 @@ function new_enemy()
             local bump = {here[1] + direction[1] * 2, here[2] + direction[2] * 2}
             transition_to(self, {bump, here}, 2, 2)
             local b_r = {colors.black, colors.red}
-            target.pal_seq = {b_r, b_r, {10,10}}
+            target.pal_seq = {b_r, b_r, b_r, b_r, {10,10}}
             delay += 4
             sfx(sounds.enemy_bump, 3)
           end
