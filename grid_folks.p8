@@ -10,8 +10,8 @@ __lua__
 -- [x] affordance for shooting
 -- [x] affordance for walking through walls
 -- [x] transitions for taking damage (hero and enemy)
+-- [x] animation for enemy death
 -- [ ] balance enemy spawn rate
--- [ ] animation for enemy death
 -- [ ] when multiple enemies are present, they should act in random order
 -- [ ] nice looking end game states
 -- [ ] title screen?
@@ -101,6 +101,8 @@ function _init()
     border_top = 034,
     border_top_left = 035,
     border_top_right = 036,
+    die_1 = 005,
+    die_2 = 006,
   }
 
   -- some game state
@@ -109,7 +111,6 @@ function _init()
   player_turn = true
 	game_lost = false
   game_won = false
-  has_killed = false
   debug_mode = false
   delay = 0
 
@@ -1093,12 +1094,16 @@ end
 -- hit it and then kill if it has no health
 function hit_enemy(enemy, damage)
   enemy.health -= damage
-  local b_r = {colors.black, colors.red}
-  enemy.pal_seq = {b_r, b_r, b_r, b_r, {10,10}}
-  if (enemy.health <= 0) then
-    has_killed = true
-    del(board[enemy.x][enemy.y], enemy)
-    del(enemies, enemy)
+  if enemy.health <= 0 then
+    local _x = enemy.screen_seq[1][1]
+    local _y = enemy.screen_seq[1][2]
+    enemy.screen_seq = {{_x-1,_y+1}}
+    local _a = sprites.die_1
+    local _b = sprites.die_2
+    enemy.sprite_seq = {_a,_a,_a,_a,_b,_b,_b,_b}
+  else
+    local b_r = {colors.black, colors.red}
+    enemy.pal_seq = {b_r, b_r, b_r, b_r, {10,10}}
   end
 end
 
@@ -1124,6 +1129,10 @@ function new_enemy()
     stunned = true,
     health = 2,
     update = function(self)
+
+      if self.health <= 0 then
+        return
+      end
 
       if self.stunned == true then
         self.stunned = false
@@ -1230,7 +1239,7 @@ function new_enemy()
       pal(self.pal_seq[1][1], self.pal_seq[1][2])
 
       -- draw the enemy and its health
-      spr(sprites.enemy, sx, sy)
+      spr(sprite, sx, sy)
       draw_health(sx, sy, self.health)
 
       -- draw crosshairs
@@ -1241,6 +1250,12 @@ function new_enemy()
       if self.is_ghost_target then
         pal(colors.light_gray, colors.blue)
         spr(sprites.crosshair, sx, sy)
+      end
+
+      -- after drawing, if the enemy is dead and done rendering all its sprites, delete it
+      if self.health <= 0 and #self.screen_seq <= 1 and #self.sprite_seq <= 1 then
+        del(board[self.x][self.y], self)
+        del(enemies, self)
       end
 
       -- for all these lists, if there's more than one value, remove the first one
@@ -1650,14 +1665,14 @@ function new_button(color)
 end
 
 __gfx__
-00000000ffffffffff000fffffffffffffffffff0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-00000000ffffffffff070ffffffffffffff6ffff0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-00000000ff000fff0007000f000000fffff6ffff0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-000000000007000f0777770f077770ffffffffff0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-000000000777770f0007000f007070ff66f6f66f0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-000000000007000ff07070ff077770ffffffffff0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-00000000f07070fff07070ff007700fffff6ffff0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-00000000f00000fff00000fff0000ffffff6ffff0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00000000ffffffffff000fffffffffffffffffffffff6fffffff6fff000000000000000000000000000000000000000000000000000000000000000000000000
+00000000ffffffffff070ffffffffffffff6ffffff6f6fffffffffff000000000000000000000000000000000000000000000000000000000000000000000000
+00000000ff000fff0007000f000000fffff6ffffffffff6fffffffff000000000000000000000000000000000000000000000000000000000000000000000000
+000000000007000f0777770f077770ffffffffff66ffffff6fffffff000000000000000000000000000000000000000000000000000000000000000000000000
+000000000777770f0007000f007070ff66f6f66fffffff66fffffff6000000000000000000000000000000000000000000000000000000000000000000000000
+000000000007000ff07070ff077770fffffffffff6ffffffffffffff000000000000000000000000000000000000000000000000000000000000000000000000
+00000000f07070fff07070ff007700fffff6fffffff6f6ffffffffff000000000000000000000000000000000000000000000000000000000000000000000000
+00000000f00000fff00000fff0000ffffff6fffffff6fffffff6ffff000000000000000000000000000000000000000000000000000000000000000000000000
 00000000ffffffffffffffffffffffff000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 00000000f66ff66fff6666ffeeeeeeee000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 00000000f6ffff6ff666666feffffffe000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
