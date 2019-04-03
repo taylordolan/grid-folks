@@ -294,14 +294,6 @@ function _update60()
     end
   end
 
-  -- update screen positions
-  for next in all(heroes) do
-    update_screen_position(next)
-  end
-  for next in all(enemies) do
-    update_screen_position(next)
-  end
-
   if delay <= 0 then
     -- game won test
     local a_xy = {hero_a.x, hero_a.y}
@@ -351,53 +343,6 @@ function smallcaps(s)
     end
   end
   return d
-end
-
--- todo: it feels like some of the stuff that's in here should be in the objects' respective draw() functions instead
--- like adjusting the frames_so_far values
-function update_screen_position(thing)
-  if thing.td and thing.td > 0 then
-    thing.td -= 1
-  -- if there are one or more target destinations
-  elseif #thing.t > 0 then
-    -- if this will be the first frame of this transition
-    if thing.frames_so_far == 0 then
-      -- determine how many pixels to move the sprite each frame
-      local x_px_per_frame = (thing.t[1][1] - thing.s[1]) / thing.transition_speed
-      local y_px_per_frame = (thing.t[1][2] - thing.s[2]) / thing.transition_speed
-      thing.vel_per_frame = {x_px_per_frame, y_px_per_frame}
-    end
-    -- move the appropriate number of pixels on x and y
-    thing.s[1] = thing.s[1] + thing.vel_per_frame[1]
-    thing.s[2] = thing.s[2] + thing.vel_per_frame[2]
-    -- increment the count of frames moved
-    thing.frames_so_far = thing.frames_so_far + 1
-    -- if the movement is complete
-    if thing.frames_so_far == thing.transition_speed then
-      -- this is to resolve any minor descrepancies between actual and intended screen positions
-      -- i don't know if this is actually necessary, just being safe
-      thing.s[1] = thing.t[1][1]
-      thing.s[2] = thing.t[1][2]
-      -- reset these values
-      thing.frames_so_far = 0
-      thing.vel_per_frame = null
-      del(thing.t, thing.t[1])
-    end
-  end
-end
-
-function set_target_positions(thing, positions, speed)
-  thing.transition_speed = speed
-  for next in all(positions) do
-    add(thing.t, next)
-  end
-end
-
-function set_bump_transition(thing, direction, total_transition_time, transition_delay)
-  local origin_position = {thing.s[1], thing.s[2]}
-  local adjust_position = {thing.s[1] + direction[1], thing.s[2] + direction[2]}
-  set_target_positions(thing, {adjust_position, origin_position}, total_transition_time / 2)
-  thing.td = transition_delay
 end
 
 function draw_health(x_pos, y_pos, amount)
@@ -658,6 +603,33 @@ function location_exists(tile)
   return true
 end
 
+function transition_to(thing, destinations, frames, delay)
+
+  local s = {}
+  local current = thing.s[1]
+
+  for i = 1, delay do
+    add(s, thing.s[1])
+  end
+
+  for next in all(destinations) do
+
+    local x_px_per_frame = (next[1] - current[1]) / frames
+    local y_px_per_frame = (next[2] - current[2]) / frames
+    local vel_per_frame = {x_px_per_frame, y_px_per_frame}
+
+    for j = 1, frames do
+      local next_x = current[1] + vel_per_frame[1]
+      local next_y = current[2] + vel_per_frame[2]
+      local next = {next_x, next_y}
+      add(s, next)
+      current = next
+    end
+  end
+
+  thing.s = s
+end
+
 -- move a thing to a tile
 function set_tile(thing, dest)
 
@@ -678,14 +650,8 @@ function set_tile(thing, dest)
   thing.x = dest[1]
   thing.y = dest[2]
 
-  if thing.s and #thing.s > 0 then
-    local screen_x = thing.s[1]
-    local screen_y = thing.s[2]
-    local screen_dest = board_position_to_screen_position({dest[1], dest[2]})
-    set_target_positions(thing, {screen_dest}, transition_frames)
-  else
-    local screen_dest = board_position_to_screen_position({dest[1], dest[2]})
-    thing.s = {screen_dest[1], screen_dest[2]}
+  if thing.s and #thing.s == 0 then
+    add(thing.s, tile_to_screen(dest))
   end
 
   -- this is here for now because enemy buttons need to be triggered when enemies step or are deployed
@@ -703,7 +669,8 @@ function set_tile(thing, dest)
   end
 end
 
-function board_position_to_screen_position(board_position)
+-- converts a board position to a screen position
+function tile_to_screen(board_position)
   local board_x = board_position[1]
   local board_y = board_position[2]
   local x_pos = (board_x - 1) * sprite_size + (board_x - 1) * tile_margin + padding_left
@@ -829,16 +796,8 @@ function create_hero()
     -- board position
     x = null,
     y = null,
-    -- screen position
+    -- screen positions
     s = {},
-    -- target screen position(s)
-    t = {},
-    -- for delaying movement transitions
-    td = 0,
-    -- transition stuff
-    frames_so_far = 0,
-    vel_per_frame = 0,
-    transition_speed = 1, -- in frames
     -- other stuff
 		type = "hero",
     max_health = 3,
@@ -863,48 +822,6 @@ function create_hero()
       local ally_button = find_type_in_tile("button", {ally.x, ally.y})
       local next_tile = {self.x + direction[1], self.y + direction[2]}
 
-      function step_or_bump(direction)
-        local target_tile = {self.x + direction[1], self.y + direction[2]}
-        local enemy = find_type_in_tile("enemy", target_tile)
-        if enemy then
-          hit_enemy(enemy, 1)
-          set_bump_transition(self, direction, 2, 0)
-          set_bump_transition(enemy, direction, 2, 2)
-          sfx(sounds.hero_bump, 3)
-        else
-          set_tile(self, target_tile)
-        end
-      end
-
-      -- given a direction, this returns the nearest enemy in line of sight
-      -- or `false` if there's not one
-      -- function get_shoot_target(direction)
-
-      --   local now_tile = {self.x, self.y}
-      --   local x_vel = direction[1]
-      --   local y_vel = direction[2]
-
-      --   while true do
-      --     -- define the current target
-      --     local next_tile = {now_tile[1] + x_vel, now_tile[2] + y_vel}
-      --     -- if `next_tile` is off the map, or there's a wall in the way, return false
-      --     if
-      --       location_exists(next_tile) == false or
-      --       is_wall_between(now_tile, next_tile) or
-      --       find_type_in_tile("hero", next_tile)
-      --     then
-      --       return false
-      --     end
-      --     -- if there's an enemy in the target, return it
-      --     local enemy = find_type_in_tile("enemy", next_tile)
-      --     if enemy then
-      --       return enemy
-      --     end
-      --     -- set `current` to `next_tile` and keep going
-      --     now_tile = next_tile
-      --   end
-      -- end
-
       function get_shoot_dest(direction)
 
         local now_tile = {self.x, self.y}
@@ -926,34 +843,6 @@ function create_hero()
         end
       end
 
-      -- function get_shoot_targets(direction)
-
-      --   local now_tile = {self.x, self.y}
-      --   local x_vel = direction[1]
-      --   local y_vel = direction[2]
-      --   local targets = {}
-
-      --   while true do
-      --     -- define the current target
-      --     local next_tile = {now_tile[1] + x_vel, now_tile[2] + y_vel}
-      --     -- if `next_tile` is off the map, or there's a wall in the way, return false
-      --     if
-      --       location_exists(next_tile) == false or
-      --       is_wall_between(now_tile, next_tile) or
-      --       find_type_in_tile("hero", next_tile)
-      --     then
-      --       return targets
-      --     end
-      --     -- if there's an enemy in the target, return it
-      --     local enemy = find_type_in_tile("enemy", next_tile)
-      --     if enemy then
-      --       add(targets, enemy)
-      --     end
-      --     -- set `current` to `next_tile` and keep going
-      --     now_tile = next_tile
-      --   end
-      -- end
-
       -- this is where the actual acting starts
 
       -- if the destination exists and the tile isn't occupied by your ally
@@ -970,7 +859,8 @@ function create_hero()
             player_turn = false
           end
           set_tile(self, next_tile)
-          delay += transition_frames
+          transition_to(self, {tile_to_screen(next_tile)}, 4, 0)
+          delay += 4
           player_turn = false
 
         -- if there's no wall
@@ -983,9 +873,9 @@ function create_hero()
               hit_enemy(next, 2)
             end
             local shot_dest = get_shoot_dest(direction)
-            local screen_shot_dest = board_position_to_screen_position(shot_dest)
+            local screen_shot_dest = tile_to_screen(shot_dest)
 
-            shot_points = {self.s, screen_shot_dest}
+            shot_points = {self.s[1], screen_shot_dest}
             shot_direction = direction
             remaining_shot_frames = transition_frames
             sfx(sounds.shoot, 3)
@@ -996,15 +886,17 @@ function create_hero()
           -- otherwise, if there's an enemy in the destination, hit it
           elseif enemy then
             hit_enemy(enemy, 1)
-            set_bump_transition(self, direction, 2, 0)
-            set_bump_transition(enemy, direction, 2, 2)
             sfx(sounds.hero_bump, 3)
-            delay += transition_frames
+            local here = tile_to_screen({self.x, self.y})
+            local bump = {here[1] + direction[1] * 2, here[2] + direction[2] * 2}
+            transition_to(self, {bump, here}, 2, 0)
+            delay += 4
             player_turn = false
 
           -- otherwise, move to the destination
           else
             set_tile(self, next_tile)
+            transition_to(self, {tile_to_screen(next_tile)}, 4, 0)
             delay += transition_frames
             player_turn = false
           end
@@ -1012,19 +904,24 @@ function create_hero()
       end
     end,
     draw = function(self)
-      palt(colors.tan, true)
-      palt(colors.black, false)
       local sprite = sprites.hero_inactive
       if self.active then
         sprite = sprites.hero_active
       end
+      local sx = self.s[1][1]
+      local sy = self.s[1][2]
+      palt(colors.tan, true)
+      palt(colors.black, false)
       if self.shoot then
         pal(colors.white, colors.green)
       elseif self.ghost then
         pal(colors.white, colors.blue)
       end
-      spr(sprite, self.s[1], self.s[2])
-      draw_health(self.s[1], self.s[2], self.health)
+      spr(sprite, sx, sy)
+      draw_health(sx, sy, self.health)
+      if #self.s > 1 then
+        del(self.s, self.s[1])
+      end
       pal()
     end,
 	}
@@ -1185,16 +1082,8 @@ function new_enemy()
     -- board position
     x = null,
     y = null,
-    -- screen position
+    -- screen positions
     s = {},
-    -- target screen position(s)
-    t = {},
-    -- for delaying movement transitions
-    td = 0,
-    -- transition stuff
-    frames_so_far = 0,
-    vel_per_frame = 0,
-    transition_speed = 1, -- in frames
     -- other stuff
 		type = "hero",
     type = "enemy",
@@ -1271,34 +1160,42 @@ function new_enemy()
           if target.health > 0 then
             -- get direction
             local direction = get_direction(self_tile, dest)
-            set_bump_transition(self, direction, 2, 0)
-            set_bump_transition(target, direction, 2, 2)
             target.health -= 1
+            local here = tile_to_screen({self.x, self.y})
+            local bump = {here[1] + direction[1] * 2, here[2] + direction[2] * 2}
+            transition_to(self, {bump, here}, 2, 2)
             delay += 4
             sfx(sounds.enemy_bump, 3)
           end
         else
           set_tile(self, dest)
+          transition_to(self, {tile_to_screen(dest)}, 4, 0)
           delay += 4
         end
       end
 		end,
     draw = function(self)
+      local sprite = sprites.enemy
+      local sx = self.s[1][1]
+      local sy = self.s[1][2]
       palt(colors.tan, true)
       palt(colors.black, false)
       if self.stunned then
         pal(colors.black, colors.light_gray)
       end
-      spr(sprites.enemy, self.s[1], self.s[2])
+      spr(sprites.enemy, sx, sy)
       if self.is_shoot_target then
         pal(colors.light_gray, colors.green)
-        spr(sprites.crosshair, self.s[1], self.s[2])
+        spr(sprites.crosshair, sx, sy)
       end
       if self.is_ghost_target then
         pal(colors.light_gray, colors.blue)
-        spr(sprites.crosshair, self.s[1], self.s[2])
+        spr(sprites.crosshair, sx, sy)
       end
-      draw_health(self.s[1], self.s[2], self.health)
+      draw_health(sx, sy, self.health)
+      if #self.s > 1 then
+        del(self.s, self.s[1])
+      end
       pal()
     end,
     deploy = function(self)
@@ -1641,6 +1538,8 @@ function refresh_pads()
       color = next,
       draw = function(self)
         local sprite = sprites.pad
+        local sx = self.s[1][1]
+        local sy = self.s[1][2]
         if
           find_type_in_tile("pad", {hero_a.x, hero_a.y}) or
           find_type_in_tile("pad", {hero_b.x, hero_b.y})
@@ -1650,7 +1549,7 @@ function refresh_pads()
         palt(colors.tan, true)
         palt(colors.black, false)
         pal(colors.light_gray, colors[self.color])
-        spr(sprite, self.s[1], self.s[2])
+        spr(sprite, sx, sy)
         pal()
       end,
     }
@@ -1668,6 +1567,9 @@ function new_button(color)
     type = "button",
     color = color,
     draw = function(self)
+      local sprite = sprites.button
+      local sx = self.s[1][1]
+      local sy = self.s[1][2]
       palt(colors.tan, true)
       palt(colors.black, false)
       pal(colors.light_gray, colors[self.color])
@@ -1680,7 +1582,7 @@ function new_button(color)
       elseif self.color == "orange" then
         pal(colors.dark_gray, colors.brown)
       end
-      spr(sprites.button, self.s[1], self.s[2])
+      spr(sprite, sx, sy)
       pal()
     end,
   }
