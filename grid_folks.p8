@@ -80,7 +80,7 @@ function _init()
     health = 026,
     score = 022,
     shoot = 029,
-    ghost = 025,
+    jump = 025,
     step = 021,
     advance = 027,
     pad_step = 028,
@@ -517,7 +517,7 @@ function _draw()
 
     y_pos += line_height
 
-    -- ghost
+    -- jump
     palt(colors.black, false)
     palt(colors.tan, true)
     pal(colors.light_gray, colors.blue)
@@ -525,7 +525,7 @@ function _draw()
     spr(sprites.button_3, x_pos + 7, y_pos - 2)
     spr(sprites.hero_inactive, x_pos, y_pos - 2)
     spr(sprites.hero_active, x_pos + 24, y_pos - 2)
-    print(smallcaps("ghost"), x_pos + 32, y_pos, text_color)
+    print(smallcaps("jump"), x_pos + 32, y_pos, text_color)
     pal()
     print("=", x_pos + 18, y_pos, 06)
 
@@ -843,7 +843,7 @@ function create_hero()
     health = 3,
     active = false,
     -- buttons
-    ghost = false,
+    jump = false,
     shoot = false,
 
     -- base_sprite = function(self)
@@ -893,8 +893,8 @@ function create_hero()
         local enemy = find_type_in_tile("enemy", next_tile)
         local wall = is_wall_between({self.x, self.y}, next_tile)
 
-        -- if ghost is enabled and there's a wall in the way
-        if self.ghost then
+        -- if jump is enabled and there's a wall in the way
+        if self.jump then
           if enemy then
             hit_enemy(enemy, 2)
             delay += transition_frames
@@ -980,7 +980,7 @@ function create_hero()
             end
           end
         end
-      elseif self.ghost then
+      elseif self.jump then
         pal(colors.light_gray, colors.blue)
         if self.active and #self.screen_seq == 1 then
           for next in all({{-1,0},{1,0},{0,-1},{0,1}}) do
@@ -1062,7 +1062,7 @@ end
 function update_targets()
   for next in all(enemies) do
     next.is_shoot_target = false
-    next.is_ghost_target = false
+    next.is_jump_target = false
   end
   for h in all(heroes) do
     if h.shoot and h.active then
@@ -1073,12 +1073,12 @@ function update_targets()
         end
       end
     end
-    if h.ghost and h.active then
+    if h.jump and h.active then
       local h_tile = {h.x, h.y}
       for d in all({{0, -1}, {0, 1}, {-1, 0}, {1, 0}}) do
         local enemy = find_type_in_tile("enemy", {h_tile[1] + d[1], h_tile[2] + d[2]})
         if enemy then
-          enemy.is_ghost_target = true
+          enemy.is_jump_target = true
         end
       end
     end
@@ -1103,14 +1103,14 @@ function update_hero_abilities()
     local ally_xy = {ally.x, ally.y}
 
     -- set hero deets to their defaults
-    next.ghost = false
+    next.jump = false
     next.shoot = false
 
     -- if the ally's tile is a button, update the hero's deets
     local button = find_type_in_tile("button", ally_xy)
     if button then
       if button.color == "blue" then
-        next.ghost = true
+        next.jump = true
       elseif button.color == "green" then
         next.shoot = true
       end
@@ -1326,7 +1326,7 @@ function new_enemy()
           pal(colors.light_gray, colors.green)
           spr(sprites.crosshair, sx, sy)
         end
-        if self.is_ghost_target then
+        if self.is_jump_target then
           pal(colors.light_gray, colors.blue)
           spr(sprites.crosshair, sx, sy)
         end
