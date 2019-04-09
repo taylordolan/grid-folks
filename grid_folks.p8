@@ -161,7 +161,18 @@ function _init()
   refresh_walls()
 
   -- initial pads
-  refresh_pads()
+  local initial_pad_tiles = {{2,3}, {4,3}, {6,3}}
+  for next in all({"red", "green", "blue"}) do
+    local _i = flr(rnd(#initial_pad_tiles)) + 1
+    set_tile(new_pad(next), initial_pad_tiles[_i])
+    del(initial_pad_tiles, initial_pad_tiles[_i])
+  end
+  for next in all({{2,3}, {3,3}, {4,3}, {5,3}}) do
+    local wall = find_type_in_tile("wall_right", next)
+    if wall then
+      del(board[next[1]][next[2]], wall)
+    end
+  end
 
 	-- initial enemy
   spawn_enemy()
@@ -1681,30 +1692,38 @@ function refresh_pads()
 
   -- place new pads
   for next in all(current_colors) do
-    local new_pad = {
-      screen_seq = {},
-      sprite_seq = {sprites.pad},
-      type = "pad",
-      color = next,
-      draw = function(self)
-        -- set sprite based on the first value in sprite_seq
-        local sprite = self.sprite_seq[1]
-        local sx = self.screen_seq[1][1]
-        local sy = self.screen_seq[1][2]
-        palt(colors.tan, true)
-        palt(colors.black, false)
-        pal(colors.light_gray, colors[self.color])
-        spr(sprite, sx, sy)
-        -- if there's more than one value, remove the first one
-        if #self.sprite_seq > 1 then
-          del(self.sprite_seq, self.sprite_seq[1])
-        end
-        pal()
-      end,
-    }
-    add(pads, new_pad)
+    local new_pad = new_pad(next)
     deploy(new_pad, {"pad", "button", "hero"})
   end
+end
+
+function new_pad(color)
+  local new_pad = {
+    x = null,
+    y = null,
+    screen_seq = {},
+    sprite_seq = {sprites.pad},
+    type = "pad",
+    color = color,
+    draw = function(self)
+      -- set sprite based on the first value in sprite_seq
+      local sprite = self.sprite_seq[1]
+      local sx = self.screen_seq[1][1]
+      local sy = self.screen_seq[1][2]
+      palt(colors.tan, true)
+      palt(colors.black, false)
+      pal(colors.light_gray, colors[self.color])
+      spr(sprite, sx, sy)
+      -- if there's more than one value, remove the first one
+      if #self.sprite_seq > 1 then
+        del(self.sprite_seq, self.sprite_seq[1])
+      end
+      pal()
+    end,
+  }
+  add(pads, new_pad)
+  return new_pad
+  -- deploy(new_pad, {"pad", "button", "hero"})
 end
 
 function new_button(color)
