@@ -762,10 +762,10 @@ function trigger_enemy_buttons(enemy_tile)
 
   local button = find_type_in_tile("button", enemy_tile)
   if button then
-    if button.name == "health" then
+    if button.color == "red" then
       gain_health()
     end
-    if button.name == "score" then
+    if button.color == "orange" then
       gain_score()
     end
   end
