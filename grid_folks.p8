@@ -14,8 +14,8 @@ __lua__
 -- [x] title screen
 -- [x] replace main instructions stuff with drawings
 -- [x] intro instructions
+-- [x] transition for jumping
 -- [ ] cooler rendering for shot
--- [ ] transition for jumping
 -- [ ] balance enemy spawn rate
 -- [ ] when multiple enemies are present, they should act in random order
 -- [ ] nicer-looking end game states
@@ -876,14 +876,16 @@ function create_hero()
         local wall = is_wall_between({self.x, self.y}, next_tile)
 
         -- if jump is enabled and there's a wall in the way
-        if self.jump then
+        if self.jump and wall or self.jump and enemy then
           if enemy then
             hit_enemy(enemy, 2)
-            delay += transition_frames
             player_turn = false
           end
+          local _here = tile_to_screen({self.x, self.y})
+          local _next = tile_to_screen(next_tile)
+          local _half = {(_here[1] + _next[1]) / 2, _here[2]-4}
           set_tile(self, next_tile)
-          transition_to(self, {tile_to_screen(next_tile)}, 4, 0)
+          transition_to(self, {_half, _next}, 2, 0)
           delay += 4
           player_turn = false
 
