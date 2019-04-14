@@ -17,10 +17,10 @@ __lua__
 -- [x] transition for jumping
 -- [x] animation for gaining health
 -- [x] animation for gaining gold
+-- [x] when multiple enemies are present, they should act in random order
 -- [ ] nicer-looking end game states
 -- [ ] cooler title card
 -- [ ] balance enemy spawn rate
--- [ ] when multiple enemies are present, they should act in random order
 
 -- optimizations
 -- [ ] make a generic object to base things on
@@ -320,6 +320,7 @@ function _update60()
       refresh_walls()
       set_border_color()
     end
+    shuffle(enemies)
     for next in all(enemies) do
       next.update(next)
     end
@@ -716,6 +717,14 @@ function tile_to_screen(board_position)
   local x_pos = (board_x - 1) * sprite_size + (board_x - 1) * tile_margin + padding_left
   local y_pos = (board_y - 1) * sprite_size + (board_y - 1) * tile_margin + padding_top
   return {x_pos, y_pos}
+end
+
+function shuffle(t)
+  -- do a fisher-yates shuffle
+  for i = #t, 1, -1 do
+    local j = flr(rnd(i)) + 1
+    t[i], t[j] = t[j], t[i]
+  end
 end
 
 -- deploys a thing to a random tile
