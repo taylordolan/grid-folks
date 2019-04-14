@@ -264,6 +264,7 @@ function _update60()
 
   if btnp(4) then
     debug_mode = not debug_mode
+    game_won = true
   end
 
   if game_won or game_lost then
@@ -346,6 +347,7 @@ function _update60()
     local reached_exit_a = find_type_in_tile("exit", a_xy)
     local reached_exit_b = find_type_in_tile("exit", b_xy)
     if reached_exit_a and reached_exit_b then
+      score += 100
       game_won = true
     end
     -- game lost test
@@ -569,16 +571,29 @@ function _draw()
   end
 
   function draw_game_end_state()
+    pal()
     if game_won then
-      local msg = "escaped!"
+      draw_overlay()
+      local msg = smallcaps("you escaped! +100 gold")
       local msg_x = 64 - (#msg * 4) / 2
-      print(smallcaps(msg), msg_x, 47, 11)
+      local msg_y = 41
+      print_outline(msg, msg_x, msg_y, colors.green, colors.white)
+      local msg = smallcaps("final score: " .. score)
+      local msg_x = 64 - (#msg * 4) / 2
+      local msg_y += 10
+      print_outline(msg, msg_x, msg_y, colors.green, colors.white)
     end
 
     if game_lost then
-      local msg = "dead"
+      draw_overlay()
+      local msg = smallcaps("you died")
       local msg_x = 64 - (#msg * 4) / 2
-      print(smallcaps(msg), msg_x, 47, 8)
+      local msg_y = 41
+      print_outline(msg, msg_x, msg_y, colors.red, colors.white)
+      local msg = smallcaps("final score: " .. score)
+      local msg_x = 64 - (#msg * 4) / 2
+      local msg_y += 10
+      print_outline(msg, msg_x, msg_y, colors.red, colors.white)
     end
   end
 
@@ -614,6 +629,22 @@ end
 --[[
   helper functions
 --]]
+
+function draw_overlay()
+  local color = colors.pink
+  for x = 0, 127 * 127, 5 do
+    pset(x % 127, flr(x / 127), colors.light_gray)
+  end
+end
+
+function print_outline(text, x, y, inner, outer)
+  local dirx = {0, 0, -1, 1, -1, 1, -1, 1}
+  local diry = {-1, 1, 0, 0, -1, -1, 1, 1}
+  for i = 1, 8 do
+    print(text, x + dirx[i], y + diry[i], outer)
+  end
+  print(text, x , y, inner)
+end
 
 -- check if a location is on the board
 function location_exists(tile)
@@ -1016,6 +1047,9 @@ function create_hero()
       -- default palette updates
       palt(colors.tan, true)
       palt(colors.black, false)
+      if not self.active then
+        pal(colors.black, colors.light_gray)
+      end
       if self.shoot then
         pal(colors.white, colors.green)
         pal(colors.light_gray, colors.green)
