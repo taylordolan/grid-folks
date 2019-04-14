@@ -67,6 +67,8 @@ function _init()
   text_color = colors.white
   bg_color = colors.black
   floor_color = colors.white
+  border_color = colors.light_gray
+  wall_color = colors.light_gray
   screen_size = 128
   sprite_size = 8
   tile_margin = 7
@@ -80,8 +82,6 @@ function _init()
   shot_points = {} -- expects two {x,y} points for the beginning and end of a shot
   shot_direction = {} -- which direction the shot was fired in, e.g. {0, -1} for up
   remaining_shot_frames = 0 -- for how many frames should the current shot be drawn?
-  border_color = 0
-  set_border_color()
 
   -- sounds dictionary
   sounds = {
@@ -214,17 +214,6 @@ function _init()
   music(sounds.music)
 end
 
-function set_border_color()
-  local options = {
-    colors.tan,
-    colors.light_gray,
-  }
-  del(options, border_color)
-  local index = flr(rnd(#options)) + 1
-  border_color = options[index]
-  wall_color = border_color
-end
-
 function should_spawn()
   local should_spawn = false
 
@@ -318,7 +307,6 @@ function _update60()
       add_button()
       refresh_pads()
       refresh_walls()
-      set_border_color()
     end
     shuffle(enemies)
     for next in all(enemies) do
@@ -407,7 +395,7 @@ function _draw()
     pal(colors.navy, colors.dark_gray)
     spr(008,34,36,8,4)
     local _text = smallcaps("press x to start")
-    print(_text, 65 - #_text * 4 / 2, 100, colors.white)
+    print(_text, 65 - #_text * 4 / 2, 99, colors.white)
     return
   end
 
@@ -531,7 +519,7 @@ function _draw()
     pal(colors.tan, false)
     pal(colors.light_gray, colors.white)
     local _x = 22
-    local _y = 100
+    local _y = 99
     local _space = 3
     local _a = smallcaps("press x to switch")
     print(_a, _x, _y, colors.white)
@@ -550,28 +538,28 @@ function _draw()
   end
 
   function draw_instructions()
-    print(smallcaps("grid folks"), 11, 100, colors.white)
+    print(smallcaps("grid folks"), 11, 99, colors.white)
     draw_score()
-    spr(064, 11, 109, 7, 2)
-    spr(071, 79, 109, 5, 2)
+    spr(064, 11, 108, 7, 2)
+    spr(071, 79, 108, 5, 2)
   end
 
   function draw_score()
     if not debug_mode then
       local text = smallcaps("gold")
       local num = score .. ""
-      print(text, 118 - #text * 4, 100, colors.white)
-      print(num, 99 - #num * 4, 100, colors.white)
+      print(text, 118 - #text * 4, 99, colors.white)
+      print(num, 99 - #num * 4, 99, colors.white)
     else
       local text = turns .."/"..spawn_rate.."/"..score
-      print(text, 118 - #text * 4, 100, colors.white)
+      print(text, 118 - #text * 4, 99, colors.white)
     end
   end
 
   function draw_won()
     local msg = smallcaps("you escaped! +100 gold")
     local msg_x = 65 - (#msg * 4) / 2
-    local msg_y = 100
+    local msg_y = 99
     print(msg, msg_x, msg_y, colors.white)
     local msg = smallcaps("final score: " .. score)
     local msg_x = 65 - (#msg * 4) / 2
@@ -582,7 +570,7 @@ function _draw()
   function draw_lost()
     local msg = smallcaps("you died!")
     local msg_x = 65 - (#msg * 4) / 2
-    local msg_y = 100
+    local msg_y = 99
     print(msg, msg_x, msg_y, colors.white)
     local msg = smallcaps("final score: " .. score)
     local msg_x = 65 - (#msg * 4) / 2
@@ -796,7 +784,7 @@ function trigger_all_enemy_buttons()
   if turn_score_gain > 0 then
     score += turn_score_gain
     local text = turn_score_gain .. ""
-    new_gain({95 - #text * 4,100}, turn_score_gain, colors.orange, colors.black)
+    new_gain({95 - #text * 4, 99}, turn_score_gain, colors.orange, colors.black)
   end
 end
 
