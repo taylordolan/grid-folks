@@ -18,7 +18,7 @@ __lua__
 -- [x] animation for gaining health
 -- [x] animation for gaining gold
 -- [x] when multiple enemies are present, they should act in random order
--- [ ] nicer-looking end game states
+-- [x] nicer-looking end game states
 -- [ ] cooler title card
 -- [ ] balance enemy spawn rate
 
@@ -264,7 +264,6 @@ function _update60()
 
   if btnp(4) then
     debug_mode = not debug_mode
-    game_won = true
   end
 
   if game_won or game_lost then
@@ -406,9 +405,9 @@ function _draw()
   if not game_started then
     pal(colors.dark_gray, colors.black)
     pal(colors.navy, colors.dark_gray)
-    spr(008,32,32,8,4)
+    spr(008,34,36,8,4)
     local _text = smallcaps("press x to start")
-    print(_text, 65 - #_text * 4 / 2, 72, colors.white)
+    print(_text, 65 - #_text * 4 / 2, 100, colors.white)
     return
   end
 
@@ -551,29 +550,6 @@ function _draw()
   end
 
   function draw_instructions()
-
-    -- if not has_advanced then
-    --   pal(colors.tan, false)
-    --   pal(colors.light_gray, colors.white)
-    --   local _x = 22
-    --   local _y = 100
-    --   local _space = 3
-    --   local _a = smallcaps("press x to switch")
-    --   print(_a, _x, _y, colors.white)
-    --   spr(sprites.hero_inactive, _x + #_a * 4 + _space, _y - 2)
-    --   spr(sprites.hero_active, _x + #_a * 4 + 8 + _space, _y - 2)
-
-    --   _x = 18
-    --   _y += 10
-    --   local _b = smallcaps("stand on 2")
-    --   print(_b, _x, _y, colors.white)
-    --   spr(sprites.pad, _x + #_b * 4 + _space, _y - 2)
-    --   local _c = smallcaps("to advance")
-    --   print(_c, _x + #_b * 4 + _space + 8 + _space, _y, colors.white)
-    --   return
-    --   pal()
-    -- end
-
     print(smallcaps("grid folks"), 11, 100, colors.white)
     draw_score()
     spr(064, 11, 109, 7, 2)
