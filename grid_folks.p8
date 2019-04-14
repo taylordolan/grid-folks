@@ -19,7 +19,8 @@ __lua__
 -- [x] animation for gaining gold
 -- [x] when multiple enemies are present, they should act in random order
 -- [x] nicer-looking end game states
--- [ ] cooler title card
+-- [x] even out pad spawn probabilities
+-- [ ] reduce size
 -- [ ] balance enemy spawn rate
 
 -- optimizations
@@ -67,8 +68,8 @@ function _init()
   text_color = colors.white
   bg_color = colors.black
   floor_color = colors.white
-  border_color = colors.light_gray
-  wall_color = colors.light_gray
+  border_color = colors.white
+  wall_color = colors.white
   screen_size = 128
   sprite_size = 8
   tile_margin = 7
@@ -140,7 +141,8 @@ function _init()
   pads = {}
   buttons = {}
   exits = {}
-  gains = {}
+  animations = {}
+  colors_bag = {}
 
   -- when multiple things are in a tile, they'll be rendering in this order
   -- that means the things at the end will appear on top
@@ -593,7 +595,7 @@ function _draw()
   else
     draw_instructions()
   end
-  for next in all(gains) do
+  for next in all(animations) do
     next.draw(next)
   end
 
@@ -822,14 +824,39 @@ function new_gain(pos, amount, color, outline)
       if #self.screen_seq > 1 then
         del(self.screen_seq, self.screen_seq[1])
       else
-        del(gains, self)
+        del(animations, self)
       end
       -- reset the palette
       pal()
     end,
   }
-  add(gains, new_gain)
+  add(animations, new_gain)
   return new_gain
+end
+
+function new_pop(pos)
+  local _a = sprites.die_1
+  local _b = sprites.die_2
+  local new_pop = {
+    s = pos,
+    sprite_seq = {
+      _a,_a,_a,_a,_b,_b,_b,_b,
+    },
+    draw = function(self)
+      palt(colors.tan, true)
+      local sprite = self.sprite_seq[1]
+      spr(sprite, self.s[1], self.s[2])
+      if #self.sprite_seq > 1 then
+        del(self.sprite_seq, self.sprite_seq[1])
+      end
+
+      if #self.sprite_seq <= 1 then
+        del(animations, self)
+      end
+      pal()
+    end
+  }
+  add(animations, new_pop)
 end
 
 -- check if a tile is in a list of tiles
@@ -907,11 +934,8 @@ function create_hero()
     jump = false,
     shoot = false,
 
-    -- base_sprite = function(self)
-    --   return self.active and sprites.hero_active or sprites.hero_inactive
-    -- end,
-      -- this is called when the player hits a direction on their turn.
-      -- it determines which action should be taken and triggers it.
+    -- this is called when the player hits a direction on their turn.
+    -- it determines which action should be taken and triggers it.
     act = function(self, direction)
 
       local ally
@@ -1022,15 +1046,10 @@ function create_hero()
       local sy = self.screen_seq[1][2]
       local ax = tile_to_screen({self.x, self.y})[1]
       local ay = tile_to_screen({self.x, self.y})[2]
-      -- local ax = sx
-      -- local ay = sy
 
       -- default palette updates
       palt(colors.tan, true)
       palt(colors.black, false)
-      if not self.active then
-        pal(colors.black, colors.light_gray)
-      end
       if self.shoot then
         pal(colors.white, colors.green)
         pal(colors.light_gray, colors.green)
@@ -1262,11 +1281,14 @@ function hit_enemy(enemy, damage)
   if enemy.health <= 0 then
     local _x = enemy.screen_seq[1][1]
     local _y = enemy.screen_seq[1][2]
-    local _a = sprites.die_1
-    local _b = sprites.die_2
-    enemy.sprite_seq = {_a,_a,_a,_a,_b,_b,_b,_b}
+    new_pop({_x,_y})
+    del(board[enemy.x][enemy.y], enemy)
+    del(enemies, enemy)
   else
     local b_r = {colors.black, colors.red}
+    enemy.pal_seq = {
+      b_r,b_r,b_r,b_r,{10,10},
+    }
   end
 end
 
@@ -1419,12 +1441,6 @@ function new_enemy()
           pal(colors.light_gray, colors.blue)
           spr(sprites.crosshair, sx, sy)
         end
-      end
-
-      -- after drawing, if the enemy is dead and done rendering all its sprites, delete it
-      if self.health <= 0 and #self.sprite_seq <= 1 then
-        del(board[self.x][self.y], self)
-        del(enemies, self)
       end
 
       -- for all these lists, if there's more than one value, remove the first one
@@ -1738,6 +1754,19 @@ end
 function refresh_pads()
 
   has_advanced = true
+  if #colors_bag == 0 then
+    colors_bag = {
+      "green",
+      "green",
+      "red",
+      "red",
+      "blue",
+      "blue",
+      "orange",
+      "orange"
+    }
+    shuffle(colors_bag)
+  end
 
   -- delete all existing pads
   for next in all(pads) do
@@ -1770,15 +1799,16 @@ function refresh_pads()
     "red",
     "orange"
   }
-  local index = flr(rnd(#current_colors)) + 1
-  local to_remove = current_colors[index]
-  del(current_colors, to_remove)
+  -- local index = flr(rnd(#current_colors)) + 1
+  -- local to_remove = current_colors[index]
+  del(current_colors, colors_bag[1])
 
   -- place new pads
   for next in all(current_colors) do
     local new_pad = new_pad(next)
     deploy(new_pad, {"pad", "button", "hero"})
   end
+  del(colors_bag, colors_bag[1])
 end
 
 function new_pad(color)
