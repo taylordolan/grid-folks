@@ -408,7 +408,7 @@ function _draw()
     pal(colors.navy, colors.dark_gray)
     spr(008,32,32,8,4)
     local _text = smallcaps("press x to start")
-    print(_text, 64 - #_text * 4 / 2, 72, colors.white)
+    print(_text, 65 - #_text * 4 / 2, 72, colors.white)
     return
   end
 
@@ -528,29 +528,51 @@ function _draw()
     end
   end
 
+  function draw_intro()
+    pal(colors.tan, false)
+    pal(colors.light_gray, colors.white)
+    local _x = 22
+    local _y = 100
+    local _space = 3
+    local _a = smallcaps("press x to switch")
+    print(_a, _x, _y, colors.white)
+    spr(sprites.hero_inactive, _x + #_a * 4 + _space, _y - 2)
+    spr(sprites.hero_active, _x + #_a * 4 + 8 + _space, _y - 2)
+
+    _x = 18
+    _y += 10
+    local _b = smallcaps("stand on 2")
+    print(_b, _x, _y, colors.white)
+    spr(sprites.pad, _x + #_b * 4 + _space, _y - 2)
+    local _c = smallcaps("to advance")
+    print(_c, _x + #_b * 4 + _space + 8 + _space, _y, colors.white)
+    return
+    pal()
+  end
+
   function draw_instructions()
 
-    if not has_advanced then
-      pal(colors.tan, false)
-      pal(colors.light_gray, colors.white)
-      local _x = 22
-      local _y = 100
-      local _space = 3
-      local _a = smallcaps("press x to switch")
-      print(_a, _x, _y, colors.white)
-      spr(sprites.hero_inactive, _x + #_a * 4 + _space, _y - 2)
-      spr(sprites.hero_active, _x + #_a * 4 + 8 + _space, _y - 2)
+    -- if not has_advanced then
+    --   pal(colors.tan, false)
+    --   pal(colors.light_gray, colors.white)
+    --   local _x = 22
+    --   local _y = 100
+    --   local _space = 3
+    --   local _a = smallcaps("press x to switch")
+    --   print(_a, _x, _y, colors.white)
+    --   spr(sprites.hero_inactive, _x + #_a * 4 + _space, _y - 2)
+    --   spr(sprites.hero_active, _x + #_a * 4 + 8 + _space, _y - 2)
 
-      _x = 18
-      _y += 10
-      local _b = smallcaps("stand on 2")
-      print(_b, _x, _y, colors.white)
-      spr(sprites.pad, _x + #_b * 4 + _space, _y - 2)
-      local _c = smallcaps("to advance")
-      print(_c, _x + #_b * 4 + _space + 8 + _space, _y, colors.white)
-      return
-      pal()
-    end
+    --   _x = 18
+    --   _y += 10
+    --   local _b = smallcaps("stand on 2")
+    --   print(_b, _x, _y, colors.white)
+    --   spr(sprites.pad, _x + #_b * 4 + _space, _y - 2)
+    --   local _c = smallcaps("to advance")
+    --   print(_c, _x + #_b * 4 + _space + 8 + _space, _y, colors.white)
+    --   return
+    --   pal()
+    -- end
 
     print(smallcaps("grid folks"), 11, 100, colors.white)
     draw_score()
@@ -570,41 +592,43 @@ function _draw()
     end
   end
 
-  function draw_game_end_state()
-    pal()
-    if game_won then
-      draw_overlay()
-      local msg = smallcaps("you escaped! +100 gold")
-      local msg_x = 64 - (#msg * 4) / 2
-      local msg_y = 41
-      print_outline(msg, msg_x, msg_y, colors.green, colors.white)
-      local msg = smallcaps("final score: " .. score)
-      local msg_x = 64 - (#msg * 4) / 2
-      local msg_y += 10
-      print_outline(msg, msg_x, msg_y, colors.green, colors.white)
-    end
+  function draw_won()
+    local msg = smallcaps("you escaped! +100 gold")
+    local msg_x = 65 - (#msg * 4) / 2
+    local msg_y = 100
+    print(msg, msg_x, msg_y, colors.white)
+    local msg = smallcaps("final score: " .. score)
+    local msg_x = 65 - (#msg * 4) / 2
+    local msg_y += 10
+    print(msg, msg_x, msg_y, colors.white)
+  end
 
-    if game_lost then
-      draw_overlay()
-      local msg = smallcaps("you died")
-      local msg_x = 64 - (#msg * 4) / 2
-      local msg_y = 41
-      print_outline(msg, msg_x, msg_y, colors.red, colors.white)
-      local msg = smallcaps("final score: " .. score)
-      local msg_x = 64 - (#msg * 4) / 2
-      local msg_y += 10
-      print_outline(msg, msg_x, msg_y, colors.red, colors.white)
-    end
+  function draw_lost()
+    local msg = smallcaps("you died!")
+    local msg_x = 65 - (#msg * 4) / 2
+    local msg_y = 100
+    print(msg, msg_x, msg_y, colors.white)
+    local msg = smallcaps("final score: " .. score)
+    local msg_x = 65 - (#msg * 4) / 2
+    local msg_y += 10
+    print(msg, msg_x, msg_y, colors.white)
   end
 
   draw_background()
   draw_floor()
   draw_outlines()
-  draw_instructions()
   draw_sprites()
   draw_border()
   update_shot_drawing()
-  draw_game_end_state()
+  if game_won then
+    draw_won()
+  elseif game_lost then
+    draw_lost()
+  elseif not has_advanced then
+    draw_intro()
+  else
+    draw_instructions()
+  end
   for next in all(gains) do
     next.draw(next)
   end
@@ -629,13 +653,6 @@ end
 --[[
   helper functions
 --]]
-
-function draw_overlay()
-  local color = colors.pink
-  for x = 0, 127 * 127, 5 do
-    pset(x % 127, flr(x / 127), colors.light_gray)
-  end
-end
 
 function print_outline(text, x, y, inner, outer)
   local dirx = {0, 0, -1, 1, -1, 1, -1, 1}
