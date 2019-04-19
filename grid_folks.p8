@@ -45,16 +45,18 @@ function _init()
 	-- sounds dictionary
 	sounds = {
 		music = 002,
-		health = 026,
-		score = 022,
+		health = 026, -- when gaining health
 		shoot = 029,
 		jump = 025,
 		step = 021,
-		advance = 027,
-		pad_step = 028,
+		pad_step = 028, -- when stepping on a [ ] thing
+		score = 022, -- when gaining gold
+		advance = 027, -- when creating a new button
 		switch_heroes = 000,
-		enemy_bump = 000,
-		hero_bump = 000,
+		enemy_bump = 000, -- when an enemy hits a hero
+		hero_bump = 000, -- when a hero hits an enemy
+		win = 000,
+		lose = 000,
 	}
 
 	-- sprites dictionary
@@ -297,10 +299,12 @@ function _update60()
 		if reached_exit_a and reached_exit_b then
 			score += 100
 			game_won = true
+			sfx(sounds.win, 3)
 		end
 		-- game lost test
 		if hero_a.health <= 0 or hero_b.health <= 0 then
 			game_lost = true
+			sfx(sounds.lose, 3)
 		end
 	end
 end
@@ -730,11 +734,13 @@ function trigger_all_enemy_buttons()
 		local diff = next.health - start
 		if diff > 0 then
 			new_gain({next.screen_seq[1][1], next.screen_seq[1][2]}, diff, 008, 007)
+			sfx(sounds.health, 3)
 		end
 	end
 	if turn_score_gain > 0 then
 		score += turn_score_gain
 		local text = turn_score_gain .. ""
+		sfx(sounds.score, 3)
 		new_gain({95 - #text * 4, 99}, turn_score_gain, 009, 000)
 	end
 end
@@ -939,6 +945,7 @@ function create_hero()
 					set_tile(self, next_tile)
 					transition_to(self, {_half, _next}, 2, 0)
 					delay += 4
+					sfx(sounds.jump, 3)
 					player_turn = false
 
 				-- if there's no wall
