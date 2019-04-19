@@ -37,17 +37,7 @@ function _init()
 		blue = 12,
 	}
 
-	-- graphics stuff that needs to be global
-	screen_size = 128
-	sprite_size = 8
-	tile_margin = 7
-	tile_size = sprite_size + tile_margin
-	total_sprites_width = sprite_size * cols
-	total_margins_width = tile_margin * (cols - 1)
-	total_map_width = total_sprites_width + total_margins_width
-	padding_left = flr((screen_size - total_map_width) / 2)
-	padding_top = padding_left -- so the board is drawn as far from the top as it is from each side
-	transition_frames = 4 -- how long it takes for movement transitions to happen
+	-- todo: remove this and add shots to effets{}
 	shot_points = {} -- expects two {x,y} points for the beginning and end of a shot
 	shot_direction = {} -- which direction the shot was fired in, e.g. {0, -1} for up
 	remaining_shot_frames = 0 -- for how many frames should the current shot be drawn?
@@ -109,7 +99,7 @@ function _init()
 	pads = {}
 	buttons = {}
 	exits = {}
-	animations = {}
+	effects = {}
 	colors_bag = {}
 
 	-- when multiple things are in a tile, they'll be rendering in this order
@@ -369,17 +359,11 @@ function _draw()
 		return
 	end
 
-	local total_sprites_height = sprite_size * rows
-	local total_margins_height = tile_margin * (rows - 1)
-	local total_map_height = total_sprites_height + total_margins_height
-
-	local board_origin = {padding_left - ceil(tile_margin / 2), padding_top - ceil(tile_margin / 2)}
-	local board_opposite = {padding_left + total_map_width - 1 + ceil(tile_margin / 2), padding_top + total_map_height - 1 + ceil(tile_margin / 2)}
+	local board_origin = {11,11}
+	local board_opposite = {116,86}
 
 	function draw_floor()
-		-- `adjust` isn't technically necessary because if the value was 0, draw_outlines() would still cover the difference
-		local adjust = 2
-		rectfill(board_origin[1] + adjust, board_origin[2] + adjust, board_opposite[1] - adjust, board_opposite[2] - adjust, 007)
+		rectfill(board_origin[1], board_origin[2], board_opposite[1], board_opposite[2], 007)
 	end
 
 	function draw_outlines()
@@ -393,16 +377,12 @@ function _draw()
 		pal(007, 007)
 		pal(006, 007)
 		-- top and bottom
-		local start = 12
-		local count = 13
-		for x = start, start + sprite_size * count - 1, sprite_size do
+		for x = 12, 115, 8 do
 			spr(sprites.border_top, x, 4, 1, 1, false, false)
 			spr(sprites.border_top, x, 86, 1, 1, true, true)
 		end
 		-- left and right
-		local start = 13
-		local count = 9
-		for y = start, start + sprite_size * count - 1, sprite_size do
+		for y = 13, 84, 8 do
 			spr(sprites.border_left, 4, y)
 			spr(sprites.border_left, 116, y, 1, 1, true, true)
 		end
@@ -557,7 +537,7 @@ function _draw()
 	else
 		draw_instructions()
 	end
-	for next in all(animations) do
+	for next in all(effects) do
 		next.draw(next)
 	end
 
@@ -690,8 +670,8 @@ end
 function tile_to_screen(board_position)
 	local board_x = board_position[1]
 	local board_y = board_position[2]
-	local x_pos = (board_x - 1) * sprite_size + (board_x - 1) * tile_margin + padding_left
-	local y_pos = (board_y - 1) * sprite_size + (board_y - 1) * tile_margin + padding_top
+	local x_pos = (board_x - 1) * 8 + (board_x - 1) * 7 + 15
+	local y_pos = (board_y - 1) * 8 + (board_y - 1) * 7 + 15
 	return {x_pos, y_pos}
 end
 
@@ -786,13 +766,13 @@ function new_gain(pos, amount, color, outline)
 			if #self.screen_seq > 1 then
 				del(self.screen_seq, self.screen_seq[1])
 			else
-				del(animations, self)
+				del(effects, self)
 			end
 			-- reset the palette
 			pal()
 		end,
 	}
-	add(animations, new_gain)
+	add(effects, new_gain)
 	return new_gain
 end
 
@@ -813,12 +793,12 @@ function new_pop(pos)
 			end
 
 			if #self.sprite_seq <= 1 then
-				del(animations, self)
+				del(effects, self)
 			end
 			pal()
 		end
 	}
-	add(animations, new_pop)
+	add(effects, new_pop)
 end
 
 -- check if a tile is in a list of tiles
@@ -968,10 +948,10 @@ function create_hero()
 
 						shot_points = {self.screen_seq[1], screen_shot_dest}
 						shot_direction = direction
-						remaining_shot_frames = transition_frames
+						remaining_shot_frames = 4
 						sfx(sounds.shoot, 3)
 
-						delay += transition_frames
+						delay += 4
 						player_turn = false
 
 					-- otherwise, if there's an enemy in the destination, hit it
@@ -988,7 +968,7 @@ function create_hero()
 					else
 						set_tile(self, next_tile)
 						transition_to(self, {tile_to_screen(next_tile)}, 4, 0)
-						delay += transition_frames
+						delay += 4
 						player_turn = false
 					end
 				end
@@ -1600,16 +1580,16 @@ function generate_walls()
 			draw = function(self)
 
 				palt(0, false)
-				local x_pos = (self.x - 1) * sprite_size + (self.x - 1) * tile_margin + padding_left
-				local y_pos = (self.y - 1) * sprite_size + (self.y - 1) * tile_margin + padding_top
+				local x_pos = (self.x - 1) * 8 + (self.x - 1) * 7 + 15
+				local y_pos = (self.y - 1) * 8 + (self.y - 1) * 7 + 15
 
 				local hero_l = find_type_in_tile("hero", {self.x, self.y})
 				local hero_r = find_type_in_tile("hero", {self.x + 1, self.y})
 
-				local x3 = x_pos + sprite_size + flr(tile_margin / 2)
-				local y3 = y_pos - ceil(tile_margin / 2)
-				local x4 = x_pos + sprite_size + flr(tile_margin / 2)
-				local y4 = y_pos + sprite_size + flr(tile_margin / 2)
+				local x3 = x_pos + 11
+				local y3 = y_pos - 4
+				local x4 = x_pos + 11
+				local y4 = y_pos + 11
 
 				local x1 = x3 - 1
 				local y1 = y3 - 1
@@ -1632,16 +1612,16 @@ function generate_walls()
 			type = "wall_down",
 			draw = function(self)
 				palt(0, false)
-				local x_pos = (self.x - 1) * sprite_size + (self.x - 1) * tile_margin + padding_left
-				local y_pos = (self.y - 1) * sprite_size + (self.y - 1) * tile_margin + padding_top
+				local x_pos = (self.x - 1) * 8 + (self.x - 1) * 7 + 15
+				local y_pos = (self.y - 1) * 8 + (self.y - 1) * 7 + 15
 
 				local hero_u = find_type_in_tile("hero", {self.x, self.y})
 				local hero_d = find_type_in_tile("hero", {self.x, self.y + 1})
 
-				local x3 = x_pos - ceil(tile_margin / 2)
-				local y3 = y_pos + sprite_size + flr(tile_margin / 2)
-				local x4 = x_pos + sprite_size + flr(tile_margin / 2)
-				local y4 = y_pos + sprite_size + flr(tile_margin / 2)
+				local x3 = x_pos - 4
+				local y3 = y_pos + 11
+				local x4 = x_pos + 11
+				local y4 = y_pos + 11
 
 				local x1 = x3 - 1
 				local y1 = y3 - 1
