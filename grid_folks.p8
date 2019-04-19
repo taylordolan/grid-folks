@@ -484,22 +484,20 @@ function _draw()
 	end
 
 	function draw_instructions()
-		print(smallcaps("grid folks"), 11, 99, 007)
-		draw_score()
-		spr(064, 11, 108, 7, 2)
-		spr(071, 79, 108, 5, 2)
-	end
-
-	function draw_score()
 		if not debug_mode then
-			local text = smallcaps("gold")
-			local num = score .. ""
-			print(text, 118 - #text * 4, 99, 007)
-			print(num, 99 - #num * 4, 99, 007)
+			print(smallcaps("grid folks"), 11, 99, 007)
 		else
 			local text = turns .."/"..spawn_rate.."/"..score
-			print(text, 118 - #text * 4, 99, 007)
+			print(text, 11, 99, 007)
 		end
+		-- score
+		local text = smallcaps("gold")
+		local num = score .. ""
+		print(text, 118 - #text * 4, 99, 007)
+		print(num, 99 - #num * 4, 99, 007)
+		-- instructions
+		spr(064, 11, 108, 7, 2)
+		spr(071, 79, 108, 5, 2)
 	end
 
 	function draw_won()
@@ -518,10 +516,18 @@ function _draw()
 		local msg_x = 65 - (#msg * 4) / 2
 		local msg_y = 99
 		print(msg, msg_x, msg_y, 007)
+
 		local msg = smallcaps("final score: " .. score)
 		local msg_x = 65 - (#msg * 4) / 2
 		local msg_y += 10
 		print(msg, msg_x, msg_y, 007)
+
+		if debug_mode then
+			local msg = turns .."/"..spawn_rate.."/"..score
+			local msg_x = 65 - (#msg * 4) / 2
+			local msg_y += 10
+			print(msg, msg_x, msg_y, 005)
+		end
 	end
 
 	draw_floor()
