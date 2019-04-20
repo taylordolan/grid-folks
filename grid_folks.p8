@@ -1732,9 +1732,15 @@ function refresh_pads()
 			local exit = {
 				x = null,
 				y = null,
+        screen_seq = {},
 				type = "exit",
 				draw = function(self)
-					spr(sprites.exit, self.screen_seq[1], self.s[2])
+          palt(015, true)
+          local sx = self.screen_seq[1][1]
+          local sy = self.screen_seq[1][2]
+          local sprite = sprites.exit
+					spr(sprite, sx, sy)
+          pal()
 				end,
 			}
 			add(exits, exit)
