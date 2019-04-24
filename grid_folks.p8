@@ -86,8 +86,6 @@ function _init()
 	score = 0
 	turns = 0
 	player_turn = true
-	game_lost = false
-	game_won = false
 	debug_mode = false
 	delay = 0
 	game_started = false
@@ -224,7 +222,7 @@ function _update60()
     -- new_num_effect({27 + #(floor .. "") * 4,99}, -1, 007, 000)
 	end
 
-	if game_won or game_lost then
+	if is_game_over() then
 		if btnp(5) then
 			_init()
 			game_started = true
@@ -307,12 +305,11 @@ function _update60()
 		if reached_exit_a and reached_exit_b then
       update_hero_abilities()
 			score += 100
-			game_won = true
+      floor -= 1
 			sfx(sounds.win, 3)
 		end
 		-- game lost test
 		if hero_a.health <= 0 or hero_b.health <= 0 then
-			game_lost = true
 			sfx(sounds.lose, 3)
 		end
 	end
@@ -351,6 +348,10 @@ function smallcaps(s)
 		end
 	end
 	return d
+end
+
+function is_game_over()
+  return floor == 0 or hero_a.health <= 0 or hero_b.health <= 0
 end
 
 function draw_health(x_pos, y_pos, amount, offset)
@@ -520,9 +521,9 @@ function _draw()
     local msg_y
 
     -- line 1
-    if game_lost then
+    if floor != 0 then
       msg = smallcaps("you died with " .. score .. " gold")
-    elseif game_won then
+    else
       msg = smallcaps("you escaped! +100 gold")
     end
     local msg_x = 65 - (#msg * 4) / 2
@@ -530,10 +531,10 @@ function _draw()
     print(msg, msg_x, msg_y, 007)
 
     -- line 2
-    if game_lost then
+    if floor != 0 then
       local txt = floor == 1 and " floor" or " floors"
-      msg = smallcaps(floor .. txt .. " from the surface")
-    elseif game_won then
+      msg = smallcaps(floor .. txt .. " from the exit")
+    else
       msg = smallcaps("final score: " .. score)
     end
     msg_x = 65 - (#msg * 4) / 2
@@ -556,7 +557,7 @@ function _draw()
 	draw_sprites()
 	draw_border()
 	update_shot_drawing()
-	if game_won or game_lost then
+	if is_game_over() then
 		draw_game_over()
 	elseif not has_advanced then
 		draw_intro()
