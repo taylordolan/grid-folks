@@ -92,7 +92,7 @@ function _init()
 	has_advanced = false
 	turn_score_gain = 0
 	turn_health_gain = 0
-  floor = 32
+  depth = 32
   mode = "title"
 
 	-- lists of things
@@ -204,16 +204,18 @@ function _update60()
     -- add_button()
     -- refresh_pads()
     -- refresh_walls()
-    -- floor -= 1
-    -- new_num_effect({27 + #(floor .. "") * 4,99}, -1, 007, 000)
+    -- depth -= 1
+    -- new_num_effect({27 + #(depth .. "") * 4,99}, -1, 007, 000)
 	end
 
   if mode == "title" and btnp(5) then
     mode = "game"
 		return
-  elseif mode == "game" and is_game_over() and btnp(5) then
+  elseif mode == "game" and is_game_over() then
+    if btnp(5) then
     _init()
     mode = "game"
+    end
 		return
 	end
 
@@ -261,8 +263,8 @@ function _update60()
 			add_button()
 			refresh_pads()
 			refresh_walls()
-      floor -= 1
-      new_num_effect({27 + #(floor .. "") * 4,99}, -1, 007, 000)
+      depth -= 1
+      new_num_effect({26 + #(depth .. "") * 4,99}, -1, 007, 000)
 		end
 		shuffle(enemies)
 		for next in all(enemies) do
@@ -297,7 +299,7 @@ function _update60()
 		if reached_exit_a and reached_exit_b then
       update_hero_abilities()
 			score += 100
-      floor -= 1
+      depth -= 1
 			sfx(sounds.win, 3)
 		end
 		-- game lost test
@@ -343,7 +345,7 @@ function smallcaps(s)
 end
 
 function is_game_over()
-  return floor == 0 or hero_a.health <= 0 or hero_b.health <= 0
+  return depth == 0 or hero_a.health <= 0 or hero_b.health <= 0
 end
 
 function draw_health(x_pos, y_pos, amount, offset)
@@ -491,8 +493,9 @@ function _draw()
 
 	function draw_instructions()
 		if not debug_mode then
-      local msg = smallcaps("floor ") .. floor
+      local msg = smallcaps("depth")
 			print(msg, 11, 99, 007)
+      print(depth, 34, 99, 007)
 		else
 			local text = turns .."/"..spawn_rate
 			print(text, 11, 99, 005)
@@ -513,7 +516,7 @@ function _draw()
     local msg_y
 
     -- line 1
-    if floor != 0 then
+    if depth != 0 then
       msg = smallcaps("you died with " .. score .. " gold")
     else
       msg = smallcaps("you escaped! +100 gold")
@@ -523,9 +526,9 @@ function _draw()
     print(msg, msg_x, msg_y, 007)
 
     -- line 2
-    if floor != 0 then
-      local txt = floor == 1 and " floor" or " floors"
-      msg = smallcaps(floor .. txt .. " from the exit")
+    if depth != 0 then
+      local txt = depth == 1 and " depth" or " depths"
+      msg = smallcaps(depth .. txt .. " from the surface")
     else
       msg = smallcaps("final score: " .. score)
     end
@@ -2041,6 +2044,7 @@ __label__
 00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+
 __sfx__
 000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 00020000217521b7521775214752117520f7520d7520b75209752087520675205752047520475204752037520c7020b7020b7020a7020a7020970209702097020970200702007020070200702007020070200702
