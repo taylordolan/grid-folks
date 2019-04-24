@@ -221,6 +221,7 @@ function _update60()
     -- refresh_pads()
     -- refresh_walls()
     -- floor -= 1
+    -- new_num_effect({27 + #(floor .. "") * 4,99}, -1, 007, 000)
 	end
 
 	if game_won or game_lost then
@@ -276,6 +277,7 @@ function _update60()
 			refresh_pads()
 			refresh_walls()
       floor -= 1
+      new_num_effect({27 + #(floor .. "") * 4,99}, -1, 007, 000)
 		end
 		shuffle(enemies)
 		for next in all(enemies) do
@@ -512,15 +514,33 @@ function _draw()
 		spr(071, 79, 108, 5, 2)
 	end
 
-	function draw_won()
-		local msg = smallcaps("you escaped! +100 gold")
-		local msg_x = 65 - (#msg * 4) / 2
+  function draw_game_over()
+    local msg
+    local msg_x
+    local msg_y
+
+    -- line 1
+    if game_lost then
+      msg = smallcaps("you died with " .. score .. " gold")
+    elseif game_won then
+      msg = smallcaps("you escaped! +100 gold")
+    end
+    local msg_x = 65 - (#msg * 4) / 2
 		local msg_y = 99
-		print(msg, msg_x, msg_y, 007)
-		msg = smallcaps("final score: " .. score)
-		msg_x = 65 - (#msg * 4) / 2
+    print(msg, msg_x, msg_y, 007)
+
+    -- line 2
+    if game_lost then
+      local txt = floor == 1 and " floor" or " floors"
+      msg = smallcaps(floor .. txt .. " from the surface")
+    elseif game_won then
+      msg = smallcaps("final score: " .. score)
+    end
+    msg_x = 65 - (#msg * 4) / 2
 		msg_y += 10
 		print(msg, msg_x, msg_y, 007)
+
+    -- line 3
     if debug_mode then
 			msg = smallcaps("turns: " .. turns ..", spawn rate: " .. spawn_rate)
     else
@@ -529,39 +549,15 @@ function _draw()
     msg_x = 65 - (#msg * 4) / 2
     msg_y += 10
     print(msg, msg_x, msg_y, 005)
-	end
-
-	function draw_lost()
-		local msg = smallcaps("you died with " .. score .. " gold")
-		local msg_x = 65 - (#msg * 4) / 2
-		local msg_y = 99
-		print(msg, msg_x, msg_y, 007)
-
-    local txt = floor == 1 and " floor" or " floors"
-		msg = smallcaps(floor .. txt .. " from the surface")
-		msg_x = 65 - (#msg * 4) / 2
-		msg_y += 10
-		print(msg, msg_x, msg_y, 007)
-
-		if debug_mode then
-			msg = smallcaps("turns: " .. turns ..", spawn rate: " .. spawn_rate)
-    else
-      msg = smallcaps("press x to restart")
-		end
-    msg_x = 65 - (#msg * 4) / 2
-    msg_y += 10
-    print(msg, msg_x, msg_y, 005)
-	end
+  end
 
 	draw_floor()
 	draw_outlines()
 	draw_sprites()
 	draw_border()
 	update_shot_drawing()
-	if game_won then
-		draw_won()
-	elseif game_lost then
-		draw_lost()
+	if game_won or game_lost then
+		draw_game_over()
 	elseif not has_advanced then
 		draw_intro()
 	else
@@ -771,30 +767,43 @@ function new_num_effect(pos, amount, color, outline)
 	local new_num_effect = {
 		screen_seq = {
 			{_x,_y},
+			{_x,_y},
+			{_x,_y},
+			{_x,_y},
+			{_x,_y-1},
+			{_x,_y-1},
+			{_x,_y-1},
 			{_x,_y-1},
 			{_x,_y-2},
+			{_x,_y-2},
+			{_x,_y-2},
+			{_x,_y-2},
+      {_x,_y-3},
 			{_x,_y-3},
+			{_x,_y-3},
+			{_x,_y-3},
+      {_x,_y-4},
 			{_x,_y-4},
+			{_x,_y-4},
+			{_x,_y-4},
+      {_x,_y-5},
 			{_x,_y-5},
-			{_x,_y-6},
-			{_x,_y-7},
-			{_x,_y-8},
-			{_x,_y-9},
-			{_x,_y-10},
-			{_x,_y-11},
+			{_x,_y-5},
+			{_x,_y-5},
 		},
 		draw = function(self)
 			local sx = self.screen_seq[1][1]
 			local sy = self.screen_seq[1][2]
-			print("+" .. amount, sx-1, sy, outline)
-			print("+" .. amount, sx+1, sy, outline)
-			print("+" .. amount, sx, sy-1, outline)
-			print("+" .. amount, sx, sy+1, outline)
-			print("+" .. amount, sx-1, sy-1, outline)
-			print("+" .. amount, sx-1, sy+1, outline)
-			print("+" .. amount, sx+1, sy-1, outline)
-			print("+" .. amount, sx+1, sy+1, outline)
-			print("+" .. amount, sx, sy, color)
+      local sign = amount > 0 and "+" or ""
+			print(sign .. amount, sx-1, sy, outline)
+			print(sign .. amount, sx+1, sy, outline)
+			print(sign .. amount, sx, sy-1, outline)
+			print(sign .. amount, sx, sy+1, outline)
+			print(sign .. amount, sx-1, sy-1, outline)
+			print(sign .. amount, sx-1, sy+1, outline)
+			print(sign .. amount, sx+1, sy-1, outline)
+			print(sign .. amount, sx+1, sy+1, outline)
+			print(sign .. amount, sx, sy, color)
 			if #self.screen_seq > 1 then
 				del(self.screen_seq, self.screen_seq[1])
 			else
