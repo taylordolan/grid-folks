@@ -167,6 +167,7 @@ function _init()
 		[300] = 2,
 		[360] = 1,
 	}
+  spawn_turns = {0,0,0}
 	spawn_rate = spawn_rates[1]
 	-- this gets updated whenever an enemy spawns
 	last_spawned_turn = 0
@@ -177,32 +178,23 @@ function _init()
 	music(sounds.music)
 end
 
-function should_spawn()
-	local should_spawn = false
-
-	-- if it's one turn before reaching the spawn rate
-	if turns - last_spawned_turn == spawn_rate - 1 then
-		-- 50% chance of spawning early
+function update_spawn_turns()
+  spawn_turns[turns + 2] = 0
+	-- if the spawn rate has been reached this turn
+	if turns - last_spawned_turn >= spawn_rate then
+    -- 50% chance to spawn next turn instead
 		if flr(rnd(2)) == 1 then
-			-- if spawning early, then mark it in a global variable so we don't also spawn the next turn
-			spawned_early = true
-			should_spawn = true
+      spawn_turns[turns + 1] += 1
+    else
+      spawn_turns[turns] += 1
 		end
-	-- if this turn has actually reached the spawn rate
-	elseif turns - last_spawned_turn >= spawn_rate then
-		if not spawned_early then
-			should_spawn = true
-		end
-		-- reset this variable for next round
-		spawned_early = false
+    last_spawned_turn = turns
 	end
-	return should_spawn
 end
 
 function spawn_enemy()
 	local new_enemy = new_enemy()
 	new_enemy.deploy(new_enemy)
-	last_spawned_turn = turns
 end
 
 function _update60()
@@ -276,9 +268,14 @@ function _update60()
 		for next in all(enemies) do
 			next.update(next)
 		end
-		if should_spawn() then
+		update_spawn_turns()
+    if turns > 0 then
+      for i = 1, spawn_turns[turns] do
+        if #enemies < 33 then
 			spawn_enemy()
 		end
+      end
+    end
 		trigger_all_enemy_buttons()
 		turn_health_gain = 0
 		turn_score_gain = 0
