@@ -94,6 +94,7 @@ function _init()
 	has_advanced = false
 	turn_score_gain = 0
 	turn_health_gain = 0
+  floor = 32
 
 	-- lists of things
 	heroes = {}
@@ -216,6 +217,10 @@ function _update60()
 
 	if btnp(4) then
 		debug_mode = not debug_mode
+    -- add_button()
+    -- refresh_pads()
+    -- refresh_walls()
+    -- floor -= 1
 	end
 
 	if game_won or game_lost then
@@ -270,6 +275,7 @@ function _update60()
 			add_button()
 			refresh_pads()
 			refresh_walls()
+      floor -= 1
 		end
 		shuffle(enemies)
 		for next in all(enemies) do
@@ -297,6 +303,7 @@ function _update60()
 		local reached_exit_a = find_type_in_tile("exit", a_xy)
 		local reached_exit_b = find_type_in_tile("exit", b_xy)
 		if reached_exit_a and reached_exit_b then
+      update_hero_abilities()
 			score += 100
 			game_won = true
 			sfx(sounds.win, 3)
@@ -489,10 +496,11 @@ function _draw()
 
 	function draw_instructions()
 		if not debug_mode then
-			print(smallcaps("grid folks"), 11, 99, 007)
+      local msg = smallcaps("floor ") .. floor
+			print(msg, 11, 99, 007)
 		else
-			local text = turns .."/"..spawn_rate.."/"..score
-			print(text, 11, 99, 007)
+			local text = turns .."/"..spawn_rate
+			print(text, 11, 99, 005)
 		end
 		-- score
 		local text = smallcaps("gold")
@@ -509,29 +517,40 @@ function _draw()
 		local msg_x = 65 - (#msg * 4) / 2
 		local msg_y = 99
 		print(msg, msg_x, msg_y, 007)
-		local msg = smallcaps("final score: " .. score)
-		local msg_x = 65 - (#msg * 4) / 2
-		local msg_y += 10
+		msg = smallcaps("final score: " .. score)
+		msg_x = 65 - (#msg * 4) / 2
+		msg_y += 10
 		print(msg, msg_x, msg_y, 007)
+    if debug_mode then
+			msg = smallcaps("turns: " .. turns ..", spawn rate: " .. spawn_rate)
+    else
+      msg = smallcaps("press x to restart")
+		end
+    msg_x = 65 - (#msg * 4) / 2
+    msg_y += 10
+    print(msg, msg_x, msg_y, 005)
 	end
 
 	function draw_lost()
-		local msg = smallcaps("you died!")
+		local msg = smallcaps("you died with " .. score .. " gold")
 		local msg_x = 65 - (#msg * 4) / 2
 		local msg_y = 99
 		print(msg, msg_x, msg_y, 007)
 
-		local msg = smallcaps("final score: " .. score)
-		local msg_x = 65 - (#msg * 4) / 2
-		local msg_y += 10
+    local txt = floor == 1 and " floor" or " floors"
+		msg = smallcaps(floor .. txt .. " from the surface")
+		msg_x = 65 - (#msg * 4) / 2
+		msg_y += 10
 		print(msg, msg_x, msg_y, 007)
 
 		if debug_mode then
-			local msg = turns .."/"..spawn_rate.."/"..score
-			local msg_x = 65 - (#msg * 4) / 2
-			local msg_y += 10
-			print(msg, msg_x, msg_y, 005)
+			msg = smallcaps("turns: " .. turns ..", spawn rate: " .. spawn_rate)
+    else
+      msg = smallcaps("press x to restart")
 		end
+    msg_x = 65 - (#msg * 4) / 2
+    msg_y += 10
+    print(msg, msg_x, msg_y, 005)
 	end
 
 	draw_floor()
@@ -733,7 +752,7 @@ function trigger_all_enemy_buttons()
 		end
 		local diff = next.health - start
 		if diff > 0 then
-			new_gain({next.screen_seq[1][1], next.screen_seq[1][2]}, diff, 008, 007)
+			new_num_effect({next.screen_seq[1][1], next.screen_seq[1][2]}, diff, 008, 007)
 			sfx(sounds.health, 3)
 		end
 	end
@@ -741,15 +760,15 @@ function trigger_all_enemy_buttons()
 		score += turn_score_gain
 		local text = turn_score_gain .. ""
 		sfx(sounds.score, 3)
-		new_gain({95 - #text * 4, 99}, turn_score_gain, 009, 000)
+		new_num_effect({95 - #text * 4, 99}, turn_score_gain, 009, 000)
 	end
 end
 
 
-function new_gain(pos, amount, color, outline)
+function new_num_effect(pos, amount, color, outline)
 	local _x = pos[1]
 	local _y = pos[2]
-	local new_gain = {
+	local new_num_effect = {
 		screen_seq = {
 			{_x,_y},
 			{_x,_y-1},
@@ -785,8 +804,8 @@ function new_gain(pos, amount, color, outline)
 			pal()
 		end,
 	}
-	add(effects, new_gain)
-	return new_gain
+	add(effects, new_num_effect)
+	return new_num_effect
 end
 
 function new_pop(pos)
