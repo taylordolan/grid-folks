@@ -88,11 +88,12 @@ function _init()
 	player_turn = true
 	debug_mode = false
 	delay = 0
-	game_started = false
+	-- game_started = false
 	has_advanced = false
 	turn_score_gain = 0
 	turn_health_gain = 0
   floor = 32
+  mode = "title"
 
 	-- lists of things
 	heroes = {}
@@ -206,13 +207,6 @@ end
 
 function _update60()
 
-	if not game_started then
-		if btnp(5) then
-			game_started = true
-		end
-		return
-	end
-
 	if btnp(4) then
 		debug_mode = not debug_mode
     -- add_button()
@@ -222,11 +216,12 @@ function _update60()
     -- new_num_effect({27 + #(floor .. "") * 4,99}, -1, 007, 000)
 	end
 
-	if is_game_over() then
-		if btnp(5) then
-			_init()
-			game_started = true
-		end
+  if mode == "title" and btnp(5) then
+    mode = "game"
+		return
+  elseif mode == "game" and is_game_over() and btnp(5) then
+    _init()
+    mode = "game"
 		return
 	end
 
@@ -365,7 +360,7 @@ function _draw()
 
 	cls()
 
-	if not game_started then
+	if mode == "title" then
 		pal(005, 000)
 		pal(001, 005)
 		spr(008,34,36,8,4)
