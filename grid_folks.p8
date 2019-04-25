@@ -5,13 +5,15 @@ __lua__
 -- taylor d
 
 -- todo
--- [ ] reduce size
 -- [ ] balance enemy spawn rate
 
 -- optimizations
--- [ ] make a generic object to base things on
+-- [x] eliminate the colors dictionary
 -- [ ] instead of rendering the contents of each tile, render the contents of each list of objects
 -- [ ] have objects keep track of their lists so they can remove themselves from their lists
+-- [ ] make a generic object to base things on
+-- [ ] find a way to reduce the token count of long animations
+-- [ ] simplify input conditions
 
 -- game state that gets refreshed on restart
 function _init()
@@ -120,10 +122,10 @@ function _init()
 	input_queue = {}
 
 	-- initial buttons (for testing)
-	-- set_tile(new_button("blue"), {4,2})
-	-- set_tile(new_button("green"), {4,4})
-	-- set_tile(new_button("red"), {5,3})
-	-- set_tile(new_button("orange"), {3,3})
+	-- set_tile(new_button(008), {4,2})
+	-- set_tile(new_button(009), {4,4})
+	-- set_tile(new_button(011), {5,3})
+	-- set_tile(new_button(012), {3,3})
 
 	-- heroes
 	hero_a = create_hero()
@@ -138,7 +140,7 @@ function _init()
 
 	-- initial pads
 	local initial_pad_tiles = {{2,3}, {4,3}, {6,3}}
-	for next in all({"red", "green", "blue"}) do
+	for next in all({008, 011, 012}) do
 		local _i = flr(rnd(#initial_pad_tiles)) + 1
 		set_tile(new_pad(next), initial_pad_tiles[_i])
 		del(initial_pad_tiles, initial_pad_tiles[_i])
@@ -1729,16 +1731,7 @@ function refresh_pads()
 
 	has_advanced = true
 	if #colors_bag == 0 then
-		colors_bag = {
-			"green",
-			"green",
-			"red",
-			"red",
-			"blue",
-			"blue",
-			"orange",
-			"orange"
-		}
+		colors_bag = {008,008,009,009,011,011,012,012}
 		shuffle(colors_bag)
 	end
 
@@ -1773,12 +1766,7 @@ function refresh_pads()
 		return
 	end
 
-	local current_colors = {
-		"blue",
-		"green",
-		"red",
-		"orange"
-	}
+	local current_colors = {008,009,011,012}
 	del(current_colors, colors_bag[1])
 
 	-- place new pads
@@ -1804,7 +1792,7 @@ function new_pad(color)
 			local sy = self.screen_seq[1][2]
 			palt(015, true)
 			palt(000, false)
-			pal(006, colors[self.color])
+			pal(006, color)
 			spr(sprite, sx, sy)
 			-- if there's more than one value, remove the first one
 			if #self.sprite_seq > 1 then
@@ -1839,14 +1827,14 @@ function new_button(color)
 			local sy = self.screen_seq[1][2]
 			palt(015, true)
 			palt(000, false)
-			pal(006, colors[self.color])
-			if self.color == "blue" then
+			pal(006, color)
+			if self.color == 012 then
 				pal(005, 001)
-			elseif self.color == "green" then
-				pal(005, 003)
-			elseif self.color == "red" then
+			elseif self.color == 008 then
 				pal(005, 002)
-			elseif self.color == "orange" then
+			elseif self.color == 011 then
+				pal(005, 003)
+			elseif self.color == 009 then
 				pal(005, 004)
 			end
 			spr(sprite, sx, sy)
