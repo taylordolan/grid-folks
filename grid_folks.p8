@@ -9,11 +9,13 @@ __lua__
 
 -- optimizations
 -- [x] eliminate the colors dictionary
--- [ ] instead of rendering the contents of each tile, render the contents of each list of objects
+-- [x] instead of rendering the contents of each tile, render the contents of each list of objects
+-- [ ] refactor shot drawing as an effect
 -- [ ] have objects keep track of their lists so they can remove themselves from their lists
 -- [ ] make a generic object to base things on
 -- [ ] find a way to reduce the token count of long animations
 -- [ ] simplify input conditions
+-- [ ] combine functions for creating wall_right and wall_down
 
 -- game state that gets refreshed on restart
 function _init()
@@ -90,7 +92,6 @@ function _init()
 	player_turn = true
 	debug_mode = false
 	delay = 0
-	-- game_started = false
 	has_advanced = false
 	turn_score_gain = 0
 	turn_health_gain = 0
@@ -104,19 +105,8 @@ function _init()
 	buttons = {}
 	exits = {}
 	effects = {}
+  walls = {}
 	colors_bag = {}
-
-	-- when multiple things are in a tile, they'll be rendering in this order
-	-- that means the things at the end will appear on top
-	layers = {
-		"wall_right",
-		"wall_down",
-		"pad",
-		"button",
-		"exit",
-		"enemy",
-		"hero",
-	}
 
 	-- log of recent user input
 	input_queue = {}
@@ -408,23 +398,22 @@ function _draw()
 		pal()
 	end
 
-	function draw_sprites()
-
-		for x = 1, cols do
-			for y = 1, rows do
-				-- draw everything at the current position
-				for type in all(layers) do
-					-- render sprites in the order defined by layers
-					-- todo: this isn't actually working
-					for next in all(board[x][y]) do
-						if next.type == type then
-							next.draw(next)
-						end
-					end
-				end
-			end
-		end
-	end
+	-- function draw_sprites()
+  --   for list in all({
+  --     -- things at the bottom appear on top
+  --     pads,
+  --     exits,
+  --     buttons,
+  --     walls,
+  --     enemies,
+  --     heroes,
+  --     effects,
+  --   }) do
+  --     for next in all(list) do
+  --       next.draw(next)
+  --     end
+  --   end
+	-- end
 
 	function update_shot_drawing()
 
@@ -551,7 +540,23 @@ function _draw()
 
 	draw_floor()
 	draw_outlines()
-	draw_sprites()
+
+  -- draw objects
+  for list in all({
+    -- things at the bottom appear on top
+    pads,
+    exits,
+    buttons,
+    walls,
+    enemies,
+    heroes,
+    effects,
+  }) do
+    for next in all(list) do
+      next.draw(next)
+    end
+  end
+
 	draw_border()
 	update_shot_drawing()
 	if is_game_over() then
@@ -1201,9 +1206,9 @@ function update_hero_abilities()
 		-- if the ally's tile is a button, update the hero's deets
 		local button = find_type_in_tile("button", ally_xy)
 		if button then
-			if button.color == "blue" then
+			if button.color == 012 then
 				next.jump = true
-			elseif button.color == "green" then
+			elseif button.color == 011 then
 				next.shoot = true
 			end
 		end
@@ -1583,22 +1588,11 @@ function is_wall_between(tile_a, tile_b)
 end
 
 function clear_all_walls()
-
-	for x = 1, cols do
-		for y = 1, rows do
-			local here = board[x][y]
-
-			local wall_right = find_type_in_tile("wall_right", {x,y})
-			local wall_down = find_type_in_tile("wall_down", {x,y})
-
-			if wall_right then
-				del(here, wall_right)
-			end
-			if wall_down then
-				del(here, wall_down)
-			end
-		end
-	end
+  for next in all(walls) do
+    del(board[next.x][next.y], next)
+    del(walls, next)
+  end
+  walls = {}
 end
 
 function refresh_walls()
@@ -1643,6 +1637,7 @@ function generate_walls()
 				pal()
 			end,
 		}
+    add(walls, wall_right)
 		deploy(wall_right, {"wall_right"})
 	end
 	for i = 1, 9 do
@@ -1675,6 +1670,7 @@ function generate_walls()
 				pal()
 			end,
 		}
+    add(walls, wall_down)
 		deploy(wall_down, {"wall_down"})
 	end
 end
