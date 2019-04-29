@@ -12,8 +12,8 @@ __lua__
 -- [x] instead of rendering the contents of each tile, render the contents of each list of objects
 -- [x] have objects keep track of their lists so they can remove themselves from their lists
 -- [x] make a generic `thing` object and a generic `actor` object
--- [ ] refactor shot drawing as an effect
--- [ ] find a way to reduce the token count of long animations
+-- [x] refactor shot drawing as an effect
+-- [x] find a way to reduce the token count of long animations
 -- [ ] simplify input conditions
 -- [ ] combine functions for creating wall_right and wall_down
 -- [ ] kill the sprites dictionary
@@ -41,11 +41,6 @@ function _init()
 		green = 11,
 		blue = 12,
 	}
-
-	-- todo: remove this and add shots to effects{}
-	shot_points = {} -- expects two {x,y} points for the beginning and end of a shot
-	shot_direction = {} -- which direction the shot was fired in, e.g. {0, -1} for up
-	remaining_shot_frames = 0 -- for how many frames should the current shot be drawn?
 
 	-- sounds dictionary
 	sounds = {
@@ -297,18 +292,13 @@ function _draw()
 		return
 	end
 
-	local board_origin = {11,11}
-	local board_opposite = {116,86}
-
 	-- draw_floor
-	rectfill(board_origin[1], board_origin[2], board_opposite[1], board_opposite[2], 007)
-
+	rectfill(11, 11, 116, 86, 007)
 	-- draw outlines
 	-- this draws 1px inside and 1px outside the "rim" that gets drawn by the border tiles.
 	-- this creates the appearance of walls around the floor of the board.
-	rect(board_origin[1] - 1, board_origin[2] - 1, board_opposite[1] + 1, board_opposite[2] + 1, 000)
-	rect(board_origin[1] + 1, board_origin[2] + 1, board_opposite[1] - 1, board_opposite[2] - 1, 000)
-
+	rect(10, 10, 117, 87, 000)
+	rect(12, 12, 115, 85, 000)
 	-- draw objects
 	for list in all({
 		-- things at the bottom appear on top
@@ -326,7 +316,6 @@ function _draw()
 	end
 
 	-- draw border
-	pal(007, 007)
 	pal(006, 007)
 	-- top and bottom
 	for x = 12, 115, 8 do
@@ -347,48 +336,6 @@ function _draw()
 	-- bottom right
 	spr(sprites.border_top_left, 116, 85, 1, 1, true, true)
 	pal()
-
-	-- draw shot
-	if #shot_points > 0 then
-		local a = shot_points[1]
-		local b = shot_points[2]
-		local dir = shot_direction
-		local ax = a[1]
-		local ay = a[2]
-		local bx = b[1]
-		local by = b[2]
-		-- up
-		if pair_equal(dir, {0, -1}) then
-			ax += 3
-			bx += 3
-			ay -= 2
-			by -= 1
-		-- down
-		elseif pair_equal(dir, {0, 1}) then
-			ax += 3
-			bx += 3
-			ay += 9
-			by += 7
-		-- left
-		elseif pair_equal(dir, {-1, 0}) then
-			ax -= 2
-			bx -= 1
-			ay += 3
-			by += 3
-		-- right
-		elseif pair_equal(dir, {1, 0}) then
-			ax += 8
-			bx += 8
-			ay += 3
-			by += 3
-		end
-		rectfill(ax, ay, bx, by, 011)
-		remaining_shot_frames -= 1
-		if remaining_shot_frames <= 0 then
-			shot_points = {}
-			shot_direction = {}
-		end
-	end
 
 	if is_game_over() then
 		-- draw game over state
@@ -562,7 +509,6 @@ function new_hero()
 		end
 
 		-- this is where the actual acting starts
-
 		-- if the destination exists and the tile isn't occupied by your ally
 		if location_exists(next_tile) and not find_type_in_tile("hero", next_tile) then
 
@@ -595,10 +541,7 @@ function new_hero()
 					end
 					local shot_dest = get_shoot_dest(direction)
 					local screen_shot_dest = tile_to_screen(shot_dest)
-
-					shot_points = {self.screen_seq[1], screen_shot_dest}
-					shot_direction = direction
-					remaining_shot_frames = 4
+					new_shot(self.screen_seq[1], screen_shot_dest, direction)
 					sfx(sounds.shoot, 3)
 
 					delay += 4
@@ -812,7 +755,7 @@ function new_enemy()
 					local bump = {here[1] + direction[1] * 2, here[2] + direction[2] * 2}
 					transition_to(self, {bump, here}, 2, 2)
 					local b_r = {000, 008}
-					target.pal_seq = {b_r, b_r, b_r, b_r, {10,10}}
+					target.pal_seq = frames({b_r,{10,10}})
 					delay += 4
 					sfx(sounds.enemy_bump, 3)
 				end
@@ -902,6 +845,64 @@ function new_enemy()
 
 	add(enemies, new_enemy)
 	return new_enemy
+end
+
+function new_shot(a, b, dir)
+	local ax = a[1]
+	local ay = a[2]
+	local bx = b[1]
+	local by = b[2]
+	-- up
+	if pair_equal(dir, {0, -1}) then
+		ax += 3
+		bx += 3
+		ay -= 2
+		by -= 1
+	-- down
+	elseif pair_equal(dir, {0, 1}) then
+		ax += 3
+		bx += 3
+		ay += 9
+		by += 7
+	-- left
+	elseif pair_equal(dir, {-1, 0}) then
+		ax -= 2
+		bx -= 1
+		ay += 3
+		by += 3
+	-- right
+	elseif pair_equal(dir, {1, 0}) then
+		ax += 8
+		bx += 8
+		ay += 3
+		by += 3
+	end
+
+	local _a = {ax,ay}
+	local _b = {bx,by}
+	local new_shot = {
+		a = _a,
+		b = _b,
+		frames = 4,
+		draw = function(self)
+			rectfill(self.a[1], self.a[2], self.b[1], self.b[2], 011)
+			self.frames -= 1
+			if self.frames == 0 then
+				del(effects, self)
+			end
+		end,
+	}
+	add(effects, new_shot)
+end
+
+function frames(a)
+	local b = {}
+	for next in all(a) do
+		for i = 1, 4 do
+			add(b, next)
+		end
+	end
+	return b
 end
 
 function draw_health(x_pos, y_pos, amount, offset)
@@ -1034,9 +1035,7 @@ function set_tile(thing, dest)
 		if thing.type == "enemy" then
 			local _x = _c[1]
 			local _y = _c[2]
-			local _a = {_x,_y-2}
-			local _b = {_x,_y-1}
-			thing.screen_seq = {_a,_a,_a,_a,_b,_b,_b,_b,_c}
+			thing.screen_seq = frames({{_x,_y-2},{_x,_y-1},_c})
 		else
 			thing.screen_seq = {_c}
 		end
@@ -1131,32 +1130,7 @@ function new_num_effect(pos, amount, color, outline)
 	local _x = pos[1]
 	local _y = pos[2]
 	local new_num_effect = {
-		screen_seq = {
-			{_x,_y},
-			{_x,_y},
-			{_x,_y},
-			{_x,_y},
-			{_x,_y-1},
-			{_x,_y-1},
-			{_x,_y-1},
-			{_x,_y-1},
-			{_x,_y-2},
-			{_x,_y-2},
-			{_x,_y-2},
-			{_x,_y-2},
-      {_x,_y-3},
-			{_x,_y-3},
-			{_x,_y-3},
-			{_x,_y-3},
-      {_x,_y-4},
-			{_x,_y-4},
-			{_x,_y-4},
-			{_x,_y-4},
-      {_x,_y-5},
-			{_x,_y-5},
-			{_x,_y-5},
-			{_x,_y-5},
-		},
+		screen_seq = frames({{_x,_y},{_x,_y-1},{_x,_y-2},{_x,_y-3},{_x,_y-4},{_x,_y-5}}),
 		draw = function(self)
 			local sx = self.screen_seq[1][1]
 			local sy = self.screen_seq[1][2]
@@ -1183,9 +1157,7 @@ function new_pop(pos)
 	local _b = sprites.die_2
 	local new_pop = {
 		s = pos,
-		sprite_seq = {
-			_a,_a,_a,_a,_b,_b,_b,_b,
-		},
+		sprite_seq = frames({_a,_b}),
 		draw = function(self)
 			palt(015, true)
 			local sprite = self.sprite_seq[1]
@@ -1397,9 +1369,7 @@ function hit_enemy(enemy, damage)
 		enemy:destroy()
 	else
 		local b_r = {000, 008}
-		enemy.pal_seq = {
-			b_r,b_r,b_r,b_r,{010,010},
-		}
+		enemy.pal_seq = frames({_br,{010,010}})
 	end
 end
 
@@ -1715,11 +1685,7 @@ end
 function new_button(color)
 	local new_button = new_thing()
 
-	new_button.sprite_seq = {
-		sprites.button_1,sprites.button_1,sprites.button_1,sprites.button_1,
-		sprites.button_2,sprites.button_2,sprites.button_2,sprites.button_2,
-		sprites.button_3,
-	}
+	new_button.sprite_seq = frames({sprites.button_1,sprites.button_2,sprites.button_3})
 	new_button.type = "button"
 	new_button.color = color
 	new_button.list = buttons
