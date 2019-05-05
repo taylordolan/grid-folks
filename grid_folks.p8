@@ -5,7 +5,7 @@ __lua__
 -- taylor d
 
 -- todo
--- [ ] enemies that shoot
+-- [x] enemies that shoot
 -- [ ] enemies that walk through walls
 -- [ ] enemies that take turns when you switch characters?
 -- [ ] enemies that create smaller enemies when they die?
@@ -521,14 +521,10 @@ function new_hero()
 			elseif not wall then
 
 				-- if shoot is enabled and shoot targets exist
-				local shoot_targets = get_ranged_targets(self, direction)
-				if self.shoot and #shoot_targets > 0 then
-					for next in all(shoot_targets) do
-						hit_target(next, 2)
-					end
-					local shot_dest = get_shoot_dest(self, direction)
-					local screen_shot_dest = tile_to_screen(shot_dest)
-					new_shot(self.screen_seq[1], screen_shot_dest, direction)
+				local shoot_target = get_ranged_target(self, direction)
+				if self.shoot and shoot_target then
+          hit_target(shoot_target, 2)
+					new_shot(self, shoot_target, direction)
 					sfx(sounds.shoot, 3)
 					delay += 4
 					player_turn = false
@@ -589,7 +585,7 @@ function new_hero()
 					elseif next[2] == -1 then
 						flip_y = true
 					end
-					if #get_ranged_targets(self, next) > 0 then
+					if get_ranged_target(self, next) then
 						spr(sprite, ax + next[1] * 8, ay + next[2] * 8, 1, 1, flip_x, flip_y)
 					end
 				end
@@ -859,7 +855,7 @@ function new_enemy_shoot()
 
     local shoot_directions = {}
     for dir in all({{-1,0},{1,0},{0,-1},{0,1}}) do
-      if #get_ranged_targets(self, dir) > 0 then
+      if get_ranged_target(self, dir) then
         add(shoot_directions, dir)
       end
     end
@@ -867,14 +863,9 @@ function new_enemy_shoot()
     if #shoot_directions > 0 then
       shuffle(shoot_directions)
       local decided_direction = shoot_directions[1]
-      local targets = get_ranged_targets(self, shoot_directions[1])
-      for next in all(targets) do
-        -- next.health -= 1
-        hit_target(next, 1)
-      end
-      local shot_dest = get_shoot_dest(self, decided_direction)
-      local screen_shot_dest = tile_to_screen(shot_dest)
-      new_shot(self.screen_seq[1], screen_shot_dest, decided_direction)
+      local target = get_ranged_target(self, shoot_directions[1])
+      hit_target(target, 1)
+      new_shot(self, target, decided_direction)
       sfx(sounds.shoot, 3)
     else
       self:move()
@@ -924,62 +915,41 @@ function new_enemy_shoot()
 	return enemy_shoot
 end
 
-function get_shoot_dest(thing, direction)
-  local now_tile = {thing.x, thing.y}
-  while true do
-    -- define the current target
-    local next_tile = {now_tile[1] + direction[1], now_tile[2] + direction[2]}
-    -- if `next_tile` is off the map, or there's a wall in the way, return false
-    if
-      location_exists(next_tile) == false or
-      is_wall_between(now_tile, next_tile) or
-      find_type_in_tile(thing.type, next_tile)
-    then
-      return now_tile
-    end
-    now_tile = next_tile
-  end
-end
-
-function new_shot(a, b, dir)
-	local ax = a[1]
-	local ay = a[2]
-	local bx = b[1]
-	local by = b[2]
+function new_shot(thing, target, dir)
+	local ax = thing.screen_seq[1][1]
+	local ay = thing.screen_seq[1][2]
+	local bx = target.screen_seq[1][1]
+	local by = target.screen_seq[1][2]
 	-- up
 	if pair_equal(dir, {0, -1}) then
 		ax += 3
 		bx += 3
-		ay -= 2
-		by -= 1
+		ay -= 3
+		by += 10
 	-- down
 	elseif pair_equal(dir, {0, 1}) then
 		ax += 3
 		bx += 3
-		ay += 9
-		by += 7
+		ay += 10
+		by -= 3
 	-- left
 	elseif pair_equal(dir, {-1, 0}) then
-		ax -= 2
-		bx -= 1
+		ax -= 3
+		bx += 10
 		ay += 3
 		by += 3
 	-- right
 	elseif pair_equal(dir, {1, 0}) then
-		ax += 8
-		bx += 8
+		ax += 10
+		bx -= 3
 		ay += 3
 		by += 3
 	end
 
-	local _a = {ax,ay}
-	local _b = {bx,by}
 	local new_shot = {
-		a = _a,
-		b = _b,
 		frames = 4,
 		draw = function(self)
-			rectfill(self.a[1], self.a[2], self.b[1], self.b[2], 011)
+			rectfill(ax, ay, bx, by, 011)
 			self.frames -= 1
 			if self.frames == 0 then
 				del(effects, self)
@@ -1328,12 +1298,11 @@ function get_adjacent_tiles(tile)
 	return adjacent_tiles
 end
 
-function get_ranged_targets(thing, direction)
+function get_ranged_target(thing, direction)
 
 	local now_tile = {thing.x, thing.y}
 	local x_vel = direction[1]
 	local y_vel = direction[2]
-	local targets = {}
 
 	while true do
 		-- define the current target
@@ -1344,12 +1313,12 @@ function get_ranged_targets(thing, direction)
 			is_wall_between(now_tile, next_tile) or
 			find_type_in_tile(thing.type, next_tile)
 		then
-			return targets
+			return false
 		end
 		-- if there's a target in the tile, return it
 		local target = find_type_in_tile(thing.target_type, next_tile)
 		if target then
-			add(targets, target)
+			return target
 		end
 		-- set `current` to `next_tile` and keep going
 		now_tile = next_tile
@@ -1364,9 +1333,9 @@ function update_targets()
 	for h in all(heroes) do
 		if h.shoot and h.active then
 			for d in all({{0, -1}, {0, 1}, {-1, 0}, {1, 0}}) do
-				local targets = get_ranged_targets(h, d)
-				for t in all(targets) do
-					t.is_shoot_target = true
+				local target = get_ranged_target(h, d)
+				if target then
+					target.is_shoot_target = true
 				end
 			end
 		end
