@@ -474,6 +474,7 @@ function new_hero()
 
 	new_hero.sprite_seq = {sprites.hero_inactive}
 	new_hero.type = "hero"
+  new_hero.target_type = "enemy"
 	new_hero.max_health = 3
 	new_hero.health = 3
 	new_hero.active = false
@@ -520,7 +521,7 @@ function new_hero()
 			elseif not wall then
 
 				-- if shoot is enabled and shoot targets exist
-				local shoot_targets = get_ranged_targets({self.x, self.y}, direction, "enemy", "hero")
+				local shoot_targets = get_ranged_targets(self, direction)
 				if self.shoot and #shoot_targets > 0 then
 					for next in all(shoot_targets) do
 						hit_target(next, 2)
@@ -588,7 +589,7 @@ function new_hero()
 					elseif next[2] == -1 then
 						flip_y = true
 					end
-					if #get_ranged_targets({self.x, self.y}, next, "enemy", "hero") > 0 then
+					if #get_ranged_targets(self, next) > 0 then
 						spr(sprite, ax + next[1] * 8, ay + next[2] * 8, 1, 1, flip_x, flip_y)
 					end
 				end
@@ -657,6 +658,7 @@ function new_enemy()
 
 	new_enemy.sprite_seq = frames({sprites.enemy_1, sprites.enemy_2, sprites.enemy_3})
 	new_enemy.type = "enemy"
+  new_enemy.target_type = "hero"
 	new_enemy.stunned = true
 	new_enemy.health = 2
 	new_enemy.list = enemies
@@ -857,8 +859,7 @@ function new_enemy_shoot()
 
     local shoot_directions = {}
     for dir in all({{-1,0},{1,0},{0,-1},{0,1}}) do
-      printh(#get_ranged_targets(self_tile, dir, "hero", "enemy"))
-      if #get_ranged_targets(self_tile, dir, "hero", "enemy") > 0 then
+      if #get_ranged_targets(self, dir) > 0 then
         add(shoot_directions, dir)
       end
     end
@@ -866,7 +867,7 @@ function new_enemy_shoot()
     if #shoot_directions > 0 then
       shuffle(shoot_directions)
       local decided_direction = shoot_directions[1]
-      local targets = get_ranged_targets(self_tile, shoot_directions[1], "hero", "enemy")
+      local targets = get_ranged_targets(self, shoot_directions[1])
       for next in all(targets) do
         -- next.health -= 1
         hit_target(next, 1)
@@ -1327,10 +1328,9 @@ function get_adjacent_tiles(tile)
 	return adjacent_tiles
 end
 
--- todo: maybe I can clean up the parameters here by doing the same thing I did with get_shoot_dest()
-function get_ranged_targets(start_tile, direction, find, avoid)
+function get_ranged_targets(thing, direction)
 
-	local now_tile = start_tile
+	local now_tile = {thing.x, thing.y}
 	local x_vel = direction[1]
 	local y_vel = direction[2]
 	local targets = {}
@@ -1342,12 +1342,12 @@ function get_ranged_targets(start_tile, direction, find, avoid)
 		if
 			location_exists(next_tile) == false or
 			is_wall_between(now_tile, next_tile) or
-			find_type_in_tile(avoid, next_tile)
+			find_type_in_tile(thing.type, next_tile)
 		then
 			return targets
 		end
 		-- if there's a target in the tile, return it
-		local target = find_type_in_tile(find, next_tile)
+		local target = find_type_in_tile(thing.target_type, next_tile)
 		if target then
 			add(targets, target)
 		end
@@ -1364,7 +1364,7 @@ function update_targets()
 	for h in all(heroes) do
 		if h.shoot and h.active then
 			for d in all({{0, -1}, {0, 1}, {-1, 0}, {1, 0}}) do
-				local targets = get_ranged_targets({h.x, h.y}, d, "enemy", "hero")
+				local targets = get_ranged_targets(h, d)
 				for t in all(targets) do
 					t.is_shoot_target = true
 				end
