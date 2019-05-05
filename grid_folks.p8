@@ -7,7 +7,7 @@ __lua__
 -- todo
 -- [x] enemies that shoot
 -- [x] shoot does one damage and hits one enemy
--- [ ] enemies that walk through walls
+-- [x] enemies that walk through walls
 -- [ ] enemies that take turns when you switch characters?
 -- [ ] enemies that create smaller enemies when they die?
 -- [ ] jump doesn't attack
@@ -111,6 +111,8 @@ function _init()
   walls = {}
 	colors_bag = {}
   enemies_bag = {}
+  orthogonal_directions = {{-1,0},{1,0},{0,-1},{0,1}}
+  surrounding_directions = {{-1,0},{1,0},{0,-1},{0,1},{-1,-1},{-1,1},{1,-1},{1,1}}
 
 	-- log of recent user input
 	input_queue = {}
@@ -575,7 +577,7 @@ function new_hero()
 			pal(006, 011)
 			pal(010, 007)
 			if self.active then
-				for next in all({{-1,0},{1,0},{0,-1},{0,1}}) do
+				for next in all(orthogonal_directions) do
 					local _a = {self.x, self.y}
 					local _b = {self.x + next[1], self.y + next[2]}
 					local sprite = next[2] == 0 and sprites.arrow_right or sprites.arrow_down
@@ -596,7 +598,7 @@ function new_hero()
 			pal(006, 012)
 			pal(010, 007)
 			if self.active then
-				for next in all({{-1,0},{1,0},{0,-1},{0,1}}) do
+				for next in all(orthogonal_directions) do
 					local _a = {self.x, self.y}
 					local _b = {self.x + next[1], self.y + next[2]}
 					local sprite = next[2] == 0 and sprites.arrow_right or sprites.arrow_down
@@ -618,7 +620,7 @@ function new_hero()
 		else
 			pal(010, 007)
 			if self.active then
-				for next in all({{-1,0},{1,0},{0,-1},{0,1}}) do
+				for next in all(orthogonal_directions) do
 					local _a = {self.x, self.y}
 					local _b = {self.x + next[1], self.y + next[2]}
 					local sprite = next[2] == 0 and sprites.arrow_right or sprites.arrow_down
@@ -858,7 +860,7 @@ function new_enemy_shoot()
 		local self_tile = {self.x, self.y}
 
     local shoot_directions = {}
-    for dir in all({{-1,0},{1,0},{0,-1},{0,1}}) do
+    for dir in all(orthogonal_directions) do
       if get_ranged_target(self, dir) then
         add(shoot_directions, dir)
       end
@@ -877,6 +879,86 @@ function new_enemy_shoot()
 	end
 
 	return new_enemy_shoot
+end
+
+function new_enemy_ghost()
+	local new_enemy_ghost = new_enemy()
+	new_enemy_ghost.health = 1
+  new_enemy_ghost.default_pal = {007,012}
+
+  new_enemy_ghost.move = function(self)
+
+    local dumb_distance = function(a,b)
+      local x_dist = abs(a[1] - b[1])
+      local y_dist = abs(a[2] - b[2])
+      return x_dist + y_dist
+    end
+
+    local self_tile = {self.x, self.y}
+		local a_tile = {hero_a.x, hero_a.y}
+    local b_tile = {hero_b.x, hero_b.y}
+		local a_dist = dumb_distance(self_tile, a_tile)
+		local b_dist = dumb_distance(self_tile, b_tile)
+
+		-- target the closer hero, or a random one if they're equidistant
+		local current_dist
+		local goal_tile
+		if a_dist < b_dist then
+			current_dist = a_dist
+			goal_tile = a_tile
+		elseif b_dist < a_dist then
+			current_dist = b_dist
+			goal_tile = b_tile
+		else
+			local hero_tiles = {a_tile, b_tile}
+			local index = flr(rnd(#hero_tiles)) + 1
+			current_dist = b_dist
+			goal_tile = hero_tiles[index]
+		end
+
+		local valid_moves = {}
+
+		-- populate valid_moves with tiles that are closer and don't contain enemies
+		for next in all(orthogonal_directions) do
+      local next_tile = {self_tile[1] + next[1], self_tile[2] + next[2]}
+			local enemy_exists = find_type_in_tile("enemy", next)
+			if
+				dumb_distance(next_tile, goal_tile) < current_dist and
+				not enemy_exists
+			then
+				add(valid_moves, next_tile)
+			end
+		end
+
+		-- if there are any valid moves…
+		if #valid_moves > 0 then
+			-- pick a tile in valid_moves and attempt to move to it
+			-- this will either move to it or hit a hero
+			index = flr(rnd(#valid_moves)) + 1
+			dest = valid_moves[index]
+			local target = find_type_in_tile("hero", dest)
+			if target then
+				if target.health > 0 then
+					-- get direction
+					local direction = get_direction(self_tile, dest)
+					target.health -= 1
+					local here = tile_to_screen({self.x, self.y})
+					local bump = {here[1] + direction[1] * 2, here[2] + direction[2] * 2}
+					transition_to(self, {bump, here}, 2, 2)
+					local b_r = {000, 008}
+					target.pal_seq = frames({b_r,{10,10}})
+					delay += 4
+					sfx(sounds.enemy_bump, 3)
+				end
+			else
+				set_tile(self, dest)
+				transition_to(self, {tile_to_screen(dest)}, 4, 0)
+				delay += 4
+			end
+		end
+  end
+
+	return new_enemy_ghost
 end
 
 function new_shot(thing, target, dir)
@@ -957,10 +1039,11 @@ end
 function spawn_enemy()
   local enemy_types = {
     new_enemy,
-    new_enemy_shoot
+    new_enemy_shoot,
+    new_enemy_ghost,
   }
   if #enemies_bag == 0 then
-		enemies_bag = {1,2}
+		enemies_bag = {1,2,3}
 		shuffle(enemies_bag)
 	end
   local new_enemy = enemy_types[enemies_bag[1]]()
@@ -1172,7 +1255,7 @@ function new_num_effect(pos, amount, color, outline)
 			local sx = self.screen_seq[1][1]
 			local sy = self.screen_seq[1][2]
       local sign = amount > 0 and "+" or ""
-			for next in all({{-1,0},{1,0},{0,-1},{0,1},{-1,-1},{-1,1},{1,-1},{1,1}}) do
+			for next in all(surrounding_directions) do
 				print(sign .. amount, sx+next[1], sy+next[2], outline)
 			end
 			print(sign .. amount, sx, sy, color)
