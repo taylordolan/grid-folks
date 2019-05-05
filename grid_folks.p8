@@ -5,6 +5,12 @@ __lua__
 -- taylor d
 
 -- todo
+-- [ ] enemies that shoot
+-- [ ] enemies that walk through walls
+-- [ ] enemies that take turns when you switch characters?
+-- [ ] enemies that create smaller enemies when they die?
+-- [ ] jump doesn't attack
+-- [ ] shoot does one damage and hits one enemy
 -- [ ] balance enemy spawn rate
 
 -- optimizations
@@ -104,6 +110,7 @@ function _init()
 	effects = {}
   walls = {}
 	colors_bag = {}
+  enemies_bag = {}
 
 	-- log of recent user input
 	input_queue = {}
@@ -487,27 +494,6 @@ function new_hero()
 		local ally_button = find_type_in_tile("button", {ally.x, ally.y})
 		local next_tile = {self.x + direction[1], self.y + direction[2]}
 
-		function get_shoot_dest(direction)
-
-			local now_tile = {self.x, self.y}
-			local x_vel = direction[1]
-			local y_vel = direction[2]
-
-			while true do
-				-- define the current target
-				local next_tile = {now_tile[1] + x_vel, now_tile[2] + y_vel}
-				-- if `next_tile` is off the map, or there's a wall in the way, return false
-				if
-					location_exists(next_tile) == false or
-					is_wall_between(now_tile, next_tile) or
-					find_type_in_tile("hero", next_tile)
-				then
-					return now_tile
-				end
-				now_tile = next_tile
-			end
-		end
-
 		-- this is where the actual acting starts
 		-- if the destination exists and the tile isn't occupied by your ally
 		if location_exists(next_tile) and not find_type_in_tile("hero", next_tile) then
@@ -518,7 +504,7 @@ function new_hero()
 			-- if jump is enabled and there's a wall in the way
 			if self.jump and wall or self.jump and enemy then
 				if enemy then
-					hit_enemy(enemy, 2)
+					hit_target(enemy, 2)
 					player_turn = false
 				end
 				local _here = tile_to_screen({self.x, self.y})
@@ -534,22 +520,21 @@ function new_hero()
 			elseif not wall then
 
 				-- if shoot is enabled and shoot targets exist
-				local shoot_targets = get_shoot_targets(self, direction)
+				local shoot_targets = get_ranged_targets({self.x, self.y}, direction, "enemy", "hero")
 				if self.shoot and #shoot_targets > 0 then
 					for next in all(shoot_targets) do
-						hit_enemy(next, 2)
+						hit_target(next, 2)
 					end
-					local shot_dest = get_shoot_dest(direction)
+					local shot_dest = get_shoot_dest(self, direction)
 					local screen_shot_dest = tile_to_screen(shot_dest)
 					new_shot(self.screen_seq[1], screen_shot_dest, direction)
 					sfx(sounds.shoot, 3)
-
 					delay += 4
 					player_turn = false
 
 				-- otherwise, if there's an enemy in the destination, hit it
 				elseif enemy then
-					hit_enemy(enemy, 1)
+					hit_target(enemy, 1)
 					sfx(sounds.hero_bump, 3)
 					local here = tile_to_screen({self.x, self.y})
 					local bump = {here[1] + direction[1] * 2, here[2] + direction[2] * 2}
@@ -586,6 +571,7 @@ function new_hero()
 		-- default palette updates
 		palt(015, true)
 		palt(000, false)
+
 		if self.shoot then
 			pal(007, 011)
 			pal(006, 011)
@@ -602,7 +588,7 @@ function new_hero()
 					elseif next[2] == -1 then
 						flip_y = true
 					end
-					if #get_shoot_targets(self, next) > 0 then
+					if #get_ranged_targets({self.x, self.y}, next, "enemy", "hero") > 0 then
 						spr(sprite, ax + next[1] * 8, ay + next[2] * 8, 1, 1, flip_x, flip_y)
 					end
 				end
@@ -669,25 +655,14 @@ end
 function new_enemy()
 	local new_enemy = new_thing()
 
-	new_enemy.sprite_seq = {sprites.enemy_3}
+	new_enemy.sprite_seq = frames({sprites.enemy_1, sprites.enemy_2, sprites.enemy_3})
 	new_enemy.type = "enemy"
 	new_enemy.stunned = true
 	new_enemy.health = 2
 	new_enemy.list = enemies
 
-	new_enemy.update = function(self)
-
-		if self.health <= 0 then
-			return
-		end
-
-		if self.stunned == true then
-			self.stunned = false
-			player_turn = true
-			return
-		end
-
-		local self_tile = {self.x, self.y}
+  new_enemy.move = function(self)
+    local self_tile = {self.x, self.y}
 
 		local a_tile = {hero_a.x, hero_a.y}
 		local a_dist = distance(self_tile, a_tile)
@@ -765,6 +740,21 @@ function new_enemy()
 				delay += 4
 			end
 		end
+  end
+
+	new_enemy.update = function(self)
+
+		if self.health <= 0 then
+			return
+		end
+
+		if self.stunned == true then
+			self.stunned = false
+			player_turn = true
+			return
+		end
+
+		self:move()
 	end
 
 	new_enemy.draw = function(self)
@@ -847,6 +837,109 @@ function new_enemy()
 	return new_enemy
 end
 
+function new_enemy_shoot()
+	local enemy_shoot = new_enemy()
+	enemy_shoot.health = 1
+
+  enemy_shoot.update = function(self)
+
+		if self.health <= 0 then
+			return
+		end
+
+		if self.stunned == true then
+			self.stunned = false
+			player_turn = true
+			return
+		end
+
+		local self_tile = {self.x, self.y}
+
+    local shoot_directions = {}
+    for dir in all({{-1,0},{1,0},{0,-1},{0,1}}) do
+      printh(#get_ranged_targets(self_tile, dir, "hero", "enemy"))
+      if #get_ranged_targets(self_tile, dir, "hero", "enemy") > 0 then
+        add(shoot_directions, dir)
+      end
+    end
+
+    if #shoot_directions > 0 then
+      shuffle(shoot_directions)
+      local decided_direction = shoot_directions[1]
+      local targets = get_ranged_targets(self_tile, shoot_directions[1], "hero", "enemy")
+      for next in all(targets) do
+        -- next.health -= 1
+        hit_target(next, 1)
+      end
+      local shot_dest = get_shoot_dest(self, decided_direction)
+      local screen_shot_dest = tile_to_screen(shot_dest)
+      new_shot(self.screen_seq[1], screen_shot_dest, decided_direction)
+      sfx(sounds.shoot, 3)
+    else
+      self:move()
+		end
+	end
+
+  -- todo: clean up the redundancy with this and the default enemy draw function
+  enemy_shoot.draw = function(self)
+
+		-- set sprite based on the first value in sprite_seq
+		local sprite = self.sprite_seq[1]
+
+		-- set the current screen destination using the first value in screen_seq
+		local sx = self.screen_seq[1][1]
+		local sy = self.screen_seq[1][2]
+
+		-- default palette updates
+		palt(015, true)
+		palt(000, false)
+    pal(007,011)
+		if self.stunned then
+			pal(000, 006)
+		end
+
+		-- update the palette based using first value in pal_seq
+		pal(self.pal_seq[1][1], self.pal_seq[1][2])
+
+		-- draw the enemy and its health
+		spr(sprite, sx, sy)
+		draw_health(sx, sy, self.health, 7)
+
+		-- draw crosshairs
+		if self.health >= 1 then
+			if self.is_shoot_target then
+				pal(006, 011)
+				spr(sprites.crosshair, sx, sy)
+			end
+			if self.is_jump_target then
+				pal(006, 012)
+				spr(sprites.crosshair, sx, sy)
+			end
+		end
+
+		self.end_draw(self)
+	end
+
+	return enemy_shoot
+end
+
+function get_shoot_dest(thing, direction)
+  local now_tile = {thing.x, thing.y}
+  while true do
+    -- define the current target
+    local next_tile = {now_tile[1] + direction[1], now_tile[2] + direction[2]}
+    -- if `next_tile` is off the map, or there's a wall in the way, return false
+    if
+      location_exists(next_tile) == false or
+      is_wall_between(now_tile, next_tile) or
+      find_type_in_tile(thing.type, next_tile)
+    then
+      return now_tile
+    end
+    now_tile = next_tile
+  end
+end
+
 function new_shot(a, b, dir)
 	local ax = a[1]
 	local ay = a[2]
@@ -927,8 +1020,17 @@ function update_spawn_turns()
 end
 
 function spawn_enemy()
-	local new_enemy = new_enemy()
-	new_enemy.deploy(new_enemy)
+  local enemy_types = {
+    new_enemy,
+    new_enemy_shoot
+  }
+  if #enemies_bag == 0 then
+		enemies_bag = {1,2}
+		shuffle(enemies_bag)
+	end
+  local new_enemy = enemy_types[enemies_bag[1]]()
+  new_enemy:deploy()
+  del(enemies_bag, enemies_bag[1])
 end
 
 function active_hero()
@@ -1225,9 +1327,10 @@ function get_adjacent_tiles(tile)
 	return adjacent_tiles
 end
 
-function get_shoot_targets(hero, direction)
+-- todo: maybe I can clean up the parameters here by doing the same thing I did with get_shoot_dest()
+function get_ranged_targets(start_tile, direction, find, avoid)
 
-	local now_tile = {hero.x, hero.y}
+	local now_tile = start_tile
 	local x_vel = direction[1]
 	local y_vel = direction[2]
 	local targets = {}
@@ -1239,14 +1342,14 @@ function get_shoot_targets(hero, direction)
 		if
 			location_exists(next_tile) == false or
 			is_wall_between(now_tile, next_tile) or
-			find_type_in_tile("hero", next_tile)
+			find_type_in_tile(avoid, next_tile)
 		then
 			return targets
 		end
-		-- if there's an enemy in the target, return it
-		local enemy = find_type_in_tile("enemy", next_tile)
-		if enemy then
-			add(targets, enemy)
+		-- if there's a target in the tile, return it
+		local target = find_type_in_tile(find, next_tile)
+		if target then
+			add(targets, target)
 		end
 		-- set `current` to `next_tile` and keep going
 		now_tile = next_tile
@@ -1261,7 +1364,7 @@ function update_targets()
 	for h in all(heroes) do
 		if h.shoot and h.active then
 			for d in all({{0, -1}, {0, 1}, {-1, 0}, {1, 0}}) do
-				local targets = get_shoot_targets(h, d)
+				local targets = get_ranged_targets({h.x, h.y}, d, "enemy", "hero")
 				for t in all(targets) do
 					t.is_shoot_target = true
 				end
@@ -1360,16 +1463,16 @@ end
 
 -- given an enemy and an amount of damage,
 -- hit it and then kill if it has no health
-function hit_enemy(enemy, damage)
-	enemy.health -= damage
-	if enemy.health <= 0 then
-		local _x = enemy.screen_seq[1][1]
-		local _y = enemy.screen_seq[1][2]
+function hit_target(target, damage)
+	target.health -= damage
+	if target.type == "enemy" and target.health <= 0 then
+		local _x = target.screen_seq[1][1]
+		local _y = target.screen_seq[1][2]
 		new_pop({_x,_y})
-		enemy:destroy()
-	else
+		target:destroy()
+	elseif target.health > 0 then
 		local b_r = {000, 008}
-		enemy.pal_seq = frames({_br,{010,010}})
+		target.pal_seq = frames({b_r,{010,010}})
 	end
 end
 
@@ -1763,6 +1866,54 @@ f0000ffff0000ffff0000ffffff6fffffff6ffff0000000000000000000000000000000000000000
 77777001cccc10000000000000c00000700707077707070000000000070700288882000000000007070770070707000000000000000000000000000000000000
 0070000111111000077700000c0c0000700707070707770000000000777700222222000077700007770700077707000000000000000000000000000000000000
 0707000011110000000000000c0c0007700077070707000000000000077000022220000000000007070777070707770000000000000000000000000000000000
+00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+ffffffffffffffffffffffffffffffffffffffffffffffffff00000ff00000ffff0000ff00000000ff00000ffffffffff00000ff000000000000000000000000
+00ff00ffffffffffffffffffffffffffffffffff00fff00ff077770ff07770fff0d7d70f00000000ff0bbb0ff00000fff0aaa0ff000000000000000000000000
+070070ff000000fff00000ffffffffffffffffff0700070ff007070f007000fff007070f00000000f00b000f0070700f0000000f000000000000000000000000
+077770ff077770fff07770fff00000ffffffffff0777770ff077770f077770fff0d7d70f00000000007777000777770f0aaaaa0f000000000000000000000000
+007070ff007070fff07070fff07770ffff000fff0700070ff070770f007070fff077770f00000000070707700707070f0a0a0a0f000000000000000000000000
+077770ff0777700f0077700ff07070fff07770ff0777770ff070770f0777700ff07070ff00000000007777000777770f0aaaaa0f000000000000000000000000
+007700ff0777770f0777770ff07770ff0777770f0077700ff00770ff0777770fff000fff00000000f007070f0070700f00a0a00f000000000000000000000000
+f0000fff0000000f0000000ff00000ff0000000ff00000fffff000ff0000000fffffffff00000000ff00000ff00000fff00000ff000000000000000000000000
+ffffffffffffffffffffffff0000000000000000ffffffffffffffffff00000fff0ff0fffff00fffffffffff0000000000000000000000000000000000000000
+ffffffffffffffffffffffff0000000000000000f0ff00fff00000fff077770ff010010fff0880ffffffffff0000000000000000000000000000000000000000
+000000fff0000fffffffffff0000000000000000f70070ff000770fff088870ff011110ff00000fff000000f0000000000000000000000000000000000000000
+077770ff077770ffff000fff0000000000000000f77770ff077770fff077770ff000000ff0cccc0f007777000000000000000000000000000000000000000000
+007070ff007070fff07770ff0000000000000000000770ff000770fff070770ff0cccc0ff00c0c0f070707700000000000000000000000000000000000000000
+077770ff077770fff07070ff0000000000000000077770ff077770fff070770ff00c0c0ff0cccc0f007777000000000000000000000000000000000000000000
+007700ff077770ff0777770f0000000000000000000770ff000000fff00770fff0cccc0fff0cc0fff007070f0000000000000000000000000000000000000000
+f0000ffff0000fff0000000f0000000000000000ff000ffffffffffffff000ffff0000fffff00fffff00000f0000000000000000000000000000000000000000
+f0ff0fffffffffff777777777777777770000077ffffffff7777777700000077ff0000ffffffffffffffffffffffffff00000000000000000000000000000000
+070070ff00ff00ff777777777777777777777777f0ff0fff7000000707777777f077770f0000000f0000000ff000000f00000000000000000000000000000000
+077770ff070070ff070070770700070707070707070070ff7077770707007077f077770f0777770f0777770f0077770000000000000000000000000000000000
+007070ff077770ff077770770777770707070707077770ff0070070007707777070707700707070f7070700f0707077000000000000000000000000000000000
+007070ff007070ff007070770070700707777707000770ff0777777000700077077777700707070f0777770f0077770000000000000000000000000000000000
+077770ff077770ff077770770777770707707707077770ff0077770007777777f070070f0777770f0777770ff077770f00000000000000000000000000000000
+007700ff007700ff007700770707070770777077000770ff7070070770777077ff0ff0ff0070700f0070700ff007070f00000000000000000000000000000000
+f0000ffff0000fff700007770000000777000777ff0000ff7000000777000777fffffffff00000fff00000ffff00000f00000000000000000000000000000000
+77777777000f000f00070007ffffffff000000ff0000000fffffffff0000000f000000ffffffffff000000000000000000000000000000000000000000000000
+700000770700070f07000700ffffffff0777700f0777770ff0000fff0777770f0777700fffffffff000000000000000000000000000000000000000000000000
+707070770777770f77777770000000ff0070770f0070700f007700ff0070770f0070770ff0000fff000000000000000000000000000000000000000000000000
+007770070707070f07070700077770ff0777770f077770ff077770ff0777770f0777770f007700ff000000000000000000000000000000000000000000000000
+077077070777770f07777707007070ff0070700f070770ff077770ff0070700f0070700f077770ff000000000000000000000000000000000000000000000000
+007770070070700f007070070777700f000070ff077770ff0070700ff07070ff000070ff0777700f000000000000000000000000000000000000000000000000
+07707707f07770ff707770770777770f070770ff007070ff0777770ff07070ff070770ff0777770f000000000000000000000000000000000000000000000000
+00000007f00000ff700000770000000f000000fff00000ff0000000ff00000ff000000ff0000000f000000000000000000000000000000000000000000000000
 __label__
 00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
@@ -2023,3 +2174,4 @@ __music__
 00 00000000
 00 00000000
 00 00000000
+
