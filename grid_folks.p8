@@ -6,11 +6,11 @@ __lua__
 
 -- todo
 -- [x] enemies that shoot
+-- [x] shoot does one damage and hits one enemy
 -- [ ] enemies that walk through walls
 -- [ ] enemies that take turns when you switch characters?
 -- [ ] enemies that create smaller enemies when they die?
 -- [ ] jump doesn't attack
--- [ ] shoot does one damage and hits one enemy
 -- [ ] balance enemy spawn rate
 
 -- optimizations
@@ -446,7 +446,8 @@ function new_thing()
 		-- a sequence of sprites
 		sprite_seq = {},
 		-- a sequence of palette modifications
-		pal_seq = {{10,10}},
+		pal_seq = {{010,010}},
+    default_pal = {010,010},
 		end_draw = function(self)
 			-- for all these lists, if there's more than one value, remove the first one
 			if #self.screen_seq > 1 then
@@ -635,7 +636,7 @@ function new_hero()
 			end
 		end
 
-		-- update the palette based using first value in pal_seq
+		-- update the palette using first value in pal_seq
 		pal(self.pal_seq[1][1], self.pal_seq[1][2])
 
 		-- draw the sprite and the hero's health
@@ -658,6 +659,7 @@ function new_enemy()
 	new_enemy.stunned = true
 	new_enemy.health = 2
 	new_enemy.list = enemies
+  new_enemy.default_pal = {010,010}
 
   new_enemy.move = function(self)
     local self_tile = {self.x, self.y}
@@ -767,11 +769,12 @@ function new_enemy()
 		-- default palette updates
 		palt(015, true)
 		palt(000, false)
+    pal(self.default_pal[1],self.default_pal[2])
 		if self.stunned then
 			pal(000, 006)
 		end
 
-		-- update the palette based using first value in pal_seq
+		-- update the palette using first value in pal_seq
 		pal(self.pal_seq[1][1], self.pal_seq[1][2])
 
 		-- draw the enemy and its health
@@ -790,7 +793,7 @@ function new_enemy()
 			end
 		end
 
-		self.end_draw(self)
+		self:end_draw()
 	end
 
 	new_enemy.deploy = function(self)
@@ -836,10 +839,11 @@ function new_enemy()
 end
 
 function new_enemy_shoot()
-	local enemy_shoot = new_enemy()
-	enemy_shoot.health = 1
+	local new_enemy_shoot = new_enemy()
+	new_enemy_shoot.health = 1
+  new_enemy_shoot.default_pal = {007,011}
 
-  enemy_shoot.update = function(self)
+  new_enemy_shoot.update = function(self)
 
 		if self.health <= 0 then
 			return
@@ -872,47 +876,7 @@ function new_enemy_shoot()
 		end
 	end
 
-  -- todo: clean up the redundancy with this and the default enemy draw function
-  enemy_shoot.draw = function(self)
-
-		-- set sprite based on the first value in sprite_seq
-		local sprite = self.sprite_seq[1]
-
-		-- set the current screen destination using the first value in screen_seq
-		local sx = self.screen_seq[1][1]
-		local sy = self.screen_seq[1][2]
-
-		-- default palette updates
-		palt(015, true)
-		palt(000, false)
-    pal(007,011)
-		if self.stunned then
-			pal(000, 006)
-		end
-
-		-- update the palette based using first value in pal_seq
-		pal(self.pal_seq[1][1], self.pal_seq[1][2])
-
-		-- draw the enemy and its health
-		spr(sprite, sx, sy)
-		draw_health(sx, sy, self.health, 7)
-
-		-- draw crosshairs
-		if self.health >= 1 then
-			if self.is_shoot_target then
-				pal(006, 011)
-				spr(sprites.crosshair, sx, sy)
-			end
-			if self.is_jump_target then
-				pal(006, 012)
-				spr(sprites.crosshair, sx, sy)
-			end
-		end
-
-		self.end_draw(self)
-	end
-
-	return enemy_shoot
+	return new_enemy_shoot
 end
 
 function new_shot(thing, target, dir)
