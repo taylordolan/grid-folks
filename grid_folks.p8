@@ -12,9 +12,9 @@ __lua__
 -- [ ] dash enemies should go for the nearest enemy
 -- [ ] enemies that take turns when you switch characters?
 -- [ ] enemies that create smaller enemies when they die?
--- [ ] jump doesn't attack
+-- [x] jump doesn't attack
 -- [ ] balance enemy spawn rate
--- [ ] make it doesn't crash if it tries to deploy an enemy and the only available space is next to a hero
+-- [ ] make sure it doesn't crash if it tries to deploy an enemy and the only available space is next to a hero
 -- [ ] slow down all the animations and transitions
 -- [ ] heroes and enemies should get knocked back a couple pixels when they get hit
 -- [ ] the slime monster should run away from you instead of toward you
@@ -106,7 +106,7 @@ function _init()
 	turn_score_gain = 0
 	turn_health_gain = 0
   depth = 32
-  mode = "title"
+  mode = "game"
 
 	-- lists of `things`
 	heroes = {}
@@ -236,6 +236,7 @@ function _update60()
 		if input_queue[1] == 5 then
 			for next in all(heroes) do
 				next.active = not next.active
+        -- player_turn = false
 			end
 			update_targets()
 			sfx(sounds.switch_heroes, 3)
@@ -1020,6 +1021,44 @@ function new_enemy_dash()
   new_enemy_dash.sprite_seq = {143}
   new_enemy_dash.health = 1
 
+  new_enemy_dash.move = function(self)
+    local closer_tiles_dist = 1000
+    local closer_tiles = {}
+    local a_tile = {hero_a.x,hero_a.y}
+    local b_tile = {hero_b.x,hero_b.y}
+
+    for dir in all(orthogonal_directions) do
+      local now_tile = {self.x,self.y}
+      local next_tile = {now_tile[1] + dir[1], now_tile[2] + dir[2]}
+      while
+        location_exists(next_tile) and
+        not is_wall_between(now_tile, next_tile) and
+        not find_type_in_tile("enemy",next_tile)
+      do
+        local dist_a = distance(next_tile, a_tile)
+        local dist_b = distance(next_tile, b_tile)
+        for dist in all({dist_a,dist_b}) do
+          if dist < closer_tiles_dist then
+            closer_tiles_dist = dist
+            closer_tiles = {next_tile}
+          elseif dist == closer_tiles_dist then
+            add(closer_tiles, next_tile)
+          end
+        end
+        now_tile = next_tile
+        next_tile = {now_tile[1] + dir[1], now_tile[2] + dir[2]}
+      end
+    end
+
+    if #closer_tiles > 0 then
+      shuffle(closer_tiles)
+      printh(closer_tiles[1][1])
+      printh(closer_tiles[1][2])
+      set_tile(self, closer_tiles[1])
+      transition_to(self, {tile_to_screen(closer_tiles[1])}, 4, 0)
+    end
+  end
+
   new_enemy_dash.update = function(self)
 
 		if self.health <= 0 then
@@ -1154,7 +1193,7 @@ function spawn_enemy()
     new_enemy_dash,
   }
   if #enemies_bag == 0 then
-		enemies_bag = {1,4,6}
+		enemies_bag = {6}
 		shuffle(enemies_bag)
 	end
   local new_enemy = enemy_types[enemies_bag[1]]()
@@ -1631,6 +1670,7 @@ function pair_equal(a, b)
 	return false
 end
 
+-- takes two tiles
 function distance(start, goal)
 	local frontier = {goal}
 	local next_frontier = {}
@@ -2024,14 +2064,14 @@ ffffffff777777770077007777777777077077070700070f000000ff000000ff0000000000000000
 077770ff077777070777707707777077077770770077700f0007770f0077770f0000000000000000007777000000000007777707077770770070700707070707
 007700ff00770007007700770707007707070077f07770ffff07070ff070700f0000000000000000f007070f0000000000777007007700770777770707070707
 f0000fff70000777700007777000077700000777f00000ffff00000ff00000ff0000000000000000ff00000f0000000070000077700007770000000700000007
-77777777ffffffff007700777777777777000077000000007777777700000077ff0000ffffffffffffffffffffffffff7777777770070777ffffffff77777777
-7777777700ff00ff070070077777777700070077000000007000000707777777f077770f0000000f0000000ff000000f0000077770707077ffffffff77000077
-07000707070070ff077077070000007707077077000000007077770707007077f077770f0777770f0777770f007777000700707700707077ffffffff70777707
-07777707077770ff707007070777707707007077000000000070070007707777070707700707070f7070700f070707700777707707777077f0000fff00070707
-00707007007070ff707777070070707707777077000000000777777000700077077777700707070f0777770f007777000070707700707077077770ff07777707
-07777707077770ff700707070777707700707077000000000077770007777777f070070f0777770f0777770ff077770f0777707707777077007070ff07070707
-07070707007700ff707777070707007707777077000000007070070770777077ff0ff0ff0070700f0070700ff007070f0077007700770077077770ff07070707
-00000007f0000fff700000077000077700000077000000007000000777000777fffffffff00000fff00000ffff00000f7000077770000777000000ff00000007
+77777777ffffffff007700777777777777000077000000007777777700000077ff0000ffffffffffffffffffffffffff77777777ffffffffffffffff77777777
+7777777700ff00ff070070077777777700070077000000007000000707777777f077770f0000000f0000000ff000000f00000777000000ffffffffff77000077
+07000707070070ff077077070000007707077077000000007077770707007077f077770f0777770f0777770f0077770007007077077770ffffffffff70777707
+07777707077770ff707007070777707707007077000000000070070007707777070707700707070f7070700f0707077007777077007070fff0000fff00070707
+00707007007070ff707777070070707707777077000000000777777000700077077777700707070f0777770f00777700007070770777700f077770ff07777707
+07777707077770ff700707070777707700707077000000000077770007777777f070070f0777770f0777770ff077770f077770770077770f007070ff07070707
+07070707007700ff707777070707007707777077000000007070070770777077ff0ff0ff0070700f0070700ff007070f00770077f070700f077770ff07070707
+00000007f0000fff700000077000077700000077000000007000000777000777fffffffff00000fff00000ffff00000f70000777f00000ff000000ff00000007
 77777777000f000f70070077777777777777777777777777ffffffff0000000f000000ffffffffff000000000077007777777777777777777777777777777777
 700000770700070f07007007000000070000007777000077f0000fff0777770f0777700fffffffff000000000700707777777777000700070000000777777777
 707070770777770f07707707077077070770770770770707007700ff0070770f0070770ff0000fff000000000777707700000077070007070707070700000077
