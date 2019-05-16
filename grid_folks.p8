@@ -20,6 +20,7 @@ __lua__
 -- [ ] the slime monster should run away from you instead of toward you
 -- [ ] what if yellow and orange only had their effects when an enemy *died* there
 -- [ ] if it takes a turn to switch heroes, then you get the same effect that imbroglio has with waiting!
+-- [ ] maybe slime enemies should only become stunned if they move, not if they attack
 
 -- optimizations
 -- [x] eliminate the colors dictionary
@@ -756,9 +757,10 @@ function new_enemy()
 
 	new_enemy.update = function(self)
 
-		if self.health <= 0 then
-			return
-		end
+		-- if self.health <= 0 and #self.screen_seq == 1 then
+		-- 	self:destroy()
+    --   return
+		-- end
 
 		if self.stunned == true then
 			self.stunned = false
@@ -782,7 +784,7 @@ function new_enemy()
 		palt(015, true)
 		palt(000, false)
     pal(self.default_pal[1],self.default_pal[2])
-		if self.stunned then
+		if self.stunned and player_turn == false or self.stunned and delay == 0 then
 			pal(000, 006)
 		end
 
@@ -806,6 +808,10 @@ function new_enemy()
 		end
 
 		self:end_draw()
+    if self.health <= 0 and #self.screen_seq == 1 then
+			self:destroy()
+      return
+		end
 	end
 
 	new_enemy.deploy = function(self)
@@ -847,6 +853,7 @@ function new_enemy()
 	end
 
 	add(enemies, new_enemy)
+  -- table.insert(enemies, 1, new_enemy)
 	return new_enemy
 end
 
@@ -974,15 +981,15 @@ end
 function new_enemy_slime()
   local new_enemy_slime = new_enemy()
   new_enemy_slime.sprite_seq = {142}
-  new_enemy_slime.health = 1
+  new_enemy_slime.health = 2
 
   new_enemy_slime.update = function(self)
 
-		if self.health <= 0 then
-			return
-		end
+		-- if self.health <= 0 then
+		-- 	return
+		-- end
 
-		if self.stunned == true then
+		if self.stunned then
 			self.stunned = false
 			player_turn = true
 			return
@@ -1006,11 +1013,11 @@ function new_enemy_slime()
     if will_move then
       local new_baby = new_enemy_baby()
       set_tile(new_baby, here)
-      self.stunned = true
+      -- self.stunned = true
     end
 
 		self:move()
-    -- self.stunned = true
+    self.stunned = true
 	end
 
   return new_enemy_slime
@@ -1021,49 +1028,50 @@ function new_enemy_dash()
   new_enemy_dash.sprite_seq = {143}
   new_enemy_dash.health = 1
 
-  new_enemy_dash.move = function(self)
-    local closer_tiles_dist = 1000
-    local closer_tiles = {}
-    local a_tile = {hero_a.x,hero_a.y}
-    local b_tile = {hero_b.x,hero_b.y}
+  -- new_enemy_dash.move = function(self)
+  --   local closer_tiles_dist = 1000
+  --   local closer_tiles = {}
+  --   local a_tile = {hero_a.x,hero_a.y}
+  --   local b_tile = {hero_b.x,hero_b.y}
 
-    for dir in all(orthogonal_directions) do
-      local now_tile = {self.x,self.y}
-      local next_tile = {now_tile[1] + dir[1], now_tile[2] + dir[2]}
-      while
-        location_exists(next_tile) and
-        not is_wall_between(now_tile, next_tile) and
-        not find_type_in_tile("enemy",next_tile)
-      do
-        local dist_a = distance(next_tile, a_tile)
-        local dist_b = distance(next_tile, b_tile)
-        for dist in all({dist_a,dist_b}) do
-          if dist < closer_tiles_dist then
-            closer_tiles_dist = dist
-            closer_tiles = {next_tile}
-          elseif dist == closer_tiles_dist then
-            add(closer_tiles, next_tile)
-          end
-        end
-        now_tile = next_tile
-        next_tile = {now_tile[1] + dir[1], now_tile[2] + dir[2]}
-      end
-    end
+  --   for dir in all(orthogonal_directions) do
+  --     local now_tile = {self.x,self.y}
+  --     local next_tile = {now_tile[1] + dir[1], now_tile[2] + dir[2]}
+  --     while
+  --       location_exists(next_tile) and
+  --       not is_wall_between(now_tile, next_tile) and
+  --       not find_type_in_tile("enemy",next_tile)
+  --     do
+  --       local dist_a = distance(next_tile, a_tile)
+  --       local dist_b = distance(next_tile, b_tile)
+  --       for dist in all({dist_a,dist_b}) do
+  --         if dist < closer_tiles_dist then
+  --           closer_tiles_dist = dist
+  --           closer_tiles = {next_tile}
+  --         elseif dist == closer_tiles_dist then
+  --           add(closer_tiles, next_tile)
+  --         end
+  --       end
+  --       now_tile = next_tile
+  --       next_tile = {now_tile[1] + dir[1], now_tile[2] + dir[2]}
+  --     end
+  --   end
 
-    if #closer_tiles > 0 then
-      shuffle(closer_tiles)
-      printh(closer_tiles[1][1])
-      printh(closer_tiles[1][2])
-      set_tile(self, closer_tiles[1])
-      transition_to(self, {tile_to_screen(closer_tiles[1])}, 4, 0)
-    end
-  end
+  --   if #closer_tiles > 0 then
+  --     shuffle(closer_tiles)
+  --     printh(closer_tiles[1][1])
+  --     printh(closer_tiles[1][2])
+  --     set_tile(self, closer_tiles[1])
+  --     transition_to(self, {tile_to_screen(closer_tiles[1])}, 4, 0)
+  --   end
+  -- end
 
   new_enemy_dash.update = function(self)
 
-		if self.health <= 0 then
-			return
-		end
+		-- if self.health <= 0 and #self.screen_seq == 1 then
+		-- 	self:destroy()
+    --   return
+		-- end
 
 		if self.stunned == true then
 			self.stunned = false
@@ -1080,18 +1088,20 @@ function new_enemy_dash()
       end
     end
 
+    -- if #dash_directions > 0 then
+    --   shuffle(dash_directions)
+    --   self.banked_direction = dash_directions[1]
+    -- end
+
     if #dash_directions > 0 then
       shuffle(dash_directions)
       local decided_direction = dash_directions[1]
       local target = get_ranged_target(self, dash_directions[1])
       hit_target(target, 1)
-      local dest = {target.x - decided_direction[1], target.y - decided_direction[2]}
-      -- local dest = {1,1}
+      local dest = {target.x, target.y}
       set_tile(self, dest)
       transition_to(self, {tile_to_screen(dest)}, 4, 0)
-      -- set_tile(self, {1,1})
-      -- new_shot(self, target, decided_direction)
-      -- sfx(sounds.shoot, 3)
+      hit_target(self,1)
     else
       self:move()
 		end
@@ -1193,7 +1203,7 @@ function spawn_enemy()
     new_enemy_dash,
   }
   if #enemies_bag == 0 then
-		enemies_bag = {6}
+		enemies_bag = {1,4,6}
 		shuffle(enemies_bag)
 	end
   local new_enemy = enemy_types[enemies_bag[1]]()
@@ -1630,10 +1640,11 @@ end
 function hit_target(target, damage)
 	target.health -= damage
 	if target.type == "enemy" and target.health <= 0 then
-		local _x = target.screen_seq[1][1]
-		local _y = target.screen_seq[1][2]
-		new_pop({_x,_y})
-		target:destroy()
+    local _screen = tile_to_screen({target.x,target.y})
+		-- local _x = target.x
+		-- local _y = target.screen_seq[1][2]
+		new_pop({_screen[1],_screen[2]})
+		-- target:destroy()
 	elseif target.health > 0 then
 		local b_r = {000, 008}
 		target.pal_seq = frames({b_r,{010,010}})
@@ -1885,7 +1896,7 @@ function refresh_pads()
 
 	has_advanced = true
 	if #colors_bag == 0 then
-		colors_bag = {008,008,009,009,011,011,012,012}
+		colors_bag = {008,008,008,009,011,012}
 		shuffle(colors_bag)
 	end
 
