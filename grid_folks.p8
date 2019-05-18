@@ -11,12 +11,12 @@ __lua__
 -- [x] slime enemies should only create babies if they can move
 -- [x] enemies that create smaller enemies when they die?
 -- [x] jump doesn't attack
--- [ ] dash enemies should go for the nearest hero
--- [ ] make sure it doesn't crash if it tries to deploy an enemy and the only available space is next to a hero
+-- [x] particle effects for pop
+-- [x] dash enemies should go for the nearest hero
+-- [x] make sure it doesn't crash if it tries to deploy an enemy and the only available space is next to a hero
+-- [x] shoot should do 2 damage
 -- [ ] slow down all the animations and transitions
--- [ ] shoot should do 2 damage
 -- [ ] fix crosshair rendering for jump ability
--- [ ] particle effects for pop
 -- [ ] fix flashing stun state on sleep enemies
 
 -- optimizations
@@ -116,6 +116,7 @@ function _init()
 	-- other lists
 	exits = {}
 	effects = {}
+  particles = {}
   walls = {}
 	colors_bag = {}
   -- spawn_bag = {}
@@ -363,6 +364,7 @@ function _draw()
 		exits,
 		buttons,
 		walls,
+    particles,
 		enemies,
 		heroes,
 		effects,
@@ -906,13 +908,13 @@ function new_enemy_dash()
   _e.health = 1
 
   _e.get_target = function(self)
-    local target = nil
+    local target
     for dir in all(orthogonal_directions) do
       local _t = get_ranged_target(self, dir)
-      if _t and target ~= nil then
-        local s_t = {self.x,self.y}
-        local t_t = {_t.x,_t.y}
-        local tar_t = {target.x,target.y}
+      if _t and target then
+        local s_t = tile(self)
+        local t_t = tile(_t)
+        local tar_t = tile(target)
         if distance(s_t,t_t) < distance(s_t,tar_t) then
           target = _t
         end
@@ -1508,27 +1510,40 @@ function new_num_effect(pos, amount, color, outline)
 	return new_num_effect
 end
 
-function new_pop(pos)
-	local _a = sprites.die_1
-	local _b = sprites.die_2
-	local new_pop = {
-		s = pos,
-		sprite_seq = frames({_a,_b}),
-		draw = function(self)
-			palt(015, true)
-			local sprite = self.sprite_seq[1]
-			spr(sprite, self.s[1], self.s[2])
-			if #self.sprite_seq > 1 then
-				del(self.sprite_seq, self.sprite_seq[1])
-			end
+function new_pop(s)
 
-			if #self.sprite_seq <= 1 then
-				del(effects, self)
-			end
-			pal()
-		end
-	}
-	add(effects, new_pop)
+  function new_particle(s)
+    local v_x = {.125,-.125,.5,-.5}
+    local v_y = copy(v_x)
+    shuffle(v_x)
+    shuffle(v_y)
+    local _p = {
+      s_x = s[1],
+      s_y = s[2],
+      v_x = v_x[1],
+      v_y = v_y[1],
+      frames = 18,
+      draw = function(self)
+        local sprite = 005
+        if self.frames < 6 then
+          sprite = 006
+        end
+        palt(015,true)
+        spr(sprite,self.s_x,self.s_y)
+        self.frames -= 1
+        self.s_x += self.v_x
+        self.s_y += self.v_y
+        if self.frames <= 0 then
+          del(particles,self)
+        end
+        pal()
+      end
+    }
+    add(particles,_p)
+  end
+  for i=1, 8 do
+    new_particle(s)
+  end
 end
 
 -- check if a tile is in a list of tiles
@@ -1717,16 +1732,8 @@ end
 -- hit it and then kill if it has no health
 function hit_target(target, damage)
 	target.health -= damage
-	-- if target.type == "enemy" and target.health <= 0 then
-  --   local _screen = tile_to_screen({target.x,target.y})
-	-- 	new_pop({_screen[1],_screen[2]})
-		-- local _x = target.x
-		-- local _y = target.screen_seq[1][2]
-		-- target:destroy()
-	-- if target.health > 0 then
   local b_r = {000, 008}
   target.pal_seq = frames({b_r,{010,010}})
-	-- end
 end
 
 function get_direction(a, b)
@@ -2080,14 +2087,14 @@ function new_button(color)
 end
 
 __gfx__
-ffffffffff000fffffffffffffffffffffffffff0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-ffffffffff070ffffff6fffffffaaaffffffffff0000000000000000000000000000000000000777777000000777777000000770000777777000000000000000
-ff000fff0007000ffff6ffffffaa6affffa6afff0000000000000000000000000000000000000777777000000777777000000770000777777000000000000000
-0007000f0777770fffffffffff6aa6fffaaaaaff0000000000000000000000000000000000077775555000077775577770077770077775577770000000000000
-0777770f0007000f66f6f66fffaa6afffa6a6aff0000000000000000000000000000000000077775555000077775577770077770077775577770000000000000
-0007000ff07070fffffffffffffaaafffaa6aaff0000000000000000000000000000000000077771177770077771177770077770077771177770000000000000
-f07070fff07070fffff6ffffffffffffffffffff0000000000000000000000000000000000077771177770077771177770077770077771177770000000000000
-f00000fff00000fffff6ffffffffffffffffffff0000000000000000000000000000000000077770077770077777777550077770077770077770000000000000
+ffffffffff000fffffffffffffffffffffffffffffffffffffffffff000000000000000000000000000000000000000000000000000000000000000000000000
+ffffffffff070ffffff6fffffffaaaffffffffffffffffffffffffff000000000000000000000777777000000777777000000770000777777000000000000000
+ff000fff0007000ffff6ffffffaa6affffa6afffffffffffffffffff000000000000000000000777777000000777777000000770000777777000000000000000
+0007000f0777770fffffffffff6aa6fffaaaaafffff6ffffffffffff000000000000000000077775555000077775577770077770077775577770000000000000
+0777770f0007000f66f6f66fffaa6afffa6a6affff666ffffff6ffff000000000000000000077775555000077775577770077770077775577770000000000000
+0007000ff07070fffffffffffffaaafffaa6aafffff6ffffffffffff000000000000000000077771177770077771177770077770077771177770000000000000
+f07070fff07070fffff6ffffffffffffffffffffffffffffffffffff000000000000000000077771177770077771177770077770077771177770000000000000
+f00000fff00000fffff6ffffffffffffffffffffffffffffffffffff000000000000000000077770077770077777777550077770077770077770000000000000
 ffffffffffffffffffffffffffffffffffffffff0000000000000000000000000000000000077770077770077777777550077770077770077770000000000000
 f66ff66fffffffffffffffffff6666ffeeeeeeee0000000000000000000000000000000000055777777550077775577770077770077777777550000000000000
 f6ffff6fffffffffff6666fff666666feffffffe0000000000000000000000000000000000055777777550077775577770077770077777777550000000000000
