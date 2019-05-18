@@ -8,19 +8,16 @@ __lua__
 -- [x] enemies that shoot
 -- [x] shoot does one damage and hits one enemy
 -- [x] enemies that walk through walls
--- [ ] slime enemies should only create babies if they can move
--- [ ] dash enemies should go for the nearest enemy
--- [ ] enemies that take turns when you switch characters?
--- [ ] enemies that create smaller enemies when they die?
+-- [x] slime enemies should only create babies if they can move
+-- [x] enemies that create smaller enemies when they die?
 -- [x] jump doesn't attack
--- [ ] balance enemy spawn rate
+-- [ ] dash enemies should go for the nearest hero
 -- [ ] make sure it doesn't crash if it tries to deploy an enemy and the only available space is next to a hero
 -- [ ] slow down all the animations and transitions
--- [ ] heroes and enemies should get knocked back a couple pixels when they get hit
--- [ ] the slime monster should run away from you instead of toward you
--- [ ] what if yellow and orange only had their effects when an enemy *died* there
--- [ ] if it takes a turn to switch heroes, then you get the same effect that imbroglio has with waiting!
--- [ ] maybe slime enemies should only become stunned if they move, not if they attack
+-- [ ] shoot should do 2 damage
+-- [ ] fix crosshair rendering for jump ability
+-- [ ] particle effects for pop
+-- [ ] fix flashing stun state on sleep enemies
 
 -- optimizations
 -- [x] eliminate the colors dictionary
@@ -29,6 +26,7 @@ __lua__
 -- [x] make a generic `thing` object and a generic `actor` object
 -- [x] refactor shot drawing as an effect
 -- [x] find a way to reduce the token count of long animations
+-- [ ] clean up sprites
 -- [ ] simplify input conditions
 -- [ ] combine functions for creating wall_right and wall_down
 -- [ ] kill the sprites dictionary
@@ -120,7 +118,7 @@ function _init()
 	effects = {}
   walls = {}
 	colors_bag = {}
-  enemies_bag = {}
+  -- spawn_bag = {}
   orthogonal_directions = {{-1,0},{1,0},{0,-1},{0,1}}
   surrounding_directions = {{-1,0},{1,0},{0,-1},{0,1},{-1,-1},{-1,1},{1,-1},{1,1}}
 
@@ -163,29 +161,50 @@ function _init()
 		end
 	end
 
-	-- initial enemy
-	spawn_enemy()
-
-	-- spawn rate stuff
+	-- spawn stuff
 	spawn_rates = {
-		[1] = 16,
-		[30] = 14,
-		[60] = 12,
-		[90] = 10,
-    [120] = 8,
-		[150] = 6,
-		[180] = 5,
-		[210] = 4,
-		[240] = 3,
-		[300] = 2,
-		[360] = 1,
+		[001] = 12,
+		[050] = 10,
+		[100] = 8,
+		[150] = 7,
+    [200] = 6,
+		[250] = 5,
+		[300] = 4,
+		[350] = 3,
+		[400] = 2,
 	}
-  spawn_turns = {0,0,0}
+  spawn_bags = {
+    [001] = {"dash"},
+    [050] = {"dash","sleep"},
+    [100] = {"dash","sleep","slime"},
+    [150] = {"dash","sleep","slime","grow"},
+  }
+  spawn_functions = {
+    ["sleep"] = function()
+      new_enemy_sleep():deploy()
+    end,
+    ["slime"] = function()
+      new_enemy_slime():deploy()
+    end,
+    ["dash"] = function()
+      new_enemy_dash():deploy()
+    end,
+    ["grow"] = function()
+      new_enemy_grow():deploy()
+      new_enemy_grow():deploy()
+    end,
+  }
 	spawn_rate = spawn_rates[1]
+  spawn_bag = spawn_bags[1]
+  spawn_bag_instance = copy(spawn_bag)
+  spawn_turns = {0,0,0}
 	-- this gets updated whenever an enemy spawns
 	last_spawned_turn = 0
 	-- this tracks whether we've spawned a turn early
 	spawned_early = false
+
+  -- initial enemy
+	spawn_enemy()
 
 	-- start the music!
 	music(sounds.music)
@@ -245,11 +264,6 @@ function _update60()
 			active_hero():act(input_queue[1])
 		end
 		del(input_queue, input_queue[1])
-    -- shuffle(enemies)
-    -- for next in all(enemies) do
-    --   next:update()
-    -- end
-	-- enemy turn
 	elseif player_turn == false then
 		update_hero_abilities()
 		if should_advance() then
@@ -261,22 +275,34 @@ function _update60()
 		end
 		shuffle(enemies)
 		for next in all(enemies) do
-			next.update(next)
+			next:update()
 		end
+
+    -- spawn rate stuff
+    turns = turns + 1
 		update_spawn_turns()
-		if turns > 0 then
-			for i = 1, spawn_turns[turns] do
-				if #enemies < 33 then
-					spawn_enemy()
-				end
-			end
-		end
+
+    -- spawn bag stuff
+    if spawn_bags[turns] then
+      spawn_bag = spawn_bags[turns]
+      spawn_bag_instance = copy(spawn_bag)
+      shuffle(spawn_bag_instance)
+    end
+    -- if #spawn_bag_instance == 0 then
+    --   spawn_bag_instance = spawn_bag
+    --   shuffle(spawn_bag_instance)
+    -- end
+
+    -- spawn enemy
+    for i = 1, spawn_turns[turns] do
+      spawn_enemy()
+    end
+
 		trigger_all_enemy_buttons()
 		turn_health_gain = 0
 		turn_score_gain = 0
 		update_targets()
 		-- update game state
-		turns = turns + 1
 		player_turn = true
 		if spawn_rates[turns] ~= nil then
 			spawn_rate = spawn_rates[turns]
@@ -461,6 +487,14 @@ function _draw()
 	-- pset(127, 127, 014)
 end
 
+function copy(_a)
+  local _b = {}
+  for next in all(_a) do
+    add(_b, next)
+  end
+  return _b
+end
+
 function new_thing()
 	local new_thing = {
 		x = null,
@@ -532,7 +566,7 @@ function new_hero()
 			-- if jump is enabled and there's a wall in the way
 			if self.jump and wall then
 				if enemy then
-					hit_target(enemy, 2)
+					hit_target(enemy, 3)
 					player_turn = false
 				end
 				local _here = tile_to_screen({self.x, self.y})
@@ -550,7 +584,7 @@ function new_hero()
 				-- if shoot is enabled and shoot targets exist
 				local shoot_target = get_ranged_target(self, direction)
 				if self.shoot and shoot_target then
-          hit_target(shoot_target, 1)
+          hit_target(shoot_target, 2)
 					new_shot(self, shoot_target, direction)
 					sfx(sounds.shoot, 3)
 					delay += 4
@@ -815,43 +849,55 @@ function new_enemy()
 
 	_e.deploy = function(self)
 		local valid_tiles = {}
-		local avoid_list = {"hero", "enemy"}
 		for x = 1, cols do
 			for y = 1, rows do
-				local tile_is_valid = true
-				local tile = board[x][y]
-				for tile_item in all(tile) do
-					for avoid_item in all(avoid_list) do
-						-- check everything in the tile to see if it matches anything in the avoid list
-						if tile_item.type == avoid_item then
-							tile_is_valid = false
-						end
-					end
-				end
-				if tile_is_valid then
-					add(valid_tiles, {x,y})
+				local _t = {x,y}
+        if
+          not find_type_in_tile("hero", _t) and
+          not find_type_in_tile("enemy", _t) and
+          dumb_distance(tile(hero_a), _t) >= 2 and
+          dumb_distance(tile(hero_b), _t) >= 2
+        then
+					add(valid_tiles, _t)
 				end
 			end
 		end
 
-    -- todo: use dumb distance here instead
-		for next in all(valid_tiles) do
-			for dir in all({{-1, 0}, {1, 0}, {0, -1}, {0, 1}}) do
-				local spot = {next[1] + dir[1], next[2] + dir[2]}
-				if location_exists(spot) and find_type_in_tile("hero", spot) then
-					del(valid_tiles, next)
-				end
-			end
-		end
-
-		local index = flr(rnd(#valid_tiles)) + 1
-		local dest = valid_tiles[index]
-
-		set_tile(self, dest)
+    if #valid_tiles > 0 then
+      shuffle(valid_tiles)
+      set_tile(self, valid_tiles[1])
+    else
+      self:destroy()
+    end
 	end
 
 	add(enemies, _e)
 	return _e
+end
+
+function new_enemy_sleep()
+  local _e = new_enemy()
+	_e.health = 2
+
+  _e.update = function(self)
+    if player_turn == false then
+      if self.stunned then
+        if
+          distance(tile(hero_a),tile(self)) <=2 or
+          distance(tile(hero_b),tile(self)) <=2
+        then
+          self.stunned = false
+        end
+      else
+        self.target = self:get_target()
+        self.step = self:get_step()
+        self:attack()
+        self:move()
+      end
+    end
+  end
+
+  return _e
 end
 
 function new_enemy_dash()
@@ -907,7 +953,7 @@ end
 function new_enemy_slime()
   local _e = new_enemy()
   _e.sprite_seq = {142}
-  _e.health = 2
+  _e.health = 1
 
   _e.move = function(self)
     if self.step then
@@ -1081,10 +1127,10 @@ function new_enemy_grow()
     end
     for next in all(valid_tiles) do
       if
-        find_type_in_tile("hero", next) or
+        -- find_type_in_tile("hero", next) or
         find_type_in_tile("enemy", next) or
-        distance(tile(hero_a), next) < 2 or
-        distance(tile(hero_b), next) < 2
+        dumb_distance(tile(hero_a), next) < 2 or
+        dumb_distance(tile(hero_b), next) < 2
       then
         del(valid_tiles,next)
       end
@@ -1235,27 +1281,12 @@ function update_spawn_turns()
 end
 
 function spawn_enemy()
-  local enemy_types = {
-    function()
-      new_enemy():deploy()
-    end,
-    function()
-      new_enemy_slime():deploy()
-    end,
-    function()
-      new_enemy_dash():deploy()
-    end,
-    function()
-      new_enemy_grow():deploy()
-      new_enemy_grow():deploy()
-    end,
-  }
-  if #enemies_bag == 0 then
-		enemies_bag = {1,2,3,4}
-		shuffle(enemies_bag)
-	end
-  local new_enemy = enemy_types[enemies_bag[1]]()
-  del(enemies_bag, enemies_bag[1])
+  if #spawn_bag_instance == 0 then
+    spawn_bag_instance = copy(spawn_bag)
+    shuffle(spawn_bag_instance)
+  end
+  spawn_functions[spawn_bag_instance[1]]()
+  del(spawn_bag_instance, spawn_bag_instance[1])
 end
 
 function active_hero()
@@ -1726,6 +1757,12 @@ function pair_equal(a, b)
 		return true
 	end
 	return false
+end
+
+function dumb_distance(a,b)
+  local x_dist = abs(a[1] - b[1])
+  local y_dist = abs(a[2] - b[2])
+  return x_dist + y_dist
 end
 
 -- takes two tiles
