@@ -487,7 +487,9 @@ function new_thing()
 			pal()
 		end,
 		destroy = function(self)
-			del(board[self.x][self.y], self)
+      if self.x and self.y then
+        del(board[self.x][self.y], self)
+      end
 			del(self.list, self)
 		end,
 	}
@@ -674,100 +676,6 @@ function new_hero()
 	return new_hero
 end
 
-function get_steps(start, goal, avoid)
-  local current_dist = distance(start, goal, avoid)
-  local adjacent_tiles = get_adjacent_tiles(start)
-  local valid_tiles = {}
-
-  for next in all(adjacent_tiles) do
-    local should_avoid = avoid and find_type_in_tile(avoid, next)
-    local next_dist = distance(next, goal, avoid)
-    if
-      not should_avoid and
-      next_dist < current_dist
-    then
-      add(valid_tiles, next)
-    end
-  end
-
-  if #valid_tiles == 0 then
-    current_dist = distance(start, goal)
-    for next in all(adjacent_tiles) do
-      local should_avoid = avoid and find_type_in_tile(avoid, next)
-      local next_dist = distance(next, goal)
-      if
-        not should_avoid and
-        next_dist < current_dist
-      then
-        add(valid_tiles, next)
-      end
-    end
-  end
-
-  return valid_tiles
-end
-
--- function get_enemy_step(start, goal_tile, avoid)
---   -- local a_tile = {goal.x, goal.y}
---   -- local a_dist = distance(start, a_tile)
---   -- local b_tile = {hero_b.x, hero_b.y}
---   -- local b_dist = distance(start, b_tile)
-
---   -- target the closer hero
---   -- or a random one if they're equidistant
---   -- local current_dist
---   -- local goal_tile
---   -- if a_dist < b_dist then
---   --   current_dist = a_dist
---   --   goal_tile = a_tile
---   -- elseif b_dist < a_dist then
---   --   current_dist = b_dist
---   --   goal_tile = b_tile
---   -- else
---   --   current_dist = a_dist
---   --   local hero_tiles = {a_tile, b_tile}
---   --   shuffle(hero_tiles)
---   --   goal_tile = hero_tiles[1]
---   -- end
-
---   local current_dist = distance(start, goal_tile, avoid)
---   local adjacent_tiles = get_adjacent_tiles(start)
---   local valid_moves = {}
-
---   -- populate valid_moves with tiles that are closer and don't contain enemies
---   for next in all(adjacent_tiles) do
---     local should_avoid = find_type_in_tile("hero", next)
---     if
---       distance(next, goal_tile, avoid) < current_dist and
---       not should_avoid
---     then
---       add(valid_moves, next)
---     end
---   end
-
---   -- if there are no valid moves based on the above criteria,
---   -- then any adjacent tile that's not an enemy and doesn't have a wall in the way is valid
---   if #valid_moves == 0 then
---     local available_adjacent_tiles = {}
---     for next in all(adjacent_tiles) do
---       local should_avoid = find_type_in_tile("hero", next)
---       if not should_avoid then
---         add(available_adjacent_tiles, next)
---       end
---     end
---     valid_moves = available_adjacent_tiles
---   end
-
---   -- if there are any valid moves…
---   if #valid_moves > 0 then
---     index = flr(rnd(#valid_moves)) + 1
---     dest = valid_moves[index]
---     return dest
---   else
---     return nil
---   end
--- end
-
 function new_enemy()
 	local _e = new_thing()
   _e.sprite_seq = {141}
@@ -808,23 +716,41 @@ function new_enemy()
     end
   end
 
+  _e.get_step_toward_hero = function(self)
+    local start = tile(self)
+    -- find the closest heroes by ideal distance
+    local targets = get_closest(self, heroes)
+    -- if there's more than one, then find the closest heroes by avoid distance
+    if #targets > 1 then
+      targets = get_closest(self, heroes, "enemy")
+    end
+    -- if there's more than one, pick randomly
+    shuffle(targets)
+    local target = targets[1]
+    -- get possible steps by ideal distance
+    local steps = get_steps({self.x,self.y},{target.x,target.y})
+    -- eliminate any ideal steps that have enemies in them
+    for next in all(steps) do
+      if find_type_in_tile("enemy", next) then
+        del(steps, next)
+      end
+    end
+    -- if there are now no options, get possible steps by avoid distance
+    if #steps == 0 then
+      steps = get_steps({self.x,self.y},{target.x,target.y},"enemy")
+    end
+    if #steps == 0 then
+      return get_random_move(tile(self))
+    end
+    -- set the step
+    shuffle(steps)
+    return steps[1]
+  end
+
   _e.get_step = function(self)
+    -- if not attacking this turn
     if not self.target then
-      local start = {self.x,self.y}
-      local targets = get_closest(self, heroes)
-      if #targets > 1 then
-        targets = get_closest(self, heroes, "enemy")
-      end
-      shuffle(targets)
-      local target = targets[1]
-      local steps = get_steps({self.x,self.y},{target.x,target.y})
-      if #steps == 0 then
-        steps = get_steps({self.x,self.y},{target.x,target.y},"enemy")
-      end
-      shuffle(steps)
-      return steps[1]
-    else
-      return nil
+      return self:get_step_toward_hero()
     end
   end
 
@@ -888,10 +814,8 @@ function new_enemy()
 	end
 
 	_e.deploy = function(self)
-
 		local valid_tiles = {}
 		local avoid_list = {"hero", "enemy"}
-
 		for x = 1, cols do
 			for y = 1, rows do
 				local tile_is_valid = true
@@ -910,6 +834,7 @@ function new_enemy()
 			end
 		end
 
+    -- todo: use dumb distance here instead
 		for next in all(valid_tiles) do
 			for dir in all({{-1, 0}, {1, 0}, {0, -1}, {0, 1}}) do
 				local spot = {next[1] + dir[1], next[2] + dir[2]}
@@ -927,145 +852,6 @@ function new_enemy()
 
 	add(enemies, _e)
 	return _e
-end
-
-function new_enemy_shoot()
-	local _e = new_enemy()
-	_e.health = 1
-  _e.default_pal = {007,011}
-
-  _e.update = function(self)
-
-		if self.health <= 0 then
-			return
-		end
-
-		if self.stunned == true then
-			self.stunned = false
-			player_turn = true
-			return
-		end
-
-		local self_tile = {self.x, self.y}
-
-    local shoot_directions = {}
-    for dir in all(orthogonal_directions) do
-      if get_ranged_target(self, dir) then
-        add(shoot_directions, dir)
-      end
-    end
-
-    if #shoot_directions > 0 then
-      shuffle(shoot_directions)
-      local decided_direction = shoot_directions[1]
-      local target = get_ranged_target(self, shoot_directions[1])
-      hit_target(target, 1)
-      new_shot(self, target, decided_direction)
-      sfx(sounds.shoot, 3)
-    else
-      self:move()
-		end
-	end
-
-	return _e
-end
-
-function new_enemy_ghost()
-	local _e = new_enemy()
-	_e.health = 1
-  _e.default_pal = {007,012}
-
-  _e.move = function(self)
-
-    local dumb_distance = function(a,b)
-      local x_dist = abs(a[1] - b[1])
-      local y_dist = abs(a[2] - b[2])
-      return x_dist + y_dist
-    end
-
-    local self_tile = {self.x, self.y}
-		local a_tile = {hero_a.x, hero_a.y}
-    local b_tile = {hero_b.x, hero_b.y}
-		local a_dist = dumb_distance(self_tile, a_tile)
-		local b_dist = dumb_distance(self_tile, b_tile)
-
-		-- target the closer hero, or a random one if they're equidistant
-		local current_dist
-		local goal_tile
-		if a_dist < b_dist then
-			current_dist = a_dist
-			goal_tile = a_tile
-		elseif b_dist < a_dist then
-			current_dist = b_dist
-			goal_tile = b_tile
-		else
-			local hero_tiles = {a_tile, b_tile}
-			local index = flr(rnd(#hero_tiles)) + 1
-			current_dist = b_dist
-			goal_tile = hero_tiles[1]
-		end
-
-		local valid_moves = {}
-
-		-- populate valid_moves with tiles that are closer and don't contain enemies
-		for next in all(orthogonal_directions) do
-      local next_tile = {self_tile[1] + next[1], self_tile[2] + next[2]}
-			local enemy_exists = find_type_in_tile("enemy", next)
-			if
-				dumb_distance(next_tile, goal_tile) < current_dist and
-				not enemy_exists
-			then
-				add(valid_moves, next_tile)
-			end
-		end
-
-		-- if there are any valid moves…
-		if #valid_moves > 0 then
-			-- pick a tile in valid_moves and attempt to move to it
-			-- this will either move to it or hit a hero
-			index = flr(rnd(#valid_moves)) + 1
-			dest = valid_moves[index]
-			local target = find_type_in_tile("hero", dest)
-			if target then
-				if target.health > 0 then
-					-- get direction
-					local direction = get_direction(self_tile, dest)
-					target.health -= 1
-					local here = tile_to_screen({self.x, self.y})
-					local bump = {here[1] + direction[1] * 2, here[2] + direction[2] * 2}
-					transition_to(self, {bump, here}, 2, 2)
-					local b_r = {000, 008}
-					target.pal_seq = frames({b_r,{10,10}})
-					delay += 4
-					sfx(sounds.enemy_bump, 3)
-				end
-			else
-				set_tile(self, dest)
-				transition_to(self, {tile_to_screen(dest)}, 4, 0)
-				delay += 4
-			end
-		end
-  end
-
-	return _e
-end
-
-function new_enemy_slime()
-  local _e = new_enemy()
-  _e.sprite_seq = {142}
-  _e.health = 2
-
-  _e.move = function(self)
-    if self.step then
-      set_tile(new_enemy_baby(), {self.x,self.y})
-      set_tile(self, self.step)
-      transition_to(self, {tile_to_screen(self.step)}, 4, 0)
-      delay += 4
-      self.stunned = true
-    end
-  end
-
-  return _e
 end
 
 function new_enemy_dash()
@@ -1100,7 +886,7 @@ function new_enemy_dash()
     if self.target then
       return {self.target.x,self.target.y}
     else
-      return get_enemy_step({self.x,self.y})
+      return self:get_step_toward_hero()
     end
   end
 
@@ -1118,6 +904,37 @@ function new_enemy_dash()
   return _e
 end
 
+function new_enemy_slime()
+  local _e = new_enemy()
+  _e.sprite_seq = {142}
+  _e.health = 2
+
+  _e.move = function(self)
+    if self.step then
+      set_tile(new_enemy_baby(), {self.x,self.y})
+      set_tile(self, self.step)
+      transition_to(self, {tile_to_screen(self.step)}, 4, 0)
+      delay += 4
+      self.stunned = true
+    end
+  end
+
+  _e.attack = function(self)
+    if self.target then
+      hit_target(self.target, 1)
+      local direction = get_direction({self.x,self.y}, {self.target.x,self.target.y})
+      local here = tile_to_screen({self.x, self.y})
+      local bump = {here[1] + direction[1] * 2, here[2] + direction[2] * 2}
+      transition_to(self, {bump, here}, 2, 2)
+      delay += 4
+      sfx(sounds.enemy_bump, 3)
+      self.stunned = true
+    end
+  end
+
+  return _e
+end
+
 function new_enemy_baby()
   local _e = new_enemy()
 	_e.health = 1
@@ -1125,30 +942,23 @@ function new_enemy_baby()
   return _e
 end
 
-function new_enemy_grown()
-  local _e = new_enemy()
-	_e.health = 3
-  _e.sprite_seq = {139}
-  return _e
+function tile(thing)
+  return {thing.x,thing.y}
 end
 
-function get_closest(thing, options, avoid)
-  local closest = {options[1]}
-  local here = {thing.x,thing.y}
-
-  for i = 2, #options do
-    local a = {closest[1].x,closest[1].y}
-    local a_dist = distance(here, a, avoid)
-    local b = {options[i].x,options[i].y}
-    local b_dist = distance(here, b, avoid)
-    if b_dist < a_dist then
-      closest = {options[i]}
-    elseif b_dist == a_dist then
-      add(closest, options[i])
+function get_random_move(start)
+  local _a = get_adjacent_tiles(start)
+  local _b = {}
+  for next in all(_a) do
+    if
+      not find_type_in_tile("enemy", next) and
+      not find_type_in_tile("hero", next)
+    then
+      add(_b, next)
     end
   end
-
-  return closest
+  shuffle(_b)
+  return _b[1]
 end
 
 function new_enemy_grow()
@@ -1157,50 +967,40 @@ function new_enemy_grow()
   _e.sprite_seq = {173}
   _e.sub_type = "grow"
 
-  _e.get_step = function(self)
-
-    -- get other grow enemies
-    local grow_enemies = {}
+  _e.get_friend = function(self)
+    local friends = {}
     for next in all(enemies) do
       if next.sub_type == "grow" then
-        add(grow_enemies, next)
+        add(friends, next)
       end
     end
-    if #grow_enemies > 1 then
-      local friends = grow_enemies
+    if #friends > 1 then
       del(friends, self)
-      local closer_friends = get_closest(self, friends, "hero")
-      shuffle(closer_friends)
-      local friend = closer_friends[1]
-      if not pair_equal({self.x,self.y},{friend.x,friend.y}) then
-        -- return get_enemy_step({self.x,self.y},{friend.x,friend.y})
-        local steps = get_steps({self.x,self.y},{friend.x,friend.y},"hero")
+      local close_friends = get_closest(self, friends, "hero")
+      shuffle(close_friends)
+      return close_friends[1]
+    end
+  end
+
+  _e.get_step = function(self)
+    -- if there's a friend…
+    local friend = self:get_friend()
+    if friend then
+      -- friend isn't on the same time
+      if not pair_equal(tile(self),tile(friend)) then
+        local steps = get_steps(tile(self),tile(friend),"hero")
+        -- if there's a valid path to the friend that avoids heroes
         if #steps > 0 then
           shuffle(steps)
           return steps[1]
+        -- otherwise, move randomly
         else
-          local _a = get_adjacent_tiles({self.x,self.y})
-          local _b = {}
-          for next in all(_a) do
-            if
-              not find_type_in_tile("enemy", next) and
-              not find_type_in_tile("hero", next)
-            then
-              add(_b, next)
-            end
-          end
-          shuffle(_b)
-          return _b[1]
+          return get_random_move(tile(self))
         end
       end
+    -- if there's no friend and this enemy isn't attacking this turn
     elseif not self.target then
-      local targets = get_closest(self, heroes, "enemy")
-      -- todo: if there are multiple targets, then return the one that's farthest from heroes
-      shuffle(targets)
-      local target = targets[1]
-      local steps = get_steps({self.x,self.y},{target.x,target.y}, "enemy")
-      shuffle(steps)
-      return steps[1]
+      return self:get_step_toward_hero()
     end
   end
 
@@ -1254,7 +1054,109 @@ function new_enemy_grow()
     end
   end
 
+  _e.deploy = function(self)
+    local valid_tiles = {}
+    local grow_enemies = {}
+    for next in all(enemies) do
+      if next.sub_type == "grow" then
+        add(grow_enemies, next)
+      end
+    end
+    for x = 1, cols do
+      for y = 1, rows do
+        local _t = {x,y}
+        local too_close = false
+        for next in all(grow_enemies) do
+          if
+            next.x and next.y and
+            distance(_t,tile(next)) < 5
+          then
+            too_close = true
+          end
+        end
+        if not too_close then
+          add(valid_tiles, _t)
+        end
+      end
+    end
+    for next in all(valid_tiles) do
+      if
+        find_type_in_tile("hero", next) or
+        find_type_in_tile("enemy", next) or
+        distance(tile(hero_a), next) < 2 or
+        distance(tile(hero_b), next) < 2
+      then
+        del(valid_tiles,next)
+      end
+    end
+    if #valid_tiles > 0 then
+      shuffle(valid_tiles)
+      set_tile(self, valid_tiles[1])
+    else
+      self:destroy()
+    end
+  end
+
   return _e
+end
+
+function new_enemy_grown()
+  local _e = new_enemy()
+	_e.health = 3
+  _e.sprite_seq = {139}
+  return _e
+end
+
+function get_closest(thing, options, avoid)
+  local closest = {options[1]}
+  local here = {thing.x,thing.y}
+
+  for i = 2, #options do
+    local a = {closest[1].x,closest[1].y}
+    local a_dist = distance(here, a, avoid)
+    local b = {options[i].x,options[i].y}
+    local b_dist = distance(here, b, avoid)
+    if b_dist < a_dist then
+      closest = {options[i]}
+    elseif b_dist == a_dist then
+      add(closest, options[i])
+    end
+  end
+
+  return closest
+end
+
+function get_steps(start, goal, avoid)
+  local current_dist = distance(start, goal, avoid)
+  local adjacent_tiles = get_adjacent_tiles(start)
+  local valid_tiles = {}
+
+  for next in all(adjacent_tiles) do
+    local should_avoid = avoid and find_type_in_tile(avoid, next)
+    local next_dist = distance(next, goal, avoid)
+    if
+      not should_avoid and
+      next_dist < current_dist
+    then
+      add(valid_tiles, next)
+    end
+  end
+
+  if #valid_tiles == 0 then
+    current_dist = distance(start, goal)
+    for next in all(adjacent_tiles) do
+      local should_avoid = avoid and find_type_in_tile(avoid, next)
+      local next_dist = distance(next, goal)
+      if
+        not should_avoid and
+        next_dist < current_dist
+      then
+        add(valid_tiles, next)
+      end
+    end
+  end
+
+  return valid_tiles
 end
 
 function new_shot(thing, target, dir)
@@ -1338,16 +1240,7 @@ function spawn_enemy()
       new_enemy():deploy()
     end,
     function()
-      new_enemy_shoot():deploy()
-    end,
-    function()
-      new_enemy_ghost():deploy()
-    end,
-    function()
       new_enemy_slime():deploy()
-    end,
-    function()
-      new_enemy_baby():deploy()
     end,
     function()
       new_enemy_dash():deploy()
@@ -1358,7 +1251,7 @@ function spawn_enemy()
     end,
   }
   if #enemies_bag == 0 then
-		enemies_bag = {7}
+		enemies_bag = {1,2,3,4}
 		shuffle(enemies_bag)
 	end
   local new_enemy = enemy_types[enemies_bag[1]]()
