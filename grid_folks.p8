@@ -16,8 +16,10 @@ __lua__
 -- [x] make sure it doesn't crash if it tries to deploy an enemy and the only available space is next to a hero
 -- [x] shoot should do 2 damage
 -- [ ] slow down all the animations and transitions
--- [ ] fix crosshair rendering for jump ability
--- [ ] fix flashing stun state on sleep enemies
+-- [ ] dotted lines to represent potential shots
+-- [ ] change enemy health bars to show potential damage
+-- [ ] timid enemies should move if there's a hero they could move toward that's more than 2 spaces away
+-- [ ] wait animations for timid enemies
 
 -- optimizations
 -- [x] eliminate the colors dictionary
@@ -127,8 +129,8 @@ function _init()
 	input_queue = {}
 
 	-- initial buttons (for testing)
-	-- set_tile(new_button(008), {4,2})
-	-- set_tile(new_button(009), {4,4})
+	-- set_tile(new_button(011), {4,2})
+	-- set_tile(new_button(012), {4,4})
 	-- set_tile(new_button(011), {5,3})
 	-- set_tile(new_button(012), {3,3})
 
@@ -165,24 +167,27 @@ function _init()
 	-- spawn stuff
 	spawn_rates = {
 		[001] = 12,
-		[050] = 10,
-		[100] = 8,
-		[150] = 7,
-    [200] = 6,
-		[250] = 5,
-		[300] = 4,
-		[350] = 3,
-		[400] = 2,
+		[040] = 10,
+		[080] = 8,
+		[120] = 7,
+    [160] = 6,
+		[200] = 5,
+		[240] = 4,
+		[280] = 3,
+		[320] = 2,
 	}
   spawn_bags = {
     [001] = {"dash"},
-    [050] = {"dash","sleep"},
-    [100] = {"dash","sleep","slime"},
-    [150] = {"dash","sleep","slime","grow"},
+    [040] = {"dash","timid"},
+    [080] = {"dash","timid","slime"},
+    [120] = {"dash","timid","slime","grow"},
   }
   spawn_functions = {
-    ["sleep"] = function()
-      new_enemy_sleep():deploy()
+    -- ["sleep"] = function()
+    --   new_enemy_sleep():deploy()
+    -- end,
+    ["timid"] = function()
+      new_enemy_timid():deploy()
     end,
     ["slime"] = function()
       new_enemy_slime():deploy()
@@ -198,6 +203,7 @@ function _init()
 	spawn_rate = spawn_rates[1]
   spawn_bag = spawn_bags[1]
   spawn_bag_instance = copy(spawn_bag)
+  shuffle(spawn_bag_instance)
   spawn_turns = {0,0,0}
 	-- this gets updated whenever an enemy spawns
 	last_spawned_turn = 0
@@ -566,7 +572,7 @@ function new_hero()
 			local wall = is_wall_between({self.x, self.y}, next_tile)
 
 			-- if jump is enabled and there's a wall in the way
-			if self.jump and wall then
+			if self.jump then
 				if enemy then
 					hit_target(enemy, 3)
 					player_turn = false
@@ -586,7 +592,7 @@ function new_hero()
 				-- if shoot is enabled and shoot targets exist
 				local shoot_target = get_ranged_target(self, direction)
 				if self.shoot and shoot_target then
-          hit_target(shoot_target, 2)
+          hit_target(shoot_target, 1)
 					new_shot(self, shoot_target, direction)
 					sfx(sounds.shoot, 3)
 					delay += 4
@@ -902,6 +908,27 @@ function new_enemy_sleep()
   return _e
 end
 
+function new_enemy_timid()
+  local _e = new_enemy()
+  _e.sprite_seq = {140}
+	_e.health = 1
+
+  _e.get_step = function(self)
+    -- if not attacking this turn
+    if not self.target then
+      local step = self:get_step_toward_hero()
+      if
+        distance(step, tile(hero_a)) > 1 and
+        distance(step, tile(hero_b)) > 1
+      then
+        return step
+      end
+    end
+  end
+
+  return _e
+end
+
 function new_enemy_dash()
   local _e = new_enemy()
   _e.sprite_seq = {143}
@@ -955,7 +982,6 @@ end
 function new_enemy_slime()
   local _e = new_enemy()
   _e.sprite_seq = {142}
-  _e.health = 1
 
   _e.move = function(self)
     if self.step then
@@ -1988,7 +2014,7 @@ function refresh_pads()
 
 	has_advanced = true
 	if #colors_bag == 0 then
-		colors_bag = {008,008,008,009,011,012}
+		colors_bag = {008,008,008,008,008,008,009,011,012}
 		shuffle(colors_bag)
 	end
 
@@ -2091,7 +2117,7 @@ ffffffffff000fffffffffffffffffffffffffffffffffffffffffff000000000000000000000000
 ffffffffff070ffffff6fffffffaaaffffffffffffffffffffffffff000000000000000000000777777000000777777000000770000777777000000000000000
 ff000fff0007000ffff6ffffffaa6affffa6afffffffffffffffffff000000000000000000000777777000000777777000000770000777777000000000000000
 0007000f0777770fffffffffff6aa6fffaaaaafffff6ffffffffffff000000000000000000077775555000077775577770077770077775577770000000000000
-0777770f0007000f66f6f66fffaa6afffa6a6affff666ffffff6ffff000000000000000000077775555000077775577770077770077775577770000000000000
+0777770f0007000f66fff66fffaa6afffa6a6affff666ffffff6ffff000000000000000000077775555000077775577770077770077775577770000000000000
 0007000ff07070fffffffffffffaaafffaa6aafffff6ffffffffffff000000000000000000077771177770077771177770077770077771177770000000000000
 f07070fff07070fffff6ffffffffffffffffffffffffffffffffffff000000000000000000077771177770077771177770077770077771177770000000000000
 f00000fff00000fffff6ffffffffffffffffffffffffffffffffffff000000000000000000077770077770077777777550077770077770077770000000000000
@@ -2159,14 +2185,14 @@ ffffffffffffffff7777777777777777777777777777777777777777000000000000000000000000
 077770ff0777700f007070077077707707777077007777077070070700000000000000000000000000777700f077770f077770ff077770ff0070700f0707070f
 007700ff0777770f7070707770707077077770777070700770777707000000000000000000000000f007070ff070700f007700ff070700ff0777770f0707070f
 f0000fff0000000f7000007770000077000000777000007770000007000000000000000000000000ff00000ff00000fff0000ffff0000fff0000000f0000000f
-ffffffff77777777777777777777777700000007000f000fffffffffffffffff0000000000000000ffffffff0000000000070007777777777777777700000077
-ffffffff777777770077007777777777077077070700070f000000ff000000ff0000000000000000ffffffff0000000007070707007700777777777707777077
-000000ff700000770700707700000077070070070777770f077770ff077770ff0000000000000000f000000f0000000007000707070070777777777700707007
-077770ff007770770777707707777077077770770070770f0070700f007070ff0000000000000000007777000000000007777707077770770000007707777707
-007070ff077700070070707700707077007070770777770f0777770f0777700f0000000000000000070707700000000000770707007070770777707707070707
-077770ff077777070777707707777077077770770077700f0007770f0077770f0000000000000000007777000000000007777707077770770070700707070707
-007700ff00770007007700770707007707070077f07770ffff07070ff070700f0000000000000000f007070f0000000000777007007700770777770707070707
-f0000fff70000777700007777000077700000777f00000ffff00000ff00000ff0000000000000000ff00000f0000000070000077700007770000000700000007
+ffffffff77777777777777777777777700000007000f000fffffffffffffffff0000000000000000ffffffffffffffff00070007777777777777777700000077
+ffffffff777777770077007777777777077077070700070f000000ff000000ff0000000000000000ffffffffffffffff07070707007700777777777707777077
+000000ff700000770700707700000077070070070777770f077770ff077770ff0000000000000000f000000f000000ff07000707070070777777777700707007
+077770ff007770770777707707777077077770770070770f0070700f007070ff000000000000000000777700077770ff07777707077770770000007707777707
+007070ff077700070070707700707077007070770777770f0777770f0777700f0000000000000000070707700070700f00770707007070770777707707070707
+077770ff077777070777707707777077077770770077700f0007770f0077770f0000000000000000007777000777770f07777707077770770070700707070707
+007700ff00770007007700770707007707070077f07770ffff07070ff070700f0000000000000000f007070f0070700f00777007007700770777770707070707
+f0000fff70000777700007777000077700000777f00000ffff00000ff00000ff0000000000000000ff00000ff00000ff70000077700007770000000700000007
 77777777ffffffff007700777777777777000077000000007777777700000077ff0000ffffffffffffffffffffffffff77777777ffffffffffffffff77777777
 7777777700ff00ff070070077777777700070077000000007000000707777777f077770f0000000f0000000ff000000f00000777000000ffffffffff77000077
 07000707070070ff077077070000007707077077000000007077770707007077f077770f0777770f0777770f0077770007007077077770ffffffffff70777707
