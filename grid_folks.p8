@@ -15,7 +15,7 @@ __lua__
 -- [x] dash enemies should go for the nearest hero
 -- [x] make sure it doesn't crash if it tries to deploy an enemy and the only available space is next to a hero
 -- [x] shoot should do 2 damage
--- [ ] slow down all the animations and transitions
+-- [x] slow down all the animations and transitions
 -- [ ] dotted lines to represent potential shots
 -- [ ] change enemy health bars to show potential damage
 -- [ ] timid enemies should move if there's a hero they could move toward that's more than 2 spaces away
@@ -108,6 +108,7 @@ function _init()
 	turn_health_gain = 0
   depth = 32
   mode = "game"
+  t_frames = 4
 
 	-- lists of `things`
 	heroes = {}
@@ -177,7 +178,7 @@ function _init()
 		[320] = 2,
 	}
   spawn_bags = {
-    [001] = {"dash"},
+    [001] = {"slime"},
     [040] = {"dash","timid"},
     [080] = {"dash","timid","slime"},
     [120] = {"dash","timid","slime","grow"},
@@ -581,8 +582,8 @@ function new_hero()
 				local _next = tile_to_screen(next_tile)
 				local _half = {(_here[1] + _next[1]) / 2, _here[2]-4}
 				set_tile(self, next_tile)
-				transition_to(self, {_half, _next}, 2, 0)
-				delay += 4
+				transition_to(self, {_half, _next}, t_frames/2, 0)
+				delay = max(delay, t_frames * 1.5)
 				sfx(sounds.jump, 3)
 				player_turn = false
 
@@ -595,7 +596,7 @@ function new_hero()
           hit_target(shoot_target, 1)
 					new_shot(self, shoot_target, direction)
 					sfx(sounds.shoot, 3)
-					delay += 4
+					delay = max(delay, t_frames * 1.5)
 					player_turn = false
 
 				-- otherwise, if there's an enemy in the destination, hit it
@@ -603,16 +604,16 @@ function new_hero()
 					hit_target(enemy, 1)
 					sfx(sounds.hero_bump, 3)
 					local here = tile_to_screen({self.x, self.y})
-					local bump = {here[1] + direction[1] * 2, here[2] + direction[2] * 2}
-					transition_to(self, {bump, here}, 2, 0)
-					delay += 4
+					local bump = {here[1] + direction[1] * 4, here[2] + direction[2] * 4}
+					transition_to(self, {bump, here}, t_frames/2, 0)
+					delay = max(delay, t_frames * 1.5)
 					player_turn = false
 
 				-- otherwise, move to the destination
 				else
 					set_tile(self, next_tile)
-					transition_to(self, {tile_to_screen(next_tile)}, 4, 0)
-					delay += 4
+					transition_to(self, {tile_to_screen(next_tile)}, t_frames, 0)
+					delay = max(delay, t_frames * 1.5)
 					player_turn = false
 				end
 			end
@@ -801,9 +802,9 @@ function new_enemy()
       hit_target(self.target, 1)
       local direction = get_direction({self.x,self.y}, {self.target.x,self.target.y})
       local here = tile_to_screen({self.x, self.y})
-      local bump = {here[1] + direction[1] * 2, here[2] + direction[2] * 2}
-      transition_to(self, {bump, here}, 2, 2)
-      delay += 4
+      local bump = {here[1] + direction[1] * 4, here[2] + direction[2] * 4}
+      transition_to(self, {bump, here}, t_frames/2, 2)
+      delay = max(delay, t_frames * 1.5)
       sfx(sounds.enemy_bump, 3)
     end
   end
@@ -811,8 +812,8 @@ function new_enemy()
   _e.move = function(self)
     if self.step then
       set_tile(self, self.step)
-      transition_to(self, {tile_to_screen(self.step)}, 4, 0)
-      delay += 4
+      transition_to(self, {tile_to_screen(self.step)}, t_frames, 0)
+      delay = max(delay, t_frames * 1.5)
     end
   end
 
@@ -969,8 +970,8 @@ function new_enemy_dash()
     if self.target then
       hit_target(self.target, 1)
       local dest = tile_to_screen({self.target.x, self.target.y})
-      transition_to(self, {dest}, 4, 0)
-      delay += 4
+      transition_to(self, {dest}, t_frames, 0)
+      delay = max(delay, t_frames * 1.5)
       sfx(sounds.enemy_bump, 3)
       self.health = 0
     end
@@ -987,8 +988,8 @@ function new_enemy_slime()
     if self.step then
       set_tile(new_enemy_baby(), {self.x,self.y})
       set_tile(self, self.step)
-      transition_to(self, {tile_to_screen(self.step)}, 4, 0)
-      delay += 4
+      transition_to(self, {tile_to_screen(self.step)}, t_frames, 0)
+      delay = max(delay, t_frames * 1.5)
       self.stunned = true
     end
   end
@@ -998,9 +999,9 @@ function new_enemy_slime()
       hit_target(self.target, 1)
       local direction = get_direction({self.x,self.y}, {self.target.x,self.target.y})
       local here = tile_to_screen({self.x, self.y})
-      local bump = {here[1] + direction[1] * 2, here[2] + direction[2] * 2}
-      transition_to(self, {bump, here}, 2, 2)
-      delay += 4
+      local bump = {here[1] + direction[1] * 4, here[2] + direction[2] * 4}
+      transition_to(self, {bump, here}, t_frames/2, 2)
+      delay = max(delay, t_frames * 1.5)
       sfx(sounds.enemy_bump, 3)
       self.stunned = true
     end
@@ -1081,8 +1082,8 @@ function new_enemy_grow()
   _e.move = function(self)
     if self.step then
       set_tile(self, self.step)
-      transition_to(self, {tile_to_screen(self.step)}, 4, 0)
-      delay += 4
+      transition_to(self, {tile_to_screen(self.step)}, t_frames, 0)
+      delay = max(delay, t_frames * 1.5)
 
       local grow_enemies = {}
       for next in all(enemies) do
@@ -1370,12 +1371,12 @@ function location_exists(tile)
 	return true
 end
 
-function transition_to(thing, destinations, frames, delay)
+function transition_to(thing, destinations, frames, wait)
 
 	local s = {}
 	local current = thing.screen_seq[1]
 
-	for i = 1, delay do
+	for i = 1, wait do
 		add(s, thing.screen_seq[1])
 	end
 
