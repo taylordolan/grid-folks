@@ -16,10 +16,12 @@ __lua__
 -- [x] make sure it doesn't crash if it tries to deploy an enemy and the only available space is next to a hero
 -- [x] shoot should do 2 damage
 -- [x] slow down all the animations and transitions
+-- [ ] shoot should go through enemies
 -- [ ] dotted lines to represent potential shots
 -- [ ] change enemy health bars to show potential damage
 -- [ ] timid enemies should move if there's a hero they could move toward that's more than 2 spaces away
 -- [ ] wait animations for timid enemies
+-- [ ] fix bug: grow enemies will move into a stationary timid enemy's space
 
 -- optimizations
 -- [x] eliminate the colors dictionary
@@ -130,10 +132,38 @@ function _init()
 	input_queue = {}
 
 	-- initial buttons (for testing)
-	-- set_tile(new_button(011), {4,2})
-	-- set_tile(new_button(012), {4,4})
-	-- set_tile(new_button(011), {5,3})
-	-- set_tile(new_button(012), {3,3})
+  -- green
+  -- for i = 1, 10 do
+  --   local _t = random_tile()
+  --   while find_type_in_tile("button",_t) do
+  --     _t = random_tile()
+  --   end
+  --   set_tile(new_button(011), _t)
+  -- end
+  -- -- blue
+  -- for i = 1, 1 do
+  --   local _t = random_tile()
+  --   while find_type_in_tile("button",_t) do
+  --     _t = random_tile()
+  --   end
+  --   set_tile(new_button(012), _t)
+  -- end
+  -- -- red
+  -- for i = 1, 2 do
+  --   local _t = random_tile()
+  --   while find_type_in_tile("button",_t) do
+  --     _t = random_tile()
+  --   end
+  --   set_tile(new_button(008), _t)
+  -- end
+  -- -- orange
+  -- for i = 1, 0 do
+  --   local _t = random_tile()
+  --   while find_type_in_tile("button",_t) do
+  --     _t = random_tile()
+  --   end
+  --   set_tile(new_button(009), _t)
+  -- end
 
 	-- heroes
 	hero_a = new_hero()
@@ -164,6 +194,8 @@ function _init()
 			del(board[next[1]][next[2]], wall)
 		end
 	end
+  -- (for testing)
+  -- refresh_pads()
 
 	-- spawn stuff
 	spawn_rates = {
@@ -205,7 +237,8 @@ function _init()
   spawn_bag = spawn_bags[1]
   spawn_bag_instance = copy(spawn_bag)
   shuffle(spawn_bag_instance)
-  spawn_turns = {0,0,0}
+  -- todo: clean this up after i'm done testing
+  spawn_turns = {[turns] = 0, [turns + 1] = 0, [turns + 2] = 0}
 	-- this gets updated whenever an enemy spawns
 	last_spawned_turn = 0
 	-- this tracks whether we've spawned a turn early
@@ -342,6 +375,21 @@ function _update60()
 			sfx(sounds.lose, 3)
 		end
 	end
+end
+
+-- todo: remove this after i'm done testing
+function random_tile()
+  local _x = {}
+  local _y = {}
+  for x=1,cols do
+    add (_x,x)
+  end
+  for y=1,rows do
+    add (_y,y)
+  end
+  shuffle(_x)
+  shuffle(_y)
+  return {_x[1],_y[1]}
 end
 
 function _draw()
@@ -591,7 +639,7 @@ function new_hero()
 			elseif not wall then
 
 				-- if shoot is enabled and shoot targets exist
-				local shoot_target = get_ranged_target(self, direction)
+				local shoot_target = get_ranged_targets(self, direction)[1]
 				if self.shoot and shoot_target then
           hit_target(shoot_target, 1)
 					new_shot(self, shoot_target, direction)
@@ -655,7 +703,7 @@ function new_hero()
 					elseif next[2] == -1 then
 						flip_y = true
 					end
-					if get_ranged_target(self, next) then
+					if #get_ranged_targets(self, next) > 0 then
 						spr(sprite, ax + next[1] * 8, ay + next[2] * 8, 1, 1, flip_x, flip_y)
 					end
 				end
@@ -938,7 +986,7 @@ function new_enemy_dash()
   _e.get_target = function(self)
     local target
     for dir in all(orthogonal_directions) do
-      local _t = get_ranged_target(self, dir)
+      local _t = get_ranged_targets(self, dir)[1]
       if _t and target then
         local s_t = tile(self)
         local t_t = tile(_t)
@@ -1623,27 +1671,26 @@ function get_adjacent_tiles(tile)
 	return adjacent_tiles
 end
 
-function get_ranged_target(thing, direction)
+function get_ranged_targets(thing, direction)
 
 	local now_tile = {thing.x, thing.y}
-	local x_vel = direction[1]
-	local y_vel = direction[2]
+  local targets = {}
 
 	while true do
 		-- define the current target
-		local next_tile = {now_tile[1] + x_vel, now_tile[2] + y_vel}
+		local next_tile = {now_tile[1] + direction[1], now_tile[2] + direction[2]}
 		-- if `next_tile` is off the map, or there's a wall in the way, return false
 		if
-			location_exists(next_tile) == false or
+			not location_exists(next_tile) or
 			is_wall_between(now_tile, next_tile) or
 			find_type_in_tile(thing.type, next_tile)
 		then
-			return false
+			return targets
 		end
 		-- if there's a target in the tile, return it
 		local target = find_type_in_tile(thing.target_type, next_tile)
 		if target then
-			return target
+			add(targets,target)
 		end
 		-- set `current` to `next_tile` and keep going
 		now_tile = next_tile
@@ -1658,7 +1705,7 @@ function update_targets()
 	for h in all(heroes) do
 		if h.shoot and h.active then
 			for d in all({{0, -1}, {0, 1}, {-1, 0}, {1, 0}}) do
-				local target = get_ranged_target(h, d)
+				local target = get_ranged_targets(h, d)[1]
 				if target then
 					target.is_shoot_target = true
 				end
