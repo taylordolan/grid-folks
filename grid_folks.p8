@@ -16,7 +16,7 @@ __lua__
 -- [x] make sure it doesn't crash if it tries to deploy an enemy and the only available space is next to a hero
 -- [x] shoot should do 2 damage
 -- [x] slow down all the animations and transitions
--- [ ] shoot should go through enemies
+-- [x] shoot should go through enemies
 -- [ ] dotted lines to represent potential shots
 -- [ ] change enemy health bars to show potential damage
 -- [ ] timid enemies should move if there's a hero they could move toward that's more than 2 spaces away
@@ -639,10 +639,12 @@ function new_hero()
 			elseif not wall then
 
 				-- if shoot is enabled and shoot targets exist
-				local shoot_target = get_ranged_targets(self, direction)[1]
-				if self.shoot and shoot_target then
-          hit_target(shoot_target, 1)
-					new_shot(self, shoot_target, direction)
+				local shoot_targets = get_ranged_targets(self, direction)
+				if self.shoot and #shoot_targets > 0 then
+          for next in all(shoot_targets) do
+            hit_target(next, 1)
+          end
+					new_shot(self, direction)
 					sfx(sounds.shoot, 3)
 					delay = max(delay, t_frames * 1.5)
 					player_turn = false
@@ -1282,41 +1284,62 @@ function get_steps(start, goal, avoid)
   return valid_tiles
 end
 
-function new_shot(thing, target, dir)
-	local ax = thing.screen_seq[1][1]
-	local ay = thing.screen_seq[1][2]
-	local bx = target.screen_seq[1][1]
-	local by = target.screen_seq[1][2]
+function new_shot(thing, dir)
+
+  local wall = nil
+  local now_tile = {thing.x, thing.y}
+
+	while wall == nil do
+		-- define the next tile
+		local next_tile = {now_tile[1] + dir[1], now_tile[2] + dir[2]}
+		-- if `next_tile` is off the map, or there's a wall in the way, return false
+		if
+			not location_exists(next_tile) or
+			is_wall_between(now_tile, next_tile)
+		then
+			wall = now_tile
+		end
+		-- set `current` to `next_tile` and keep going
+		now_tile = next_tile
+	end
+
+  local _a = tile_to_screen(tile(thing))
+  local _b = tile_to_screen(wall)
+	local _ax = _a[1]
+	local _ay = _a[2]
+	local _bx = _b[1]
+	local _by = _b[2]
+
 	-- up
 	if pair_equal(dir, {0, -1}) then
-		ax += 3
-		bx += 3
-		ay -= 3
-		by += 10
+		_ax += 3
+		_bx += 3
+		_ay -= 3
+		_by += 0
 	-- down
 	elseif pair_equal(dir, {0, 1}) then
-		ax += 3
-		bx += 3
-		ay += 10
-		by -= 3
+		_ax += 3
+		_bx += 3
+		_ay += 10
+		_by += 7
 	-- left
 	elseif pair_equal(dir, {-1, 0}) then
-		ax -= 3
-		bx += 10
-		ay += 3
-		by += 3
+		_ax -= 3
+		_bx += 0
+		_ay += 3
+		_by += 3
 	-- right
 	elseif pair_equal(dir, {1, 0}) then
-		ax += 10
-		bx -= 3
-		ay += 3
-		by += 3
+		_ax += 10
+		_bx += 7
+		_ay += 3
+		_by += 3
 	end
 
 	local new_shot = {
-		frames = 4,
+		frames = 6,
 		draw = function(self)
-			rectfill(ax, ay, bx, by, 011)
+			rectfill(_ax, _ay, _bx, _by, 011)
 			self.frames -= 1
 			if self.frames == 0 then
 				del(effects, self)
@@ -1705,9 +1728,9 @@ function update_targets()
 	for h in all(heroes) do
 		if h.shoot and h.active then
 			for d in all({{0, -1}, {0, 1}, {-1, 0}, {1, 0}}) do
-				local target = get_ranged_targets(h, d)[1]
-				if target then
-					target.is_shoot_target = true
+				local targets = get_ranged_targets(h, d)
+				for next in all(targets) do
+					next.is_shoot_target = true
 				end
 			end
 		end
