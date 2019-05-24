@@ -17,11 +17,10 @@ __lua__
 -- [x] shoot should do 2 damage
 -- [x] slow down all the animations and transitions
 -- [x] shoot should go through enemies
--- [ ] dotted lines to represent potential shots
 -- [ ] change enemy health bars to show potential damage
--- [ ] timid enemies should move if there's a hero they could move toward that's more than 2 spaces away
 -- [ ] wait animations for timid enemies
 -- [ ] fix bug: grow enemies will move into a stationary timid enemy's space
+-- [ ] figure out the timid enemy pathfinding crash
 
 -- optimizations
 -- [x] eliminate the colors dictionary
@@ -30,7 +29,7 @@ __lua__
 -- [x] make a generic `thing` object and a generic `actor` object
 -- [x] refactor shot drawing as an effect
 -- [x] find a way to reduce the token count of long animations
--- [ ] clean up sprites
+-- [x] clean up sprites
 -- [ ] simplify input conditions
 -- [ ] combine functions for creating wall_right and wall_down
 -- [ ] kill the sprites dictionary
@@ -74,29 +73,6 @@ function _init()
 		hero_bump = 000, -- when a hero hits an enemy
 		win = 000,
 		lose = 000,
-	}
-
-	-- sprites dictionary
-	sprites = {
-		hero_inactive = 000,
-		hero_active = 001,
-		enemy_1 = 048,
-		enemy_2 = 049,
-		enemy_3 = 050,
-		crosshair = 002,
-		pad = 016,
-		button_1 = 017,
-		button_2 = 018,
-		button_3 = 019,
-		exit = 020,
-		border_left = 032,
-		border_top = 033,
-		border_top_left = 034,
-		border_top_right = 035,
-		die_1 = 051,
-		die_2 = 052,
-		arrow_right = 003,
-		arrow_down = 004,
 	}
 
 	-- some game state
@@ -433,22 +409,22 @@ function _draw()
 	pal(006, 007)
 	-- top and bottom
 	for x = 12, 115, 8 do
-		spr(sprites.border_top, x, 4, 1, 1, false, false)
-		spr(sprites.border_top, x, 86, 1, 1, true, true)
+		spr(033, x, 4, 1, 1, false, false)
+		spr(033, x, 86, 1, 1, true, true)
 	end
 	-- left and right
 	for y = 13, 84, 8 do
-		spr(sprites.border_left, 4, y)
-		spr(sprites.border_left, 116, y, 1, 1, true, true)
+		spr(032, 4, y)
+		spr(032, 116, y, 1, 1, true, true)
 	end
 	-- top left
-	spr(sprites.border_top_left, 4, 5)
+	spr(034, 4, 5)
 	-- top right
-	spr(sprites.border_top_right, 116, 5, 1, 1, true, false)
+	spr(035, 116, 5, 1, 1, true, false)
 	-- bottom left
-	spr(sprites.border_top_right, 4, 85, 1, 1, false, true)
+	spr(035, 4, 85, 1, 1, false, true)
 	-- bottom right
-	spr(sprites.border_top_left, 116, 85, 1, 1, true, true)
+	spr(034, 116, 85, 1, 1, true, true)
 	pal()
 
 	if is_game_over() then
@@ -493,14 +469,14 @@ function _draw()
 		local _space = 3
 		local _a = smallcaps("press x to switch")
 		print(_a, _x, _y, 007)
-		spr(sprites.hero_inactive, _x + #_a * 4 + _space, _y - 2)
-		spr(sprites.hero_active, _x + #_a * 4 + 8 + _space, _y - 2)
+		spr(000, _x + #_a * 4 + _space, _y - 2)
+		spr(001, _x + #_a * 4 + 8 + _space, _y - 2)
 
 		_x = 18
 		_y += 10
 		local _b = smallcaps("stand on 2")
 		print(_b, _x, _y, 007)
-		spr(sprites.pad, _x + #_b * 4 + _space, _y - 2)
+		spr(016, _x + #_b * 4 + _space, _y - 2)
 		local _c = smallcaps("to advance")
 		print(_c, _x + #_b * 4 + _space + 8 + _space, _y, 007)
 		return
@@ -590,7 +566,7 @@ end
 function new_hero()
 	local new_hero = new_thing()
 
-	new_hero.sprite_seq = {sprites.hero_inactive}
+	new_hero.sprite_seq = {000}
 	new_hero.type = "hero"
   new_hero.target_type = "enemy"
 	new_hero.max_health = 3
@@ -675,8 +651,8 @@ function new_hero()
 		-- set sprite based on the first value in sprite_seq
 		local sprite = self.sprite_seq[1]
 		-- if the sprite is hero_inactive and this hero is active, update the sprite
-		if sprite == sprites.hero_inactive and self.active then
-			sprite = sprites.hero_active
+		if sprite == 000 and self.active then
+			sprite = 001
 		end
 
 		-- set the current screen destination using the first value in screen_seq
@@ -697,7 +673,7 @@ function new_hero()
 				for next in all(orthogonal_directions) do
 					local _a = {self.x, self.y}
 					local _b = {self.x + next[1], self.y + next[2]}
-					local sprite = next[2] == 0 and sprites.arrow_right or sprites.arrow_down
+					local sprite = next[2] == 0 and 003 or 004
 					local flip_x
 					local flip_y
 					if next[1] == -1 then
@@ -718,7 +694,7 @@ function new_hero()
 				for next in all(orthogonal_directions) do
 					local _a = {self.x, self.y}
 					local _b = {self.x + next[1], self.y + next[2]}
-					local sprite = next[2] == 0 and sprites.arrow_right or sprites.arrow_down
+					local sprite = next[2] == 0 and 003 or 004
 					local flip_x
 					local flip_y
 					if next[1] == -1 then
@@ -740,7 +716,7 @@ function new_hero()
 				for next in all(orthogonal_directions) do
 					local _a = {self.x, self.y}
 					local _b = {self.x + next[1], self.y + next[2]}
-					local sprite = next[2] == 0 and sprites.arrow_right or sprites.arrow_down
+					local sprite = next[2] == 0 and 003 or 004
 					local flip_x
 					local flip_y
 					if next[1] == -1 then
@@ -895,11 +871,11 @@ function new_enemy()
 		if self.health >= 1 then
 			if self.is_shoot_target then
 				pal(006, 011)
-				spr(sprites.crosshair, sx, sy)
+				spr(002, sx, sy)
 			end
 			if self.is_jump_target then
 				pal(006, 012)
-				spr(sprites.crosshair, sx, sy)
+				spr(002, sx, sy)
 			end
 		end
 
@@ -2085,8 +2061,8 @@ function refresh_pads()
           palt(015, true)
           local sx = self.screen_seq[1][1]
           local sy = self.screen_seq[1][2]
-          local sprite = sprites.exit
-					spr(sprite, sx, sy)
+          -- local sprite = 020
+					spr(020, sx, sy)
           pal()
 				end,
 			}
@@ -2109,7 +2085,7 @@ end
 
 function new_pad(color)
 	local new_pad = new_thing()
-	new_pad.sprite_seq = {sprites.pad}
+	new_pad.sprite_seq = {016}
 	new_pad.type = "pad"
 	new_pad.color = color
 	new_pad.list = pads
@@ -2131,7 +2107,7 @@ function new_button(color)
 	local new_button = new_thing()
 
 	-- new_button.sprite_seq = frames({sprites.button_1,sprites.button_2,sprites.button_3})
-  new_button.sprite_seq = {192}
+  new_button.sprite_seq = {019}
 	new_button.type = "button"
 	new_button.color = color
 	new_button.list = buttons
