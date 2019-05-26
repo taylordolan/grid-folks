@@ -5,36 +5,14 @@ __lua__
 -- taylor d
 
 -- todo
--- [x] enemies that shoot
--- [x] shoot does one damage and hits one enemy
--- [x] enemies that walk through walls
--- [x] slime enemies should only create babies if they can move
--- [x] enemies that create smaller enemies when they die?
--- [x] jump doesn't attack
--- [x] particle effects for pop
--- [x] dash enemies should go for the nearest hero
--- [x] make sure it doesn't crash if it tries to deploy an enemy and the only available space is next to a hero
--- [x] shoot should do 2 damage
--- [x] slow down all the animations and transitions
--- [x] shoot should go through enemies
 -- [ ] change enemy health bars to show potential damage
 -- [ ] wait animations for timid enemies
 -- [ ] fix bug: grow enemies will move into a stationary timid enemy's space
 -- [ ] figure out the timid enemy pathfinding crash
 
 -- optimizations
--- [x] eliminate the colors dictionary
--- [x] instead of rendering the contents of each tile, render the contents of each list of objects
--- [x] have objects keep track of their lists so they can remove themselves from their lists
--- [x] make a generic `thing` object and a generic `actor` object
--- [x] refactor shot drawing as an effect
--- [x] find a way to reduce the token count of long animations
--- [x] clean up sprites
--- [ ] simplify input conditions
 -- [ ] combine functions for creating wall_right and wall_down
--- [ ] kill the sprites dictionary
--- [ ] kill screen_seq?
--- [ ] kill `list` in things
+-- [ ] kill `pixels`?
 
 -- game state that gets refreshed on restart
 function _init()
@@ -55,16 +33,16 @@ function _init()
 	-- sounds dictionary
 	sounds = {
 		music = 002,
-		health = 026, -- when gaining health
+		health = 026, -- gaining health
 		shoot = 029,
 		jump = 025,
 		step = 021,
-		pad_step = 028, -- when stepping on a [ ] thing
-		score = 022, -- when gaining gold
-		advance = 027, -- when creating a new button
-		switch_heroes = 000,
-		enemy_bump = 000, -- when an enemy hits a hero
-		hero_bump = 000, -- when a hero hits an enemy
+		pad_step = 028, -- stepping on a pad
+		score = 022, -- gaining gold
+		advance = 027, -- creating new buttons
+		switch = 000, -- switching heroes
+		enemy_bump = 000,
+		hero_bump = 000,
 		win = 000,
 		lose = 000,
 	}
@@ -72,15 +50,15 @@ function _init()
 	-- some game state
 	score = 0
 	turns = 0
-	player_turn = true
+	p_turn = true
 	debug_mode = false
 	delay = 0
 	has_advanced = false
-	turn_score_gain = 0
-	turn_health_gain = 0
+	t_score = 0
+	t_health = 0
   depth = 32
   mode = "game"
-  t_frames = 4
+  ani_frames = 4
 
 	-- lists of `things`
 	heroes = {}
@@ -97,41 +75,7 @@ function _init()
   s_dirs = {{-1,0},{1,0},{0,-1},{0,1},{-1,-1},{-1,1},{1,-1},{1,1}}
 
 	-- log of recent user input
-	input_queue = {}
-
-	-- initial buttons (for testing)
-  -- green
-  -- for i = 1, 10 do
-  --   local _t = random_tile()
-  --   while find_type_in_tile("button",_t) do
-  --     _t = random_tile()
-  --   end
-  --   set_tile(new_button(011), _t)
-  -- end
-  -- -- blue
-  -- for i = 1, 1 do
-  --   local _t = random_tile()
-  --   while find_type_in_tile("button",_t) do
-  --     _t = random_tile()
-  --   end
-  --   set_tile(new_button(012), _t)
-  -- end
-  -- -- red
-  -- for i = 1, 2 do
-  --   local _t = random_tile()
-  --   while find_type_in_tile("button",_t) do
-  --     _t = random_tile()
-  --   end
-  --   set_tile(new_button(008), _t)
-  -- end
-  -- -- orange
-  -- for i = 1, 0 do
-  --   local _t = random_tile()
-  --   while find_type_in_tile("button",_t) do
-  --     _t = random_tile()
-  --   end
-  --   set_tile(new_button(009), _t)
-  -- end
+	queue = {}
 
 	-- heroes
 	hero_a = new_hero()
@@ -143,21 +87,21 @@ function _init()
 	-- initial walls
 	refresh_walls()
 	for next in all({{2,3},{3,3},{4,3},{5,3}}) do
-		local wall = find_type_in_tile("wall_right", next)
+		local wall = find_type("wall_right", next)
 		if wall then
-			wall:destroy()
+			wall:kill()
 		end
 	end
 
 	-- initial pads
-	local initial_pad_tiles = {{2,3}, {4,3}, {6,3}}
-  shuffle(initial_pad_tiles)
-	for next in all({008, 011, 012}) do
-		set_tile(new_pad(next), initial_pad_tiles[1])
-		del(initial_pad_tiles, initial_pad_tiles[1])
-	end
-	for next in all({{2,3}, {3,3}, {4,3}, {5,3}}) do
-		local wall = find_type_in_tile("wall_right", next)
+  local _c = {008,011,012}
+	local _t = {{2,3},{4,3},{6,3}}
+  shuff(_t)
+  for i=1, 3 do
+    set_tile(new_pad(_c[i]), _t[i])
+  end
+	for next in all({{2,3},{3,3},{4,3},{5,3}}) do
+		local wall = find_type("wall_right", next)
 		if wall then
 			del(board[next[1]][next[2]], wall)
 		end
@@ -201,7 +145,7 @@ function _init()
 	spawn_rate = spawn_rates[1]
   spawn_bag = spawn_bags[1]
   spawn_bag_instance = copy(spawn_bag)
-  shuffle(spawn_bag_instance)
+  shuff(spawn_bag_instance)
   -- todo: clean this up after i'm done testing
   spawn_turns = {[turns] = 0, [turns + 1] = 0, [turns + 2] = 0}
 	-- this gets updated whenever an enemy spawns
@@ -233,34 +177,34 @@ function _update60()
 
 	-- for complicated reasons, this value should be set to
 	-- one *less* than the maximum allowed number of rapid player inputs
-	if #input_queue < 2 then
+	if #queue < 2 then
     local input
     -- local dirs = {{-1,0},{1,0},{0,-1},{0,1}}
     for i=0, 3 do
       if btnp(i) then
-        add(input_queue, o_dirs[i+1])
+        add(queue, o_dirs[i+1])
       end
     end
     if btnp(5) then
-      add(input_queue, 5)
+      add(queue, 5)
     end
 	end
 
 	if delay > 0 then
 		delay -= 1
 	-- player turn
-	elseif player_turn == true and #input_queue > 0 then
-		if input_queue[1] == 5 then
+	elseif p_turn == true and #queue > 0 then
+		if queue[1] == 5 then
 			for next in all(heroes) do
 				next.active = not next.active
 			end
-			update_targets()
-			sfx(sounds.switch_heroes, 3)
+			crosshairs()
+			sfx(sounds.switch, 3)
 		else
-			active_hero():act(input_queue[1])
+			active_hero():act(queue[1])
 		end
-		del(input_queue, input_queue[1])
-	elseif player_turn == false then
+		del(queue, queue[1])
+	elseif p_turn == false then
 		if should_advance() then
 			add_button()
 			refresh_pads()
@@ -268,59 +212,52 @@ function _update60()
 			depth -= 1
 			new_num_effect({26 + #(depth .. "") * 4,99}, -1, 007, 000)
 		end
-		shuffle(enemies)
+		shuff(enemies)
 		for next in all(enemies) do
 			next:update()
 		end
-
-    -- spawn rate stuff
-    turns = turns + 1
-		update_spawn_turns()
 
     -- spawn bag stuff
     if spawn_bags[turns] then
       spawn_bag = spawn_bags[turns]
       spawn_bag_instance = copy(spawn_bag)
-      shuffle(spawn_bag_instance)
+      shuff(spawn_bag_instance)
     end
 
-    -- spawn enemy
+    -- spawn rate stuff
+    turns = turns + 1
+		update_spawn_turns()
     for i = 1, spawn_turns[turns] do
       spawn_enemy()
     end
-
-		trigger_all_enemy_buttons()
-		turn_health_gain = 0
-		turn_score_gain = 0
-		update_targets()
-		-- update game state
-		player_turn = true
-		if spawn_rates[turns] ~= nil then
+    if spawn_rates[turns] then
 			spawn_rate = spawn_rates[turns]
 		end
+
+    -- update game state
+		trigger_btns()
+		crosshairs()
+		p_turn = true
 	end
 
   for next in all(enemies) do
-    if next.health <= 0 and #next.screen_seq <= 1 then
-      next:destroy()
-      local _s = tile_to_screen(tile(next))
+    if next.health <= 0 and #next.pixels <= 1 then
+      next:kill()
+      local _s = pos_pix(tile(next))
       new_pop({_s[1],_s[2]})
     end
   end
 
 	if delay <= 0 then
 		-- game won test
-		local a_xy = tile(hero_a)
-		local b_xy = tile(hero_b)
-		local reached_exit_a = find_type_in_tile("exit", a_xy)
-		local reached_exit_b = find_type_in_tile("exit", b_xy)
-		if reached_exit_a and reached_exit_b then
+		local a_exit = find_type("exit", tile(hero_a))
+		local b_exit = find_type("exit", tile(hero_b))
+		if a_exit and b_exit then
 			score += 100
 			depth -= 1
 			sfx(sounds.win, 3)
-		end
 		-- game lost test
-		if hero_a.health <= 0 or hero_b.health <= 0 then
+		elseif hero_a.health <= 0 or hero_b.health <= 0 then
 			sfx(sounds.lose, 3)
 		end
 	end
@@ -336,8 +273,8 @@ function random_tile()
   for y=1,rows do
     add (_y,y)
   end
-  shuffle(_x)
-  shuffle(_y)
+  shuff(_x)
+  shuff(_y)
   return {_x[1],_y[1]}
 end
 
@@ -349,16 +286,14 @@ function _draw()
 		pal(005, 000)
 		pal(001, 005)
 		spr(008,34,36,8,4)
-		local _text = smallcaps("press x to start")
-		print(_text, 65 - #_text * 4 / 2, 99, 007)
+		local _t = small("press x to start")
+		print(_t, 65 - #_t * 2, 99, 007)
 		return
 	end
 
 	-- draw_floor
 	rectfill(11, 11, 116, 86, 007)
 	-- draw outlines
-	-- this draws 1px inside and 1px outside the "rim" that gets drawn by the border tiles.
-	-- this creates the appearance of walls around the floor of the board.
 	rect(10, 10, 117, 87, 000)
 	rect(12, 12, 115, 85, 000)
 	-- draw objects
@@ -381,7 +316,7 @@ function _draw()
 	pal(006, 007)
 	-- top and bottom
 	for x = 12, 115, 8 do
-		spr(033, x, 4, 1, 1, false, false)
+		spr(033, x, 4)
 		spr(033, x, 86, 1, 1, true, true)
 	end
 	-- left and right
@@ -392,7 +327,7 @@ function _draw()
 	-- top left
 	spr(034, 4, 5)
 	-- top right
-	spr(035, 116, 5, 1, 1, true, false)
+	spr(035, 116, 5, 1, 1, true)
 	-- bottom left
 	spr(035, 4, 85, 1, 1, false, true)
 	-- bottom right
@@ -406,9 +341,9 @@ function _draw()
 		local msg_y
 		-- line 1
 		if depth != 0 then
-			msg = smallcaps("you died with " .. score .. " gold")
+			msg = small("you died with " .. score .. " gold")
 		else
-			msg = smallcaps("you escaped! +100 gold")
+			msg = small("you escaped! +100 gold")
 		end
 		local msg_x = 65 - (#msg * 4) / 2
 		local msg_y = 99
@@ -416,18 +351,18 @@ function _draw()
 		-- line 2
 		if depth != 0 then
 			local txt = depth == 1 and " depth" or " depths"
-			msg = smallcaps(depth .. txt .. " from the surface")
+			msg = small(depth .. txt .. " from the surface")
 		else
-			msg = smallcaps("final score: " .. score)
+			msg = small("final score: " .. score)
 		end
 		msg_x = 65 - (#msg * 4) / 2
 		msg_y += 10
 		print(msg, msg_x, msg_y, 007)
 		-- line 3
 		if debug_mode then
-			msg = smallcaps("turns: " .. turns ..", spawn rate: " .. spawn_rate)
+			msg = small("turns: " .. turns ..", spawn rate: " .. spawn_rate)
 		else
-			msg = smallcaps("press x to restart")
+			msg = small("press x to restart")
 		end
 		msg_x = 65 - (#msg * 4) / 2
 		msg_y += 10
@@ -439,24 +374,24 @@ function _draw()
 		local _x = 22
 		local _y = 99
 		local _space = 3
-		local _a = smallcaps("press x to switch")
+		local _a = small("press x to switch")
 		print(_a, _x, _y, 007)
 		spr(000, _x + #_a * 4 + _space, _y - 2)
 		spr(001, _x + #_a * 4 + 8 + _space, _y - 2)
 
 		_x = 18
 		_y += 10
-		local _b = smallcaps("stand on 2")
+		local _b = small("stand on 2")
 		print(_b, _x, _y, 007)
 		spr(016, _x + #_b * 4 + _space, _y - 2)
-		local _c = smallcaps("to advance")
+		local _c = small("to advance")
 		print(_c, _x + #_b * 4 + _space + 8 + _space, _y, 007)
 		return
 		pal()
 	else
 		-- draw instructions area
 		if not debug_mode then
-			local msg = smallcaps("depth")
+			local msg = small("depth")
 			print(msg, 11, 99, 007)
 			print(depth, 34, 99, 007)
 		else
@@ -464,7 +399,7 @@ function _draw()
 			print(text, 11, 99, 005)
 		end
 		-- score
-		local text = smallcaps("gold")
+		local text = small("gold")
 		local num = score .. ""
 		print(text, 118 - #text * 4, 99, 007)
 		print(num, 99 - #num * 4, 99, 007)
@@ -475,21 +410,6 @@ function _draw()
 	for next in all(effects) do
 		next:draw()
 	end
-
-	-- grid
-	-- local _g = 8
-	-- for _x = 0, 127, _g do
-	--   for _y = 0, 127, _g do
-	--     pset(_x, _y, 014)
-	--   end
-	-- end
-	-- for _x = 0, 127, _g do
-	--   pset(_x, 127, 014)
-	-- end
-	-- for _y = 0, 127, _g do
-	--   pset(127, _y, 014)
-	-- end
-	-- pset(127, 127, 014)
 end
 
 function copy(_a)
@@ -505,26 +425,20 @@ function new_thing()
 		x = null,
 		y = null,
 		-- a sequence of screen positions
-		screen_seq = {},
+		pixels = {},
 		-- a sequence of sprites
-		sprite_seq = {},
+		sprites = {},
 		-- a sequence of palette modifications
-		pal_seq = {{010,010}},
+		pals = {{010,010}},
 		end_draw = function(self)
-			-- for all these lists, if there's more than one value, remove the first one
-			if #self.screen_seq > 1 then
-				del(self.screen_seq, self.screen_seq[1])
-			end
-			if #self.sprite_seq > 1 then
-				del(self.sprite_seq, self.sprite_seq[1])
-			end
-			if #self.pal_seq > 1 then
-				del(self.pal_seq, self.pal_seq[1])
-			end
-			-- reset the palette
+      for next in all({self.pixels, self.sprites, self.pals}) do
+        if #next > 1 then
+          del(next, next[1])
+        end
+      end
 			pal()
 		end,
-		destroy = function(self)
+		kill = function(self)
       if self.x and self.y then
         del(board[self.x][self.y], self)
       end
@@ -535,50 +449,41 @@ function new_thing()
 end
 
 function new_hero()
-	local new_hero = new_thing()
+	local _h = new_thing()
 
-	new_hero.sprite_seq = {000}
-	new_hero.type = "hero"
-  new_hero.target_type = "enemy"
-	new_hero.max_health = 3
-	new_hero.health = 3
-	new_hero.active = false
-	new_hero.jump = false
-	new_hero.shoot = false
-	new_hero.list = heroes
+	_h.sprites = {000}
+	_h.type = "hero"
+  _h.target_type = "enemy"
+	_h.max_health = 3
+	_h.health = 3
+	_h.list = heroes
 
-	new_hero.act = function(self, direction)
+	_h.act = function(self, direction)
 
-		local ally
-		if heroes[1] == self then
-			ally = heroes[2]
-		else
-			ally = heroes[1]
-		end
-
+		local ally = heroes[1] == self and heroes[2] or heroes[1]
 		local next_tile = add_pairs(tile(self), direction)
 
 		-- this is where the actual acting starts
 		-- if the destination exists and the tile isn't occupied by your ally
-		if location_exists(next_tile) and not find_type_in_tile("hero", next_tile) then
+		if location_exists(next_tile) and not find_type("hero", next_tile) then
 
-			local enemy = find_type_in_tile("enemy", next_tile)
+			local enemy = find_type("enemy", next_tile)
 			local wall = is_wall_between(tile(self), next_tile)
 
 			-- if jump is enabled and there's a wall in the way
 			if self.jump then
 				if enemy then
 					hit_target(enemy, 3)
-					player_turn = false
+					p_turn = false
 				end
-				local _here = tile_to_screen(tile(self))
-				local _next = tile_to_screen(next_tile)
+				local _here = pos_pix(tile(self))
+				local _next = pos_pix(next_tile)
 				local _half = {(_here[1] + _next[1]) / 2, _here[2]-4}
 				set_tile(self, next_tile)
-				transition_to(self, {_half, _next}, t_frames/2, 0)
-				delay = max(delay, t_frames * 2)
+				ani_to(self, {_half, _next}, ani_frames/2, 0)
+				delay = ani_frames * 1.5
 				sfx(sounds.jump, 3)
-				player_turn = false
+				p_turn = false
 
 			-- if there's no wall
 			elseif not wall then
@@ -591,30 +496,30 @@ function new_hero()
           end
 					new_shot(self, direction)
 					sfx(sounds.shoot, 3)
-					delay = max(delay, t_frames * 2)
-					player_turn = false
+					delay = ani_frames * 1.5
+					p_turn = false
 
 				-- otherwise, if there's an enemy in the destination, hit it
 				elseif enemy then
 					hit_target(enemy, 1)
 					sfx(sounds.hero_bump, 3)
-					local here = tile_to_screen(tile(self))
+					local here = pos_pix(tile(self))
 					local bump = {here[1] + direction[1] * 4, here[2] + direction[2] * 4}
-					transition_to(self, {bump, here}, t_frames/2, 0)
-					delay = max(delay, t_frames * 2)
-					player_turn = false
+					ani_to(self, {bump, here}, ani_frames/2, 0)
+					delay = ani_frames * 1.5
+					p_turn = false
 
 				-- otherwise, move to the destination
 				else
 					set_tile(self, next_tile)
-					transition_to(self, {tile_to_screen(next_tile)}, t_frames, 0)
-					delay = max(delay, t_frames * 2)
-					player_turn = false
+					ani_to(self, {pos_pix(next_tile)}, ani_frames, 0)
+					delay = ani_frames * 1.5
+					p_turn = false
 				end
 			end
 		end
     -- update buttons
-    local _b = find_type_in_tile("button", tile(self))
+    local _b = find_type("button", tile(self))
     if _b then
       if _b.color == 012 then
         ally.jump = true
@@ -624,21 +529,21 @@ function new_hero()
     end
 	end
 
-	new_hero.draw = function(self)
+	_h.draw = function(self)
 
-		-- set sprite based on the first value in sprite_seq
-		local sprite = self.sprite_seq[1]
+		-- set sprite based on the first value in sprites
+		local sprite = self.sprites[1]
 		-- if the sprite is hero_inactive and this hero is active, update the sprite
 		if sprite == 000 and self.active then
 			sprite = 001
 		end
 
-		-- set the current screen destination using the first value in screen_seq
-		local sx = self.screen_seq[1][1]
-		local sy = self.screen_seq[1][2]
+		-- set the current screen destination using the first value in pixels
+		local sx = self.pixels[1][1]
+		local sy = self.pixels[1][2]
     -- todo: clean this up
-		local ax = tile_to_screen(tile(self))[1]
-		local ay = tile_to_screen(tile(self))[2]
+		local ax = pos_pix(tile(self))[1]
+		local ay = pos_pix(tile(self))[2]
 
 		-- default palette updates
 		palt(015, true)
@@ -682,8 +587,8 @@ function new_hero()
 						flip_y = true
 					end
 					if
-						find_type_in_tile("enemy", _b) or
-						location_exists(_b) and is_wall_between(_a, _b) and not find_type_in_tile("hero", _b)
+						find_type("enemy", _b) or
+						location_exists(_b) and is_wall_between(_a, _b) and not find_type("hero", _b)
 					then
 						spr(sprite, ax + next[1] * 8, ay + next[2] * 8, 1, 1, flip_x, flip_y)
 					end
@@ -703,15 +608,15 @@ function new_hero()
 					elseif next[2] == -1 then
 						flip_y = true
 					end
-					if not is_wall_between(_a, _b) and find_type_in_tile("enemy", _b) then
+					if not is_wall_between(_a, _b) and find_type("enemy", _b) then
 						spr(sprite, ax + next[1] * 8, ay + next[2] * 8, 1, 1, flip_x, flip_y)
 					end
 				end
 			end
 		end
 
-		-- update the palette using first value in pal_seq
-		pal(self.pal_seq[1][1], self.pal_seq[1][2])
+		-- update the palette using first value in pals
+		pal(self.pals[1][1], self.pals[1][2])
 
 		-- draw the sprite and the hero's health
 		spr(sprite, sx, sy)
@@ -720,13 +625,13 @@ function new_hero()
 		self:end_draw()
 	end
 
-	add(heroes, new_hero)
-	return new_hero
+	add(heroes, _h)
+	return _h
 end
 
 function new_enemy()
 	local _e = new_thing()
-  _e.sprite_seq = {048}
+  _e.sprites = {048}
 	_e.type = "enemy"
   _e.target_type = "hero"
 	_e.stunned = true
@@ -736,7 +641,7 @@ function new_enemy()
   _e.step = nil
 
   _e.update = function(self)
-    if player_turn == false then
+    if p_turn == false then
       if self.stunned == true then
         self.stunned = false
       else
@@ -756,7 +661,7 @@ function new_enemy()
       end
     end
     if #targets >= 1 then
-      shuffle(targets)
+      shuff(targets)
       return targets[1]
     else
       return nil
@@ -772,13 +677,13 @@ function new_enemy()
       targets = get_closest(self, heroes, "enemy")
     end
     -- if there's more than one, pick randomly
-    shuffle(targets)
+    shuff(targets)
     local target = targets[1]
     -- get possible steps by ideal distance
     local steps = get_steps(tile(self),tile(target))
     -- eliminate any ideal steps that have enemies in them
     for next in all(steps) do
-      if find_type_in_tile("enemy", next) then
+      if find_type("enemy", next) then
         del(steps, next)
       end
     end
@@ -790,7 +695,7 @@ function new_enemy()
       return get_random_move(tile(self))
     end
     -- set the step
-    shuffle(steps)
+    shuff(steps)
     return steps[1]
   end
 
@@ -805,10 +710,10 @@ function new_enemy()
     if self.target then
       hit_target(self.target, 1)
       local direction = get_direction(tile(self), tile(self.target))
-      local here = tile_to_screen(tile(self))
+      local here = pos_pix(tile(self))
       local bump = {here[1] + direction[1] * 4, here[2] + direction[2] * 4}
-      transition_to(self, {bump, here}, t_frames/2, 2)
-      delay = max(delay, t_frames * 2)
+      ani_to(self, {bump, here}, ani_frames/2, 2)
+      delay = ani_frames * 1.5
       sfx(sounds.enemy_bump, 3)
     end
   end
@@ -816,44 +721,38 @@ function new_enemy()
   _e.move = function(self)
     if self.step then
       set_tile(self, self.step)
-      transition_to(self, {tile_to_screen(self.step)}, t_frames, 0)
-      delay = max(delay, t_frames * 2)
+      ani_to(self, {pos_pix(self.step)}, ani_frames, 0)
+      delay = ani_frames * 1.5
     end
   end
 
 	_e.draw = function(self)
 
-		-- set sprite based on the first value in sprite_seq
-		local sprite = self.sprite_seq[1]
+		-- set sprite based on the first value in sprites
+		local sprite = self.sprites[1]
 
-		-- set the current screen destination using the first value in screen_seq
-		local sx = self.screen_seq[1][1]
-		local sy = self.screen_seq[1][2]
+		-- set the current screen destination using the first value in pixels
+		local sx = self.pixels[1][1]
+		local sy = self.pixels[1][2]
 
 		-- default palette updates
 		palt(015, true)
 		palt(000, false)
-		if self.stunned and player_turn == false or self.stunned and delay == 0 then
+		if self.stunned and p_turn == false or self.stunned and delay == 0 then
 			pal(000, 006)
 		end
 
-		-- update the palette using first value in pal_seq
-		pal(self.pal_seq[1][1], self.pal_seq[1][2])
+		-- update the palette using first value in pals
+		pal(self.pals[1][1], self.pals[1][2])
 
 		-- draw the enemy and its health
 		spr(sprite, sx, sy)
 		draw_health(sx, sy, self.health, 8)
 
 		-- draw crosshairs
-		if self.health >= 1 then
-			if self.is_shoot_target then
-				pal(006, 011)
-				spr(002, sx, sy)
-			end
-			if self.is_jump_target then
-				pal(006, 012)
-				spr(002, sx, sy)
-			end
+		if self.health >= 1 and self.is_target then
+      pal(006, self.is_target)
+      spr(002, sx, sy)
 		end
 
 		self:end_draw()
@@ -865,8 +764,8 @@ function new_enemy()
 			for y = 1, rows do
 				local _t = {x,y}
         if
-          not find_type_in_tile("hero", _t) and
-          not find_type_in_tile("enemy", _t) and
+          not find_type("hero", _t) and
+          not find_type("enemy", _t) and
           dumb_distance(tile(hero_a), _t) >= 2 and
           dumb_distance(tile(hero_b), _t) >= 2
         then
@@ -876,10 +775,10 @@ function new_enemy()
 		end
 
     if #valid_tiles > 0 then
-      shuffle(valid_tiles)
+      shuff(valid_tiles)
       set_tile(self, valid_tiles[1])
     else
-      self:destroy()
+      self:kill()
     end
 	end
 
@@ -889,7 +788,7 @@ end
 
 function new_enemy_timid()
   local _e = new_enemy()
-  _e.sprite_seq = {048}
+  _e.sprites = {048}
 	_e.health = 1
 
   _e.get_step = function(self)
@@ -910,7 +809,7 @@ end
 
 function new_enemy_dash()
   local _e = new_enemy()
-  _e.sprite_seq = {053}
+  _e.sprites = {053}
   _e.health = 1
 
   _e.get_target = function(self)
@@ -947,9 +846,9 @@ function new_enemy_dash()
   _e.attack = function(self)
     if self.target then
       hit_target(self.target, 1)
-      local dest = tile_to_screen(tile(self.target))
-      transition_to(self, {dest}, t_frames, 0)
-      delay = max(delay, t_frames * 2)
+      local dest = pos_pix(tile(self.target))
+      ani_to(self, {dest}, ani_frames, 0)
+      delay = ani_frames * 1.5
       sfx(sounds.enemy_bump, 3)
       self.health = 0
     end
@@ -960,14 +859,14 @@ end
 
 function new_enemy_slime()
   local _e = new_enemy()
-  _e.sprite_seq = {049}
+  _e.sprites = {049}
 
   _e.move = function(self)
     if self.step then
       set_tile(new_enemy_baby(), tile(self))
       set_tile(self, self.step)
-      transition_to(self, {tile_to_screen(self.step)}, t_frames, 0)
-      delay = max(delay, t_frames * 2)
+      ani_to(self, {pos_pix(self.step)}, ani_frames, 0)
+      delay = ani_frames * 1.5
       self.stunned = true
     end
   end
@@ -976,10 +875,10 @@ function new_enemy_slime()
     if self.target then
       hit_target(self.target, 1)
       local direction = get_direction(tile(self), tile(self.target))
-      local here = tile_to_screen(tile(self))
+      local here = pos_pix(tile(self))
       local bump = {here[1] + direction[1] * 4, here[2] + direction[2] * 4}
-      transition_to(self, {bump, here}, t_frames/2, 2)
-      delay = max(delay, t_frames * 2)
+      ani_to(self, {bump, here}, ani_frames/2, 2)
+      delay = ani_frames * 1.5
       sfx(sounds.enemy_bump, 3)
       self.stunned = true
     end
@@ -991,7 +890,7 @@ end
 function new_enemy_baby()
   local _e = new_enemy()
 	_e.health = 1
-  _e.sprite_seq = {050}
+  _e.sprites = {050}
   return _e
 end
 
@@ -1004,20 +903,20 @@ function get_random_move(start)
   local _b = {}
   for next in all(_a) do
     if
-      not find_type_in_tile("enemy", next) and
-      not find_type_in_tile("hero", next)
+      not find_type("enemy", next) and
+      not find_type("hero", next)
     then
       add(_b, next)
     end
   end
-  shuffle(_b)
+  shuff(_b)
   return _b[1]
 end
 
 function new_enemy_grow()
   local _e = new_enemy()
 	_e.health = 1
-  _e.sprite_seq = {051}
+  _e.sprites = {051}
   _e.sub_type = "grow"
 
   _e.get_friend = function(self)
@@ -1030,7 +929,7 @@ function new_enemy_grow()
     if #friends > 1 then
       del(friends, self)
       local close_friends = get_closest(self, friends, "hero")
-      shuffle(close_friends)
+      shuff(close_friends)
       return close_friends[1]
     end
   end
@@ -1044,7 +943,7 @@ function new_enemy_grow()
         local steps = get_steps(tile(self),tile(friend),"hero")
         -- if there's a valid path to the friend that avoids heroes
         if #steps > 0 then
-          shuffle(steps)
+          shuff(steps)
           return steps[1]
         -- otherwise, move randomly
         else
@@ -1060,8 +959,8 @@ function new_enemy_grow()
   _e.move = function(self)
     if self.step then
       set_tile(self, self.step)
-      transition_to(self, {tile_to_screen(self.step)}, t_frames, 0)
-      delay = max(delay, t_frames * 2)
+      ani_to(self, {pos_pix(self.step)}, ani_frames, 0)
+      delay = ani_frames * 1.5
 
       local grow_enemies = {}
       for next in all(enemies) do
@@ -1099,7 +998,7 @@ function new_enemy_grow()
         end
       end
       if #targets >= 1 then
-        shuffle(targets)
+        shuff(targets)
         return targets[1]
       else
         return nil
@@ -1134,8 +1033,8 @@ function new_enemy_grow()
     end
     for next in all(valid_tiles) do
       if
-        -- find_type_in_tile("hero", next) or
-        find_type_in_tile("enemy", next) or
+        -- find_type("hero", next) or
+        find_type("enemy", next) or
         dumb_distance(tile(hero_a), next) < 2 or
         dumb_distance(tile(hero_b), next) < 2
       then
@@ -1143,10 +1042,10 @@ function new_enemy_grow()
       end
     end
     if #valid_tiles > 0 then
-      shuffle(valid_tiles)
+      shuff(valid_tiles)
       set_tile(self, valid_tiles[1])
     else
-      self:destroy()
+      self:kill()
     end
   end
 
@@ -1156,7 +1055,7 @@ end
 function new_enemy_grown()
   local _e = new_enemy()
 	_e.health = 3
-  _e.sprite_seq = {052}
+  _e.sprites = {052}
   return _e
 end
 
@@ -1185,7 +1084,7 @@ function get_steps(start, goal, avoid)
   local valid_tiles = {}
 
   for next in all(adjacent_tiles) do
-    local should_avoid = avoid and find_type_in_tile(avoid, next)
+    local should_avoid = avoid and find_type(avoid, next)
     local next_dist = distance(next, goal, avoid)
     if
       not should_avoid and
@@ -1198,7 +1097,7 @@ function get_steps(start, goal, avoid)
   if #valid_tiles == 0 then
     current_dist = distance(start, goal)
     for next in all(adjacent_tiles) do
-      local should_avoid = avoid and find_type_in_tile(avoid, next)
+      local should_avoid = avoid and find_type(avoid, next)
       local next_dist = distance(next, goal)
       if
         not should_avoid and
@@ -1231,8 +1130,8 @@ function new_shot(thing, dir)
 		now_tile = next_tile
 	end
 
-  local _a = tile_to_screen(tile(thing))
-  local _b = tile_to_screen(wall)
+  local _a = pos_pix(tile(thing))
+  local _b = pos_pix(wall)
 	local _ax = _a[1]
 	local _ay = _a[2]
 	local _bx = _b[1]
@@ -1311,7 +1210,7 @@ end
 function spawn_enemy()
   if #spawn_bag_instance == 0 then
     spawn_bag_instance = copy(spawn_bag)
-    shuffle(spawn_bag_instance)
+    shuff(spawn_bag_instance)
   end
   spawn_functions[spawn_bag_instance[1]]()
   del(spawn_bag_instance, spawn_bag_instance[1])
@@ -1325,31 +1224,25 @@ function active_hero()
 	end
 end
 
-function smallcaps(s)
-	local d=""
-	local l,c,t=false,false
-	for i=1,#s do
-		local a=sub(s,i,i)
-		if a=="^" then
-			if(c) d=d..a
-			c=not c
-		elseif a=="~" then
-			if(t) d=d..a
-			t,l=not t,not l
-		else
-			if c==l and a>="a" and a<="z" then
-				for j=1,26 do
-					if a==sub("abcdefghijklmnopqrstuvwxyz",j,j) then
-						a=sub("\65\66\67\68\69\70\71\72\73\74\75\76\77\78\79\80\81\82\83\84\85\86\87\88\89\90\91\92",j,j)
-						break
-					end
-				end
-			end
-			d=d..a
-			c,t=false,false
-		end
-	end
-	return d
+function small(s)
+  local d=""
+  local c
+  for i=1,#s do
+    local a=sub(s,i,i)
+    if a!="^" then
+      if not c then
+        for j=1,26 do
+          if a==sub("abcdefghijklmnopqrstuvwxyz",j,j) then
+            a=sub("\65\66\67\68\69\70\71\72\73\74\75\76\77\78\79\80\81\82\83\84\85\86\87\88\89\90\91\92",j,j)
+          end
+        end
+      end
+      d=d..a
+      c=true
+    end
+    c=not c
+  end
+  return d
 end
 
 function is_game_over()
@@ -1370,13 +1263,13 @@ function location_exists(tile)
 	return true
 end
 
-function transition_to(thing, destinations, frames, wait)
+function ani_to(thing, destinations, frames, wait)
 
 	local s = {}
-	local current = thing.screen_seq[1]
+	local current = thing.pixels[1]
 
 	for i = 1, wait do
-		add(s, thing.screen_seq[1])
+		add(s, thing.pixels[1])
 	end
 
 	for next in all(destinations) do
@@ -1394,7 +1287,7 @@ function transition_to(thing, destinations, frames, wait)
 		end
 	end
 
-	thing.screen_seq = s
+	thing.pixels = s
 end
 
 function set_tile(thing, dest)
@@ -1416,28 +1309,29 @@ function set_tile(thing, dest)
 	thing.x = dest[1]
 	thing.y = dest[2]
 
-	if thing.screen_seq and #thing.screen_seq == 0 then
-		local _c = tile_to_screen(dest)
+  -- enter transitions for enemies
+	if thing.pixels and #thing.pixels == 0 then
+		local _c = pos_pix(dest)
 		if thing.type == "enemy" then
 			local _x = _c[1]
 			local _y = _c[2]
-			thing.screen_seq = frames({{_x,_y-2},{_x,_y-1},_c})
+			thing.pixels = frames({{_x,_y-2},{_x,_y-1},_c})
 		else
-			thing.screen_seq = {_c}
+			thing.pixels = {_c}
 		end
 	end
 
-	-- this is here for now because enemy buttons need to be triggered when enemies step or are deployed
-	-- todo: this should probably be done differently somehow
+	-- trigger enemy buttons when they step or are deployed
 	if thing.type == "enemy" then
-		local button = find_type_in_tile("button", tile(thing))
-		if button and button.color == 008 then
-			turn_health_gain += 1
-		elseif button and button.color == 009 then
-			turn_score_gain += 1
+		local _b = find_type("button", tile(thing))
+		if _b and _b.color == 008 then
+			t_health += 1
+		elseif _b and _b.color == 009 then
+			t_score += 1
 		end
-	elseif thing.type == "hero" and find_type_in_tile("pad", dest) then
-		if find_type_in_tile("pad", dest) then
+  -- trigger hero step sounds
+	elseif thing.type == "hero" then
+		if find_type("pad", dest) then
 			sfx(sounds.pad_step, 3)
 		else
 			sfx(sounds.step, 3)
@@ -1445,7 +1339,8 @@ function set_tile(thing, dest)
 	end
 end
 
-function tile_to_screen(board_position)
+-- converts board position to screen pixels
+function pos_pix(board_position)
 	local board_x = board_position[1]
 	local board_y = board_position[2]
 	local x_pos = (board_x - 1) * 8 + (board_x - 1) * 7 + 15
@@ -1453,8 +1348,7 @@ function tile_to_screen(board_position)
 	return {x_pos, y_pos}
 end
 
-function shuffle(t)
-	-- do a fisher-yates shuffle
+function shuff(t)
 	for i = #t, 1, -1 do
 		local j = flr(rnd(i)) + 1
 		t[i], t[j] = t[j], t[i]
@@ -1462,9 +1356,7 @@ function shuffle(t)
 end
 
 function deploy(thing, avoid_list)
-
 	local valid_tiles = {}
-
 	for x = 1, cols do
 		for y = 1, rows do
 			local tile_is_valid = true
@@ -1482,31 +1374,31 @@ function deploy(thing, avoid_list)
 			end
 		end
 	end
-
 	local index = flr(rnd(#valid_tiles)) + 1
 	local dest = valid_tiles[index]
-
 	set_tile(thing, dest)
 end
 
-function trigger_all_enemy_buttons()
+function trigger_btns()
+  t_health = 0
+  t_score = 0
 	for next in all(heroes) do
 		local start = next.health
-		next.health += turn_health_gain
+		next.health += t_health
 		if next.health > next.max_health then
 			next.health = next.max_health
 		end
 		local diff = next.health - start
 		if diff > 0 then
-			new_num_effect({next.screen_seq[1][1], next.screen_seq[1][2]}, diff, 008, 007)
+			new_num_effect({next.pixels[1][1], next.pixels[1][2]}, diff, 008, 007)
 			sfx(sounds.health, 3)
 		end
 	end
-	if turn_score_gain > 0 then
-		score += turn_score_gain
-		local text = turn_score_gain .. ""
+	if t_score > 0 then
+		score += t_score
+		local text = t_score .. ""
 		sfx(sounds.score, 3)
-		new_num_effect({95 - #text * 4, 99}, turn_score_gain, 009, 000)
+		new_num_effect({95 - #text * 4, 99}, t_score, 009, 000)
 	end
 end
 
@@ -1514,17 +1406,17 @@ function new_num_effect(pos, amount, color, outline)
 	local _x = pos[1]
 	local _y = pos[2]
 	local new_num_effect = {
-		screen_seq = frames({{_x,_y},{_x,_y-1},{_x,_y-2},{_x,_y-3},{_x,_y-4},{_x,_y-5}}),
+		pixels = frames({{_x,_y},{_x,_y-1},{_x,_y-2},{_x,_y-3},{_x,_y-4},{_x,_y-5}}),
 		draw = function(self)
-			local sx = self.screen_seq[1][1]
-			local sy = self.screen_seq[1][2]
+			local sx = self.pixels[1][1]
+			local sy = self.pixels[1][2]
       local sign = amount > 0 and "+" or ""
 			for next in all(s_dirs) do
 				print(sign .. amount, sx+next[1], sy+next[2], outline)
 			end
 			print(sign .. amount, sx, sy, color)
-			if #self.screen_seq > 1 then
-				del(self.screen_seq, self.screen_seq[1])
+			if #self.pixels > 1 then
+				del(self.pixels, self.pixels[1])
 			else
 				del(effects, self)
 			end
@@ -1541,8 +1433,8 @@ function new_pop(s)
   function new_particle(s)
     local v_x = {.125,-.125,.5,-.5}
     local v_y = copy(v_x)
-    shuffle(v_x)
-    shuffle(v_y)
+    shuff(v_x)
+    shuff(v_y)
     local _p = {
       s_x = s[1],
       s_y = s[2],
@@ -1572,8 +1464,7 @@ function new_pop(s)
   end
 end
 
--- check if a tile is in a list of tiles
-function is_in_tile_array(array, tile)
+function array_has_tile(array, tile)
 	for next in all(array) do
 		if tile[1] == next[1] and tile[2] == next[2] then
 			return true
@@ -1582,7 +1473,7 @@ function is_in_tile_array(array, tile)
 	return false
 end
 
-function find_type_in_tile(type, tile)
+function find_type(type, tile)
 	if location_exists(tile) then
 		local x = tile[1]
 		local y = tile[2]
@@ -1634,12 +1525,12 @@ function get_ranged_targets(thing, direction)
 		if
 			not location_exists(next_tile) or
 			is_wall_between(now_tile, next_tile) or
-			find_type_in_tile(thing.type, next_tile)
+			find_type(thing.type, next_tile)
 		then
 			return targets
 		end
 		-- if there's a target in the tile, return it
-		local target = find_type_in_tile(thing.target_type, next_tile)
+		local target = find_type(thing.target_type, next_tile)
 		if target then
 			add(targets,target)
 		end
@@ -1652,22 +1543,22 @@ function add_pairs(tile,dir)
   return {tile[1] + dir[1], tile[2] + dir[2]}
 end
 
-function update_targets()
+function crosshairs()
 	for next in all(enemies) do
-		next.is_shoot_target = false
-		next.is_jump_target = false
+		next.is_target = false
+		-- next.is_jump_target = false
 	end
   local h = active_hero()
   for d in all({{0, -1}, {0, 1}, {-1, 0}, {1, 0}}) do
     if h.shoot then
       local targets = get_ranged_targets(h, d)
       for next in all(targets) do
-        next.is_shoot_target = true
+        next.is_target = 011
       end
     elseif h.jump then
-      local enemy = find_type_in_tile("enemy", add_pairs(tile(h),d))
+      local enemy = find_type("enemy", add_pairs(tile(h),d))
       if enemy then
-        enemy.is_jump_target = true
+        enemy.is_target = 012
       end
     end
   end
@@ -1679,8 +1570,8 @@ function should_advance()
 	local b_xy = tile(hero_b)
 
 	-- find any pads that heroes are occupying
-	local a_p = find_type_in_tile("pad", b_xy)
-	local b_p = find_type_in_tile("pad", a_xy)
+	local a_p = find_type("pad", b_xy)
+	local b_p = find_type("pad", a_xy)
 
 	-- if there are heroes occupying two pads
 	if a_p and b_p then
@@ -1697,8 +1588,8 @@ function add_button()
 	local b_xy = tile(hero_b)
 
 	-- find which pads that heroes are occupying
-	local a_p = find_type_in_tile("pad", b_xy)
-	local b_p = find_type_in_tile("pad", a_xy)
+	local a_p = find_type("pad", b_xy)
+	local b_p = find_type("pad", a_xy)
 
 	-- find the other one
 	local other_p
@@ -1725,8 +1616,7 @@ function hit_target(target, damage)
 	target.health -= damage
   local b_r = {000,008}
   local y_y = {010,010}
-  -- target.pal_seq = frames({{010,010},b_r,{010,010}})
-  target.pal_seq = {y_y,y_y,b_r,b_r,b_r,b_r,y_y}
+  target.pals = {y_y,y_y,b_r,b_r,b_r,b_r,y_y}
 end
 
 function get_direction(a, b)
@@ -1791,11 +1681,11 @@ function distance(start, goal, avoid)
 			for next in all(adjacent_tiles) do
 				-- if the distance hasn't been set, then the tile hasn't been reached yet
 				if distance_map[next[1]][next[2]] == 1000 then
-					if (
-            not (avoid and find_type_in_tile(avoid, next)) and
+					if
+            not (avoid and find_type(avoid, next)) and
 						-- make sure it wasn't already added by a different check in the same step
-						is_in_tile_array(next_frontier, next) == false
-					) then
+						array_has_tile(next_frontier, next) == false
+					then
 						add(next_frontier, next)
 					end
 				end
@@ -1819,16 +1709,16 @@ function is_wall_between(tile_a, tile_b)
 	-- if b is above a
 	if b_x == a_x and b_y == a_y - 1 then
 		-- this is a bit weird but it works
-		return find_type_in_tile("wall_down", tile_b) and true or false
+		return find_type("wall_down", tile_b) and true or false
 	-- if b is below a
 	elseif b_x == a_x and b_y == a_y + 1 then
-		return find_type_in_tile("wall_down", tile_a) and true or false
+		return find_type("wall_down", tile_a) and true or false
 	-- if b is left of a
 	elseif b_x == a_x - 1 and b_y == a_y then
-		return find_type_in_tile("wall_right", tile_b) and true or false
+		return find_type("wall_right", tile_b) and true or false
 	-- if b is right of a
 	elseif b_x == a_x + 1 and b_y == a_y then
-		return find_type_in_tile("wall_right", tile_a) and true or false
+		return find_type("wall_right", tile_a) and true or false
 	else
 		-- todo: can i throw an error here?
 	end
@@ -1863,8 +1753,8 @@ function generate_walls()
 				local x_pos = (self.x - 1) * 8 + (self.x - 1) * 7 + 15
 				local y_pos = (self.y - 1) * 8 + (self.y - 1) * 7 + 15
 
-				local hero_l = find_type_in_tile("hero", tile(self))
-				local hero_r = find_type_in_tile("hero", {self.x + 1, self.y})
+				local hero_l = find_type("hero", tile(self))
+				local hero_r = find_type("hero", {self.x + 1, self.y})
 
 				local x3 = x_pos + 11
 				local y3 = y_pos - 4
@@ -1882,7 +1772,7 @@ function generate_walls()
 				-- reset the palette
 				pal()
 			end,
-			destroy = function(self)
+			kill = function(self)
 				del(board[self.x][self.y], self)
 				del(walls, self)
 			end,
@@ -1900,8 +1790,8 @@ function generate_walls()
 				local x_pos = (self.x - 1) * 8 + (self.x - 1) * 7 + 15
 				local y_pos = (self.y - 1) * 8 + (self.y - 1) * 7 + 15
 
-				local hero_u = find_type_in_tile("hero", tile(self))
-				local hero_d = find_type_in_tile("hero", {self.x, self.y + 1})
+				local hero_u = find_type("hero", tile(self))
+				local hero_d = find_type("hero", {self.x, self.y + 1})
 
 				local x3 = x_pos - 4
 				local y3 = y_pos + 11
@@ -1919,7 +1809,7 @@ function generate_walls()
 				-- reset the palette
 				pal()
 			end,
-			destroy = function(self)
+			kill = function(self)
 				del(board[self.x][self.y], self)
 				del(walls, self)
 			end,
@@ -1955,7 +1845,7 @@ function is_map_contiguous()
 			for next in all(adjacent_tiles) do
 				if reached_map[next[1]][next[2]] == false then
 					-- make sure it wasn't already added by a different check in the same step
-					if is_in_tile_array(next_frontier, next) == false then
+					if array_has_tile(next_frontier, next) == false then
 						add(next_frontier, next)
 					end
 				end
@@ -1982,12 +1872,12 @@ function refresh_pads()
 	has_advanced = true
 	if #colors_bag == 0 then
 		colors_bag = {008,008,008,008,008,008,009,011,012}
-		shuffle(colors_bag)
+		shuff(colors_bag)
 	end
 
 	-- delete all existing pads
 	for next in all(pads) do
-		next:destroy()
+		next:kill()
 	end
 
 	-- if there are only 5 spaces left, deploy exits
@@ -1998,12 +1888,12 @@ function refresh_pads()
 			local exit = {
 				x = null,
 				y = null,
-        screen_seq = {},
+        pixels = {},
 				type = "exit",
 				draw = function(self)
           palt(015, true)
-          local sx = self.screen_seq[1][1]
-          local sy = self.screen_seq[1][2]
+          local sx = self.pixels[1][1]
+          local sy = self.pixels[1][2]
           -- local sprite = 020
 					spr(020, sx, sy)
           pal()
@@ -2015,11 +1905,11 @@ function refresh_pads()
 		return
 	end
 
-	local current_colors = {008,009,011,012}
-	del(current_colors, colors_bag[1])
+	local _c = {008,009,011,012}
+	del(_c, colors_bag[1])
 
 	-- place new pads
-	for next in all(current_colors) do
+	for next in all(_c) do
 		local new_pad = new_pad(next)
 		deploy(new_pad, {"pad", "button", "hero"})
 	end
@@ -2028,14 +1918,14 @@ end
 
 function new_pad(color)
 	local new_pad = new_thing()
-	new_pad.sprite_seq = {016}
+	new_pad.sprites = {016}
 	new_pad.type = "pad"
 	new_pad.color = color
 	new_pad.list = pads
 	new_pad.draw = function(self)
-		local sprite = self.sprite_seq[1]
-		local sx = self.screen_seq[1][1]
-		local sy = self.screen_seq[1][2]
+		local sprite = self.sprites[1]
+		local sx = self.pixels[1][1]
+		local sy = self.pixels[1][2]
 		palt(015, true)
 		palt(000, false)
 		pal(006, color)
@@ -2049,16 +1939,16 @@ end
 function new_button(color)
 	local new_button = new_thing()
 
-	-- new_button.sprite_seq = frames({sprites.button_1,sprites.button_2,sprites.button_3})
-  new_button.sprite_seq = {019}
+	-- new_button.sprites = frames({sprites.button_1,sprites.button_2,sprites.button_3})
+  new_button.sprites = {019}
 	new_button.type = "button"
 	new_button.color = color
 	new_button.list = buttons
 	new_button.draw = function(self)
-		-- set sprite based on the first value in sprite_seq
-		local sprite = self.sprite_seq[1]
-		local sx = self.screen_seq[1][1]
-		local sy = self.screen_seq[1][2]
+		-- set sprite based on the first value in sprites
+		local sprite = self.sprites[1]
+		local sx = self.pixels[1][1]
+		local sy = self.pixels[1][2]
 		palt(015, true)
 		palt(000, false)
 		pal(006, color)
