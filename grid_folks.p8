@@ -121,7 +121,7 @@ function _init()
 		[320] = 2,
 	}
   spawn_bags = {
-    [001] = {"slime"},
+    [001] = {"timid"},
     [040] = {"dash","timid"},
     [080] = {"dash","timid","slime"},
     [120] = {"dash","timid","slime","grow"},
@@ -785,6 +785,11 @@ function new_enemy_timid()
         distance(step, tile(hero_b)) > 1
       then
         return step
+      else
+        local dir = get_direction(tile(self), step)
+        local _a = pos_pix(tile(self))
+        local _b = {_a[1] + dir[1] * 2, _a[2] + dir[2] * 2}
+        ani_to(self, {_b,_a}, ani_frames / 2, 0)
       end
     end
   end
@@ -1051,7 +1056,7 @@ function get_closest(thing, options, avoid)
   for i = 2, #options do
     local a = tile(closest[1])
     local a_dist = distance(here, a, avoid)
-    local b = tile(options[1])
+    local b = tile(options[i])
     local b_dist = distance(here, b, avoid)
     if b_dist < a_dist then
       closest = {options[i]}
