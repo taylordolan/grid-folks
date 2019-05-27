@@ -5,12 +5,13 @@ __lua__
 -- taylor d
 
 -- todo
+-- [x] wait animations for timid enemies
 -- [ ] change enemy health bars to show potential damage
--- [ ] wait animations for timid enemies
 -- [ ] fix bug: grow enemies will move into a stationary timid enemy's space
 -- [ ] figure out the timid enemy pathfinding crash
 
 -- optimizations
+-- [ ] fix redundancy between get_step_toward_friend and get_step_toward_hero
 -- [ ] combine functions for creating wall_right and wall_down
 -- [ ] kill `pixels`?
 
@@ -121,7 +122,7 @@ function _init()
 		[320] = 2,
 	}
   spawn_bags = {
-    [001] = {"timid"},
+    [001] = {"timid", "grow"},
     [040] = {"dash","timid"},
     [080] = {"dash","timid","slime"},
     [120] = {"dash","timid","slime","grow"},
@@ -659,7 +660,11 @@ function new_enemy()
     local targets = get_closest(self, heroes)
     -- if there's more than one, then find the closest heroes by avoid distance
     if #targets > 1 then
-      targets = get_closest(self, heroes, "enemy")
+      targets = get_closest(self, heroes, {"enemy"})
+      -- find the closest targets by avoid distance
+      local alt_targets = get_closest(self, targets, {"enemy"})
+      -- if any targets can be reached via avoid distance, then they're the targets
+      targets = #alt_targets > 0 and alt_targets or targets
     end
     -- if there's more than one, pick randomly
     shuff(targets)
@@ -674,7 +679,7 @@ function new_enemy()
     end
     -- if there are now no options, get possible steps by avoid distance
     if #steps == 0 then
-      steps = get_steps(tile(self),tile(target),"enemy")
+      steps = get_steps(tile(self),tile(target),{"enemy"})
     end
     if #steps == 0 then
       return get_random_move(tile(self))
@@ -909,37 +914,67 @@ function new_enemy_grow()
   _e.sprites = {024}
   _e.sub_type = "grow"
 
-  _e.get_friend = function(self)
+  _e.get_friends = function(self)
     local friends = {}
     for next in all(enemies) do
       if next.sub_type == "grow" then
         add(friends, next)
       end
     end
+    del(friends, self)
+    shuff(friends)
+    return friends
+  end
+
+  -- this is only called if there is at least one friend
+  _e.get_step_toward_friend = function(self)
+    local start = tile(self)
+    -- find the closest friends by ideal distance
+    local friends = self:get_friends()
+    friends = get_closest(self, friends)
+    -- if there's more than one
     if #friends > 1 then
-      del(friends, self)
-      local close_friends = get_closest(self, friends, "hero")
-      shuff(close_friends)
-      return close_friends[1]
+      -- find the closest friends by avoid distance
+      local alt_friends = get_closest(self, friends, {"enemy", "hero"})
+      -- if any friends can be reached via avoid distance, then they're the friends
+      friends = #alt_friends > 0 and alt_friends or friends
+    end
+    -- pick randomly from what's left
+    shuff(friends)
+    local friend = friends[1]
+    -- if friend is on a different tile
+    if not pair_equal(tile(self),tile(friend)) then
+      -- get possible steps by ideal distance
+      local steps = get_steps(tile(self),tile(friend))
+      -- eliminate any ideal steps that have non-friend enemies or heroes in them
+      for next in all(steps) do
+        local enemy = find_type("enemy", next)
+        if (enemy and enemy.sub_type ~= "grow") or find_type("hero", next) then
+          del(steps, next)
+        end
+      end
+      -- if there are now no options, get possible steps by avoid distance
+      if #steps == 0 then
+        steps = get_steps(tile(self),tile(friend),{"enemy","hero"})
+      end
+      -- if there are still no options, then move randomly
+      if #steps == 0 then
+        return get_random_move(tile(self))
+      end
+      -- set the step
+      shuff(steps)
+      return steps[1]
+    -- if friend is on the same tile
+    else
+      return nil
     end
   end
 
   _e.get_step = function(self)
-    -- if there's a friend…
-    local friend = self:get_friend()
-    if friend then
-      -- friend isn't on the same time
-      if not pair_equal(tile(self),tile(friend)) then
-        local steps = get_steps(tile(self),tile(friend),"hero")
-        -- if there's a valid path to the friend that avoids heroes
-        if #steps > 0 then
-          shuff(steps)
-          return steps[1]
-        -- otherwise, move randomly
-        else
-          return get_random_move(tile(self))
-        end
-      end
+    local friends = self:get_friends()
+    -- if there are friends
+    if #friends > 0 then
+      return self:get_step_toward_friend()
     -- if there's no friend and this enemy isn't attacking this turn
     elseif not self.target then
       return self:get_step_toward_hero()
@@ -961,7 +996,7 @@ function new_enemy_grow()
       if #grow_enemies > 1 then
         local friends = grow_enemies
         del(friends, self)
-        local friends = get_closest(self, friends, "hero")
+        local friends = get_closest(self, friends, {"hero"})
         local friend = friends[1]
         if pair_equal(tile(self),tile(friend)) then
           self.health = 0
@@ -1068,33 +1103,20 @@ function get_closest(thing, options, avoid)
   return closest
 end
 
-function get_steps(start, goal, avoid)
+function get_steps(start, goal, avoid_a)
+  local avoid = avoid_a or {}
   local current_dist = distance(start, goal, avoid)
-  local adjacent_tiles = get_adjacent_tiles(start)
+  -- local adjacent_tiles = get_adjacent_tiles(start)
   local valid_tiles = {}
 
-  for next in all(adjacent_tiles) do
-    local should_avoid = avoid and find_type(avoid, next)
+  for next in all(get_adjacent_tiles(start)) do
+    local should_avoid = find_types(avoid, next)
     local next_dist = distance(next, goal, avoid)
     if
       not should_avoid and
       next_dist < current_dist
     then
       add(valid_tiles, next)
-    end
-  end
-
-  if #valid_tiles == 0 then
-    current_dist = distance(start, goal)
-    for next in all(adjacent_tiles) do
-      local should_avoid = avoid and find_type(avoid, next)
-      local next_dist = distance(next, goal)
-      if
-        not should_avoid and
-        next_dist < current_dist
-      then
-        add(valid_tiles, next)
-      end
     end
   end
 
@@ -1477,6 +1499,16 @@ function find_type(type, tile)
 	return false
 end
 
+function find_types(types, tile)
+  local found = false
+  for next in all(types) do
+    if find_type(next, tile) then
+      found = true
+    end
+  end
+  return found
+end
+
 -- returns an array of all existing adjacent tiles that don't have walls in the way
 function get_adjacent_tiles(tile)
 
@@ -1633,10 +1665,7 @@ function get_direction(a, b)
 end
 
 function pair_equal(a, b)
-	if a[1] == b[1] and a[2] == b[2] then
-		return true
-	end
-	return false
+	return a[1] == b[1] and a[2] == b[2]
 end
 
 function dumb_distance(a,b)
@@ -1646,8 +1675,9 @@ function dumb_distance(a,b)
 end
 
 -- takes two tiles
-function distance(start, goal, avoid)
-	local frontier = {goal}
+function distance(start, goal, avoid_a)
+	local avoid = avoid_a or {}
+  local frontier = {goal}
 	local next_frontier = {}
 	local distance_map = {}
 	for x = 1, cols do
@@ -1672,9 +1702,10 @@ function distance(start, goal, avoid)
 				-- if the distance hasn't been set, then the tile hasn't been reached yet
 				if distance_map[next[1]][next[2]] == 1000 then
 					if
-            not (avoid and find_type(avoid, next)) and
 						-- make sure it wasn't already added by a different check in the same step
-						array_has_tile(next_frontier, next) == false
+						not array_has_tile(next_frontier, next) and
+            -- if tile is `start`, or if it's not `start` but it doesn't contain avoid things
+            (pair_equal(next, start) or find_types(avoid, next) == false)
 					then
 						add(next_frontier, next)
 					end
