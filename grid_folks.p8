@@ -4,9 +4,6 @@ __lua__
 -- grid folks
 -- taylor d
 
--- todo
--- [ ] update text effect style
-
 -- optimizations
 -- [ ] combine functions for creating wall_right and wall_down
 
@@ -157,9 +154,6 @@ function _update60()
 
 	if btnp(4) then
 		debug = not debug
-    local _p = pos_pix(tile(hero_a))
-    -- new_num_effect(_p, 1, 008, 007)
-    -- new_num_effect({95 - 1 * 4, 99}, 1, 009, 000)
 	end
 
 	if is_game_over() and btnp(5) then
@@ -171,7 +165,6 @@ function _update60()
 	-- one *less* than the maximum allowed number of rapid player inputs
 	if #queue < 2 then
     local input
-    -- local dirs = {{-1,0},{1,0},{0,-1},{0,1}}
     for i=0, 3 do
       if btnp(i) then
         add(queue, o_dirs[i+1])
@@ -226,7 +219,6 @@ function _update60()
     if spawn_rates[turns] then
 			spawn_rate = spawn_rates[turns]
 		end
-
     -- update game state
 		trigger_btns()
 		crosshairs()
@@ -1169,10 +1161,11 @@ function new_shot(thing, dir)
 	add(effects, new_shot)
 end
 
-function frames(a)
+function frames(a, n)
+  local n = n or 4
 	local b = {}
 	for next in all(a) do
-		for i = 1, 4 do
+		for i = 1, n do
 			add(b, next)
 		end
 	end
@@ -1379,8 +1372,6 @@ function deploy(thing, avoid_list)
 end
 
 function trigger_btns()
-  t_health = 0
-  t_score = 0
 	for next in all(heroes) do
 		local start = next.health
 		next.health += t_health
@@ -1389,7 +1380,7 @@ function trigger_btns()
 		end
 		local diff = next.health - start
 		if diff > 0 then
-			new_num_effect({next.pixels[1][1], next.pixels[1][2]}, diff, 008, 007)
+			new_num_effect(next, diff, 008, 007)
 			sfx(sounds.health, 3)
 		end
 	end
@@ -1399,20 +1390,28 @@ function trigger_btns()
 		sfx(sounds.score, 3)
 		new_num_effect({95 - #text * 4, 99}, t_score, 009, 000)
 	end
+  t_health = 0
+  t_score = 0
 end
 
-function new_num_effect(pos, amount, color, outline)
-	local _x = pos[1]
-	local _y = pos[2]
+function new_num_effect(ref, amount, color, outline)
 	local new_num_effect = {
-		pixels = frames({{_x,_y-1},{_x,_y-3},{_x,_y-5},{_x,_y-7},{_x,_y-7},{_x,_y-7},{_x,_y-7},{_x,_y-7},{_x,_y-7},{_x,_y-7},{_x,_y-7}}),
+    ref = ref, -- position or parent thing
+    _x = function(self)
+      return #self.ref == 2 and self.ref[1] or self.ref.pixels[1][1]
+    end,
+    _y = function(self)
+      return #self.ref == 2 and self.ref[2] or self.ref.pixels[1][2]
+    end,
+		pixels = frames({0,-1,-2,-3,-4,-5,-6,-7,-7,-7,-7,-7,-7,-7,-7,-7,-7,-7,-7,-7,-7,-7,-7}, 2),
 		draw = function(self)
+      local base = {self:_x(),self:_y()+self.pixels[1]}
       local sign = amount > 0 and "+" or ""
 			for next in all(s_dirs) do
-        local _p = add_pairs(self.pixels[1], next)
-        print(sign .. amount, _p[1], _p[2], outline)
+        local result = add_pairs(base,next)
+        print(sign .. amount, result[1], result[2], outline)
 			end
-			print(sign .. amount, self.pixels[1][1], self.pixels[1][2], color)
+			print(sign .. amount, base[1], base[2], color)
 			if #self.pixels > 1 then
 				del(self.pixels, self.pixels[1])
 			else
