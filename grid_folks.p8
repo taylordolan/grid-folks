@@ -64,6 +64,7 @@ function _init()
 	-- other lists
 	exits = {}
 	effects = {}
+  particles = {}
   walls = {}
 	colors_bag = {}
   o_dirs = {{-1,0},{1,0},{0,-1},{0,1}}
@@ -156,6 +157,9 @@ function _update60()
 
 	if btnp(4) then
 		debug = not debug
+    local _p = pos_pix(tile(hero_a))
+    -- new_num_effect(_p, 1, 008, 007)
+    -- new_num_effect({95 - 1 * 4, 99}, 1, 009, 000)
 	end
 
 	if is_game_over() and btnp(5) then
@@ -267,9 +271,10 @@ function _draw()
 		exits,
 		buttons,
 		walls,
-		effects,
+    particles,
 		enemies,
 		heroes,
+		effects,
 	}) do
 		for next in all(list) do
 			next:draw()
@@ -1400,21 +1405,19 @@ function new_num_effect(pos, amount, color, outline)
 	local _x = pos[1]
 	local _y = pos[2]
 	local new_num_effect = {
-		pixels = frames({{_x,_y},{_x,_y-1},{_x,_y-2},{_x,_y-3},{_x,_y-4},{_x,_y-5}}),
+		pixels = frames({{_x,_y-1},{_x,_y-3},{_x,_y-5},{_x,_y-7},{_x,_y-7},{_x,_y-7},{_x,_y-7},{_x,_y-7},{_x,_y-7},{_x,_y-7},{_x,_y-7}})
 		draw = function(self)
-			local sx = self.pixels[1][1]
-			local sy = self.pixels[1][2]
       local sign = amount > 0 and "+" or ""
 			for next in all(s_dirs) do
-				print(sign .. amount, sx+next[1], sy+next[2], outline)
+        local _p = add_pairs(self.pixels[1], next)
+        print(sign .. amount, _p[1], _p[2], outline)
 			end
-			print(sign .. amount, sx, sy, color)
+			print(sign .. amount, self.pixels[1][1], self.pixels[1][2], color)
 			if #self.pixels > 1 then
 				del(self.pixels, self.pixels[1])
 			else
 				del(effects, self)
 			end
-			-- reset the palette
 			pal()
 		end,
 	}
@@ -1446,12 +1449,12 @@ function new_pop(s)
         self.s_x += self.v_x
         self.s_y += self.v_y
         if self.frames <= 0 then
-          del(effects,self)
+          del(particles,self)
         end
         pal()
       end
     }
-    add(effects,_p)
+    add(particles,_p)
   end
   for i=1, 8 do
     new_particle(s)
