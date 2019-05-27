@@ -5,13 +5,10 @@ __lua__
 -- taylor d
 
 -- todo
--- [x] wait animations for timid enemies
--- [x] fix bug: grow enemies will move into a stationary timid enemy's space
--- [ ] change enemy health bars to show potential damage
--- [ ] figure out the timid enemy pathfinding crash
+-- [ ] fix instructions view
+-- [ ] update text effect style
 
 -- optimizations
--- [ ] fix redundancy between get_step_to_friend and get_step_to_hero
 -- [ ] combine functions for creating wall_right and wall_down
 
 -- game state that gets refreshed on restart
@@ -110,7 +107,7 @@ function _init()
 
 	-- spawn stuff
 	spawn_rates = {
-		[001] = 12,
+		[001] = 6,
 		[040] = 10,
 		[080] = 8,
 		[120] = 7,
@@ -121,7 +118,7 @@ function _init()
 		[320] = 2,
 	}
   spawn_bags = {
-    [001] = {"timid", "grow"},
+    [001] = {"timid"},
     [040] = {"dash","timid"},
     [080] = {"dash","timid","slime"},
     [120] = {"dash","timid","slime","grow"},
@@ -585,7 +582,7 @@ function new_hero()
 
 		-- draw the sprite and the hero's health
 		spr(sprite, sx, sy)
-		draw_health(sx, sy, self.health, 8)
+		draw_health(sx, sy, self.health, 0, 8)
 
 		self:end_draw()
 	end
@@ -601,6 +598,7 @@ function new_e()
   _e.target_type = "hero"
 	_e.stunned = true
 	_e.health = 2
+  _e.is_target = 0
 	_e.list = enemies
   _e.target = nil
   _e.step = nil
@@ -716,10 +714,11 @@ function new_e()
 
 		-- draw the enemy and its health
 		spr(sprite, sx, sy)
-		draw_health(sx, sy, self.health, 8)
+    local _t = self.is_target == 012 and 3 or self.is_target > 0 and 1 or 0
+		draw_health(sx, sy, self.health, _t, 8)
 
 		-- draw crosshairs
-		if self.health >= 1 and self.is_target then
+		if self.health >= 1 and self.is_target > 006 then
       pal(006, self.is_target)
       spr(002, sx, sy)
 		end
@@ -1177,8 +1176,14 @@ function frames(a)
 	return b
 end
 
-function draw_health(x_pos, y_pos, amount, offset)
-	for i = 1, amount do
+function draw_health(x_pos, y_pos, current, threatened, offset)
+  -- draw current amount of health in dark red
+	for i = 1, current do
+		pset(x_pos + offset, y_pos + 10 - i * 3, 002)
+		pset(x_pos + offset, y_pos + 9 - i * 3, 002)
+	end
+  -- draw current - threatened amount of health in light red
+  for i = 1, current - threatened do
 		pset(x_pos + offset, y_pos + 10 - i * 3, 008)
 		pset(x_pos + offset, y_pos + 9 - i * 3, 008)
 	end
@@ -1545,12 +1550,14 @@ function add_pairs(tile,dir)
 end
 
 function crosshairs()
-	for next in all(enemies) do
-		next.is_target = false
-		-- next.is_jump_target = false
-	end
   local h = active_hero()
-  for d in all({{0, -1}, {0, 1}, {-1, 0}, {1, 0}}) do
+	for next in all(enemies) do
+		next.is_target = 0
+    if distance(tile(h), tile(next)) == 1 then
+      next.is_target = 006
+    end
+	end
+  for d in all(o_dirs) do
     if h.shoot then
       local targets = get_ranged_targets(h, d)
       for next in all(targets) do
@@ -1563,6 +1570,7 @@ function crosshairs()
       end
     end
   end
+
 end
 
 function should_advance()
