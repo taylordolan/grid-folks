@@ -102,8 +102,6 @@ function _init()
 			del(board[next[1]][next[2]], wall)
 		end
 	end
-  -- (for testing)
-  -- refresh_pads()
 
 	-- spawn stuff
 	spawn_rates = {
@@ -118,7 +116,7 @@ function _init()
 		[320] = 2,
 	}
   spawn_bags = {
-    [001] = {"timid"},
+    [001] = {"slime"},
     [040] = {"dash","timid"},
     [080] = {"dash","timid","slime"},
     [120] = {"dash","timid","slime","grow"},
@@ -149,7 +147,9 @@ function _init()
 	spawned_early = false
 
   -- initial enemy
-	spawn_enemy()
+  for i = 1, 20 do
+    spawn_enemy()
+  end
 
 	-- start the music!
 	music(sounds.music)
@@ -637,9 +637,9 @@ function new_e()
     local targets = closest(self, heroes)
     -- if there's more than one, then find the closest heroes by avoid distance
     if #targets > 1 then
-      targets = closest(self, heroes, {"enemy"})
+      -- targets = closest(self, heroes, {"enemy"})
       -- find the closest targets by avoid distance
-      local alt_targets = closest(self, targets, {"enemy"})
+      local alt_targets = closest(self, heroes, {"enemy"})
       -- if any targets can be reached via avoid distance, then they're the targets
       targets = #alt_targets > 0 and alt_targets or targets
     end
@@ -660,16 +660,26 @@ function new_e()
     end
     -- if there are still no options, then move randomly
     if #steps == 0 then
-      return get_random_move(tile(self))
+      steps = get_random_moves(tile(self))
+      -- if #moves > 0 then
+        -- shuff(moves)
+        -- return moves[1]
+      -- end
     end
+    printh(#steps)
     -- set the step
-    shuff(steps)
-    return steps[1]
+    if #steps > 0 then
+      shuff(steps)
+      return steps[1]
+    -- else
+    --   return false
+    end
   end
 
   _e.get_step = function(self)
     -- if not attacking this turn
     if not self.target then
+      printh(self:get_step_to_hero())
       return self:get_step_to_hero()
     end
   end
@@ -763,16 +773,18 @@ function new_e_timid()
     -- if not attacking this turn
     if not self.target then
       local step = self:get_step_to_hero()
-      if
-        distance(step, tile(hero_a)) > 1 and
-        distance(step, tile(hero_b)) > 1
-      then
-        return step
-      else
-        local dir = get_direction(tile(self), step)
-        local _a = pos_pix(tile(self))
-        local _b = {_a[1] + dir[1] * 2, _a[2] + dir[2] * 2}
-        ani_to(self, {_b,_a}, ani_frames / 2, 0)
+      if step then
+        if
+          distance(step, tile(hero_a)) > 1 and
+          distance(step, tile(hero_b)) > 1
+        then
+          return step
+        else
+          local dir = get_direction(tile(self), step)
+          local _a = pos_pix(tile(self))
+          local _b = {_a[1] + dir[1] * 2, _a[2] + dir[2] * 2}
+          ani_to(self, {_b,_a}, ani_frames / 2, 0)
+        end
       end
     end
   end
@@ -871,7 +883,7 @@ function tile(thing)
   return {thing.x,thing.y}
 end
 
-function get_random_move(start)
+function get_random_moves(start)
   local _a = get_adjacent_tiles(start)
   local _b = {}
   for next in all(_a) do
@@ -882,8 +894,7 @@ function get_random_move(start)
       add(_b, next)
     end
   end
-  shuff(_b)
-  return _b[1]
+  return _b
 end
 
 function new_e_grow()
@@ -937,14 +948,22 @@ function new_e_grow()
       end
       -- if there are still no options, then move randomly
       if #steps == 0 then
-        return get_random_move(tile(self))
+        local moves = get_random_moves(tile(self))
+        if #moves > 0 then
+          shuff(moves)
+          return moves[1]
+        end
       end
       -- set the step
       shuff(steps)
       return steps[1]
     -- if friend is on the same tile
     else
-      return get_random_move(tile(self))
+      local moves = get_random_moves(tile(self))
+      if #moves > 0 then
+        shuff(moves)
+        return moves[1]
+      end
     end
   end
 
@@ -1062,7 +1081,8 @@ function new_e_grown()
   return _e
 end
 
-function closest(thing, options, avoid)
+function closest(thing, options, avoid_a)
+  local avoid = avoid_a or {}
   local closest = {options[1]}
   local here = tile(thing)
 
@@ -1084,15 +1104,14 @@ end
 function get_steps(start, goal, avoid_a)
   local avoid = avoid_a or {}
   local current_dist = distance(start, goal, avoid)
-  -- local adjacent_tiles = get_adjacent_tiles(start)
   local valid_tiles = {}
 
   for next in all(get_adjacent_tiles(start)) do
-    local should_avoid = find_types(avoid, next)
-    local next_dist = distance(next, goal, avoid)
+    -- local should_avoid = find_types(avoid, next)
+    -- local next_dist = distance(next, goal, avoid)
     if
-      not should_avoid and
-      next_dist < current_dist
+      not find_types(avoid, next) and
+      distance(next, goal, avoid) < current_dist
     then
       add(valid_tiles, next)
     end
