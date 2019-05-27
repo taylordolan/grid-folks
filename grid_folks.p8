@@ -6,12 +6,12 @@ __lua__
 
 -- todo
 -- [x] wait animations for timid enemies
+-- [x] fix bug: grow enemies will move into a stationary timid enemy's space
 -- [ ] change enemy health bars to show potential damage
--- [ ] fix bug: grow enemies will move into a stationary timid enemy's space
 -- [ ] figure out the timid enemy pathfinding crash
 
 -- optimizations
--- [ ] fix redundancy between get_step_toward_friend and get_step_toward_hero
+-- [ ] fix redundancy between get_step_to_friend and get_step_to_hero
 -- [ ] combine functions for creating wall_right and wall_down
 -- [ ] kill `pixels`?
 
@@ -129,25 +129,24 @@ function _init()
   }
   spawn_functions = {
     ["timid"] = function()
-      new_enemy_timid():deploy()
+      new_e_timid():deploy()
     end,
     ["slime"] = function()
-      new_enemy_slime():deploy()
+      new_e_slime():deploy()
     end,
     ["dash"] = function()
-      new_enemy_dash():deploy()
+      new_e_dash():deploy()
     end,
     ["grow"] = function()
-      new_enemy_grow():deploy()
-      new_enemy_grow():deploy()
+      new_e_grow():deploy()
+      new_e_grow():deploy()
     end,
   }
 	spawn_rate = spawn_rates[1]
   spawn_bag = spawn_bags[1]
   spawn_bag_instance = copy(spawn_bag)
   shuff(spawn_bag_instance)
-  -- todo: clean this up after i'm done testing
-  spawn_turns = {[turns] = 0, [turns + 1] = 0, [turns + 2] = 0}
+  spawn_turns = {0,0,0}
 	-- this gets updated whenever an enemy spawns
 	last_spawned_turn = 0
 	-- this tracks whether we've spawned a turn early
@@ -201,6 +200,7 @@ function _update60()
 		end
 		del(queue, queue[1])
 	elseif p_turn == false then
+
 		if should_advance() then
 			add_button()
 			refresh_pads()
@@ -257,21 +257,6 @@ function _update60()
 			sfx(sounds.lose, 3)
 		end
 	end
-end
-
--- todo: remove this after i'm done testing
-function random_tile()
-  local _x = {}
-  local _y = {}
-  for x=1,cols do
-    add (_x,x)
-  end
-  for y=1,rows do
-    add (_y,y)
-  end
-  shuff(_x)
-  shuff(_y)
-  return {_x[1],_y[1]}
 end
 
 function _draw()
@@ -615,7 +600,7 @@ function new_hero()
 	return _h
 end
 
-function new_enemy()
+function new_e()
 	local _e = new_thing()
   _e.sprites = {021}
 	_e.type = "enemy"
@@ -654,19 +639,19 @@ function new_enemy()
     end
   end
 
-  _e.get_step_toward_hero = function(self)
+  _e.get_step_to_hero = function(self)
     local start = tile(self)
     -- find the closest heroes by ideal distance
-    local targets = get_closest(self, heroes)
+    local targets = closest(self, heroes)
     -- if there's more than one, then find the closest heroes by avoid distance
     if #targets > 1 then
-      targets = get_closest(self, heroes, {"enemy"})
+      targets = closest(self, heroes, {"enemy"})
       -- find the closest targets by avoid distance
-      local alt_targets = get_closest(self, targets, {"enemy"})
+      local alt_targets = closest(self, targets, {"enemy"})
       -- if any targets can be reached via avoid distance, then they're the targets
       targets = #alt_targets > 0 and alt_targets or targets
     end
-    -- if there's more than one, pick randomly
+    -- pick randomly from what's left
     shuff(targets)
     local target = targets[1]
     -- get possible steps by ideal distance
@@ -681,6 +666,7 @@ function new_enemy()
     if #steps == 0 then
       steps = get_steps(tile(self),tile(target),{"enemy"})
     end
+    -- if there are still no options, then move randomly
     if #steps == 0 then
       return get_random_move(tile(self))
     end
@@ -692,7 +678,7 @@ function new_enemy()
   _e.get_step = function(self)
     -- if not attacking this turn
     if not self.target then
-      return self:get_step_toward_hero()
+      return self:get_step_to_hero()
     end
   end
 
@@ -776,15 +762,15 @@ function new_enemy()
 	return _e
 end
 
-function new_enemy_timid()
-  local _e = new_enemy()
+function new_e_timid()
+  local _e = new_e()
   _e.sprites = {021}
 	_e.health = 1
 
   _e.get_step = function(self)
     -- if not attacking this turn
     if not self.target then
-      local step = self:get_step_toward_hero()
+      local step = self:get_step_to_hero()
       if
         distance(step, tile(hero_a)) > 1 and
         distance(step, tile(hero_b)) > 1
@@ -802,8 +788,8 @@ function new_enemy_timid()
   return _e
 end
 
-function new_enemy_dash()
-  local _e = new_enemy()
+function new_e_dash()
+  local _e = new_e()
   _e.sprites = {026}
   _e.health = 1
 
@@ -834,7 +820,7 @@ function new_enemy_dash()
     if self.target then
       return tile(self.target)
     else
-      return self:get_step_toward_hero()
+      return self:get_step_to_hero()
     end
   end
 
@@ -852,13 +838,13 @@ function new_enemy_dash()
   return _e
 end
 
-function new_enemy_slime()
-  local _e = new_enemy()
+function new_e_slime()
+  local _e = new_e()
   _e.sprites = {022}
 
   _e.move = function(self)
     if self.step then
-      set_tile(new_enemy_baby(), tile(self))
+      set_tile(new_e_baby(), tile(self))
       set_tile(self, self.step)
       ani_to(self, {pos_pix(self.step)}, ani_frames, 0)
       delay = ani_frames * 1.5
@@ -882,8 +868,8 @@ function new_enemy_slime()
   return _e
 end
 
-function new_enemy_baby()
-  local _e = new_enemy()
+function new_e_baby()
+  local _e = new_e()
 	_e.health = 1
   _e.sprites = {023}
   return _e
@@ -908,8 +894,8 @@ function get_random_move(start)
   return _b[1]
 end
 
-function new_enemy_grow()
-  local _e = new_enemy()
+function new_e_grow()
+  local _e = new_e()
 	_e.health = 1
   _e.sprites = {024}
   _e.sub_type = "grow"
@@ -927,15 +913,15 @@ function new_enemy_grow()
   end
 
   -- this is only called if there is at least one friend
-  _e.get_step_toward_friend = function(self)
+  _e.get_step_to_friend = function(self)
     local start = tile(self)
     -- find the closest friends by ideal distance
     local friends = self:get_friends()
-    friends = get_closest(self, friends)
+    friends = closest(self, friends)
     -- if there's more than one
     if #friends > 1 then
       -- find the closest friends by avoid distance
-      local alt_friends = get_closest(self, friends, {"enemy", "hero"})
+      local alt_friends = closest(self, friends, {"enemy", "hero"})
       -- if any friends can be reached via avoid distance, then they're the friends
       friends = #alt_friends > 0 and alt_friends or friends
     end
@@ -966,7 +952,7 @@ function new_enemy_grow()
       return steps[1]
     -- if friend is on the same tile
     else
-      return nil
+      return get_random_move(tile(self))
     end
   end
 
@@ -974,10 +960,10 @@ function new_enemy_grow()
     local friends = self:get_friends()
     -- if there are friends
     if #friends > 0 then
-      return self:get_step_toward_friend()
+      return self:get_step_to_friend()
     -- if there's no friend and this enemy isn't attacking this turn
     elseif not self.target then
-      return self:get_step_toward_hero()
+      return self:get_step_to_hero()
     end
   end
 
@@ -996,12 +982,12 @@ function new_enemy_grow()
       if #grow_enemies > 1 then
         local friends = grow_enemies
         del(friends, self)
-        local friends = get_closest(self, friends, {"hero"})
+        local friends = closest(self, friends, {"hero"})
         local friend = friends[1]
         if pair_equal(tile(self),tile(friend)) then
           self.health = 0
           friend.health = 0
-          local big = new_enemy_grown()
+          local big = new_e_grown()
           set_tile(big,tile(self))
         end
       end
@@ -1077,14 +1063,14 @@ function new_enemy_grow()
   return _e
 end
 
-function new_enemy_grown()
-  local _e = new_enemy()
+function new_e_grown()
+  local _e = new_e()
 	_e.health = 3
   _e.sprites = {025}
   return _e
 end
 
-function get_closest(thing, options, avoid)
+function closest(thing, options, avoid)
   local closest = {options[1]}
   local here = tile(thing)
 
@@ -1587,46 +1573,26 @@ function crosshairs()
 end
 
 function should_advance()
-	-- get tiles for both heroes
-	local a_xy = tile(hero_a)
-	local b_xy = tile(hero_b)
-
 	-- find any pads that heroes are occupying
-	local a_p = find_type("pad", b_xy)
-	local b_p = find_type("pad", a_xy)
-
 	-- if there are heroes occupying two pads
-	if a_p and b_p then
-		return true
-	end
-	return false
+	return find_type("pad", tile(hero_a)) and find_type("pad", tile(hero_b))
 end
 
--- todo: clean up redundancy with should_advance()
 function add_button()
 
-	-- get tiles for both heroes
-	local a_xy = tile(hero_a)
-	local b_xy = tile(hero_b)
-
-	-- find which pads that heroes are occupying
-	local a_p = find_type("pad", b_xy)
-	local b_p = find_type("pad", a_xy)
-
-	-- find the other one
-	local other_p
+  -- find the other pad
+	local o_p
 	for next in all(pads) do
-		if next ~= a_p and next ~= b_p then
-			other_p = next
+		if
+      next ~= find_type("pad", tile(hero_a)) and
+      next ~= find_type("pad", tile(hero_b))
+    then
+			o_p = next
 		end
 	end
 
-	-- put an button button in its position
-	local button_color = other_p.color
-	local button_x = other_p.x
-	local button_y = other_p.y
-	local new_button = new_button(button_color)
-	set_tile(new_button, {button_x, button_y})
+	-- put a button in its position
+	set_tile(new_button(o_p.color), {o_p.x, o_p.y})
 
 	-- make the advance sound
 	sfx(sounds.advance, 3)
@@ -1740,8 +1706,6 @@ function is_wall_between(tile_a, tile_b)
 	-- if b is right of a
 	elseif b_x == a_x + 1 and b_y == a_y then
 		return find_type("wall_right", tile_a) and true or false
-	else
-		-- todo: can i throw an error here?
 	end
 end
 
