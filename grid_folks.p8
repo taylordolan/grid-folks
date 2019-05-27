@@ -1405,7 +1405,7 @@ function new_num_effect(pos, amount, color, outline)
 	local _x = pos[1]
 	local _y = pos[2]
 	local new_num_effect = {
-		pixels = frames({{_x,_y-1},{_x,_y-3},{_x,_y-5},{_x,_y-7},{_x,_y-7},{_x,_y-7},{_x,_y-7},{_x,_y-7},{_x,_y-7},{_x,_y-7},{_x,_y-7}})
+		pixels = frames({{_x,_y-1},{_x,_y-3},{_x,_y-5},{_x,_y-7},{_x,_y-7},{_x,_y-7},{_x,_y-7},{_x,_y-7},{_x,_y-7},{_x,_y-7},{_x,_y-7}}),
 		draw = function(self)
       local sign = amount > 0 and "+" or ""
 			for next in all(s_dirs) do
