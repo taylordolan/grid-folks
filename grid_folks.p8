@@ -4,9 +4,6 @@ __lua__
 -- grid folks
 -- taylor d
 
--- optimizations
--- [ ] combine functions for creating wall_right and wall_down
-
 -- game state that gets refreshed on restart
 function _init()
 
@@ -102,7 +99,7 @@ function _init()
 
 	-- spawn stuff
 	spawn_rates = {
-		[001] = 6,
+		[001] = 12,
 		[040] = 10,
 		[080] = 8,
 		[120] = 7,
@@ -1728,6 +1725,7 @@ function refresh_walls()
 end
 
 function generate_walls()
+  -- todo: combine this with the stuff below for creating wall_down
 	for i = 1, 12 do
 		local wall_right = {
 			x = null,
