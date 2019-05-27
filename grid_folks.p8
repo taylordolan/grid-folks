@@ -13,7 +13,6 @@ __lua__
 -- optimizations
 -- [ ] fix redundancy between get_step_to_friend and get_step_to_hero
 -- [ ] combine functions for creating wall_right and wall_down
--- [ ] kill `pixels`?
 
 -- game state that gets refreshed on restart
 function _init()
@@ -397,12 +396,11 @@ function new_thing()
 		y = null,
 		-- a sequence of screen positions
 		pixels = {},
-		-- a sequence of sprites
-		sprites = {},
 		-- a sequence of palette modifications
 		pals = {{010,010}},
+		sprite = 100,
 		end_draw = function(self)
-      for next in all({self.pixels, self.sprites, self.pals}) do
+      for next in all({self.pixels, self.pals}) do
         if #next > 1 then
           del(next, next[1])
         end
@@ -422,7 +420,7 @@ end
 function new_hero()
 	local _h = new_thing()
 
-	_h.sprites = {000}
+	_h.sprite = 000
 	_h.type = "hero"
   _h.target_type = "enemy"
 	_h.max_health = 3
@@ -502,12 +500,8 @@ function new_hero()
 
 	_h.draw = function(self)
 
-		-- set sprite based on the first value in sprites
-		local sprite = self.sprites[1]
-		-- if the sprite is hero_inactive and this hero is active, update the sprite
-		if sprite == 000 and self.active then
-			sprite = 001
-		end
+		-- set sprite
+		local sprite = self.active and 001 or self.sprite
 
 		-- set the current screen destination using the first value in pixels
 		local sx = self.pixels[1][1]
@@ -602,7 +596,7 @@ end
 
 function new_e()
 	local _e = new_thing()
-  _e.sprites = {021}
+  _e.sprite = 021
 	_e.type = "enemy"
   _e.target_type = "hero"
 	_e.stunned = true
@@ -704,8 +698,7 @@ function new_e()
 
 	_e.draw = function(self)
 
-		-- set sprite based on the first value in sprites
-		local sprite = self.sprites[1]
+		local sprite = self.sprite
 
 		-- set the current screen destination using the first value in pixels
 		local sx = self.pixels[1][1]
@@ -764,7 +757,7 @@ end
 
 function new_e_timid()
   local _e = new_e()
-  _e.sprites = {021}
+  _e.sprite = 021
 	_e.health = 1
 
   _e.get_step = function(self)
@@ -790,7 +783,7 @@ end
 
 function new_e_dash()
   local _e = new_e()
-  _e.sprites = {026}
+  _e.sprite = 026
   _e.health = 1
 
   _e.get_target = function(self)
@@ -840,7 +833,7 @@ end
 
 function new_e_slime()
   local _e = new_e()
-  _e.sprites = {022}
+  _e.sprite = 022
 
   _e.move = function(self)
     if self.step then
@@ -871,7 +864,7 @@ end
 function new_e_baby()
   local _e = new_e()
 	_e.health = 1
-  _e.sprites = {023}
+  _e.sprite = 023
   return _e
 end
 
@@ -897,7 +890,7 @@ end
 function new_e_grow()
   local _e = new_e()
 	_e.health = 1
-  _e.sprites = {024}
+  _e.sprite = 024
   _e.sub_type = "grow"
 
   _e.get_friends = function(self)
@@ -1066,7 +1059,7 @@ end
 function new_e_grown()
   local _e = new_e()
 	_e.health = 3
-  _e.sprites = {025}
+  _e.sprite = 025
   return _e
 end
 
@@ -1903,12 +1896,12 @@ end
 
 function new_pad(color)
 	local new_pad = new_thing()
-	new_pad.sprites = {016}
+	new_pad.sprite = 016
 	new_pad.type = "pad"
 	new_pad.color = color
 	new_pad.list = pads
 	new_pad.draw = function(self)
-		local sprite = self.sprites[1]
+		local sprite = self.sprite
 		local sx = self.pixels[1][1]
 		local sy = self.pixels[1][2]
 		palt(015, true)
@@ -1924,14 +1917,12 @@ end
 function new_button(color)
 	local new_button = new_thing()
 
-	-- new_button.sprites = frames({sprites.button_1,sprites.button_2,sprites.button_3})
-  new_button.sprites = {019}
+  new_button.sprite = 019
 	new_button.type = "button"
 	new_button.color = color
 	new_button.list = buttons
 	new_button.draw = function(self)
-		-- set sprite based on the first value in sprites
-		local sprite = self.sprites[1]
+		local sprite = self.sprite
 		local sx = self.pixels[1][1]
 		local sy = self.pixels[1][2]
 		palt(015, true)
