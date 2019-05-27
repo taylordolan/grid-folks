@@ -116,7 +116,7 @@ function _init()
 		[320] = 2,
 	}
   spawn_bags = {
-    [001] = {"slime"},
+    [001] = {"dash"},
     [040] = {"dash","timid"},
     [080] = {"dash","timid","slime"},
     [120] = {"dash","timid","slime","grow"},
@@ -147,9 +147,7 @@ function _init()
 	spawned_early = false
 
   -- initial enemy
-  for i = 1, 20 do
-    spawn_enemy()
-  end
+  spawn_enemy()
 
 	-- start the music!
 	music(sounds.music)
@@ -635,9 +633,8 @@ function new_e()
     local start = tile(self)
     -- find the closest heroes by ideal distance
     local targets = closest(self, heroes)
-    -- if there's more than one, then find the closest heroes by avoid distance
+    -- if there's more than one
     if #targets > 1 then
-      -- targets = closest(self, heroes, {"enemy"})
       -- find the closest targets by avoid distance
       local alt_targets = closest(self, heroes, {"enemy"})
       -- if any targets can be reached via avoid distance, then they're the targets
@@ -647,7 +644,7 @@ function new_e()
     shuff(targets)
     local target = targets[1]
     -- get possible steps by ideal distance
-    local steps = get_steps(tile(self),tile(target))
+    local steps = get_steps(start,tile(target))
     -- eliminate any ideal steps that have enemies in them
     for next in all(steps) do
       if find_type("enemy", next) then
@@ -656,23 +653,16 @@ function new_e()
     end
     -- if there are now no options, get possible steps by avoid distance
     if #steps == 0 then
-      steps = get_steps(tile(self),tile(target),{"enemy"})
+      steps = get_steps(start,tile(target),{"enemy"})
     end
     -- if there are still no options, then move randomly
     if #steps == 0 then
-      steps = get_random_moves(tile(self))
-      -- if #moves > 0 then
-        -- shuff(moves)
-        -- return moves[1]
-      -- end
+      steps = get_random_moves(start)
     end
-    printh(#steps)
     -- set the step
     if #steps > 0 then
       shuff(steps)
       return steps[1]
-    -- else
-    --   return false
     end
   end
 
@@ -931,39 +921,29 @@ function new_e_grow()
     -- pick randomly from what's left
     shuff(friends)
     local friend = friends[1]
-    -- if friend is on a different tile
-    if not pair_equal(tile(self),tile(friend)) then
-      -- get possible steps by ideal distance
-      local steps = get_steps(tile(self),tile(friend))
-      -- eliminate any ideal steps that have non-friend enemies or heroes in them
-      for next in all(steps) do
-        local enemy = find_type("enemy", next)
-        if (enemy and enemy.sub_type ~= "grow") or find_type("hero", next) then
-          del(steps, next)
-        end
+    -- get possible steps by ideal distance
+    local steps = get_steps(start,tile(friend))
+    -- eliminate any ideal steps that have non-friend enemies or heroes in them
+    for next in all(steps) do
+      local enemy = find_type("enemy", next)
+      if (enemy and enemy.sub_type ~= "grow") or find_type("hero", next) then
+        del(steps, next)
       end
-      -- if there are now no options, get possible steps by avoid distance
-      if #steps == 0 then
-        steps = get_steps(tile(self),tile(friend),{"enemy","hero"})
-      end
-      -- if there are still no options, then move randomly
-      if #steps == 0 then
-        local moves = get_random_moves(tile(self))
-        if #moves > 0 then
-          shuff(moves)
-          return moves[1]
-        end
-      end
-      -- set the step
+    end
+    -- if there are now no options, get possible steps by avoid distance
+    if #steps == 0 then
+      steps = get_steps(start,tile(friend),{"enemy","hero"})
+    end
+    -- if there still no options, or friend is on the same tile
+    if
+      #steps == 0 or
+      pair_equal(start,tile(friend))
+    then
+      steps = get_random_moves(start)
+    end
+    if #steps > 0 then
       shuff(steps)
       return steps[1]
-    -- if friend is on the same tile
-    else
-      local moves = get_random_moves(tile(self))
-      if #moves > 0 then
-        shuff(moves)
-        return moves[1]
-      end
     end
   end
 
@@ -1029,6 +1009,17 @@ function new_e_grow()
   end
 
   _e.deploy = function(self)
+    function is_too_close(_t, grow_enemies)
+      for next in all(grow_enemies) do
+        if
+          next.x and
+          distance(_t,tile(next)) < 5
+        then
+          return true
+        end
+      end
+      return false
+    end
     local valid_tiles = {}
     local grow_enemies = {}
     for next in all(enemies) do
@@ -1038,24 +1029,13 @@ function new_e_grow()
     end
     for x = 1, cols do
       for y = 1, rows do
-        local _t = {x,y}
-        local too_close = false
-        for next in all(grow_enemies) do
-          if
-            next.x and next.y and
-            distance(_t,tile(next)) < 5
-          then
-            too_close = true
-          end
-        end
-        if not too_close then
-          add(valid_tiles, _t)
+        if not is_too_close({x,y}, grow_enemies) then
+          add(valid_tiles, {x,y})
         end
       end
     end
     for next in all(valid_tiles) do
       if
-        -- find_type("hero", next) or
         find_type("enemy", next) or
         dumb_distance(tile(hero_a), next) < 2 or
         dumb_distance(tile(hero_b), next) < 2
