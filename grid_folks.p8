@@ -476,6 +476,8 @@ function new_hero()
 			end
 		end
     -- update buttons
+    ally.jump = false
+    ally.shoot = false
     local _b = find_type("button", tile(self))
     if _b then
       if _b.color == 012 then
