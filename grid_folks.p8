@@ -8,9 +8,10 @@ __lua__
 -- [x] make inactive heroes gray
 -- [x] show "+0" when not gaining health
 -- [x] bring back intro animations for buttons
--- [ ] do something about when dash enemies dash to a health or score tile
+-- [x] do something about when dash enemies dash to a health or score tile
 -- [ ] try giving enemies more health
 -- [ ] create a trim function for removing the first item in a table if its length is > 1
+-- [ ] fix game end
 
 -- game state that gets refreshed on restart
 function _init()
@@ -234,17 +235,11 @@ function _update60()
 		end
     -- update game state
 		trigger_btns()
+    hero_buttons(hero_a)
+    hero_buttons(hero_b)
 		crosshairs()
 		p_turn = true
 	end
-
-  -- for next in all(enemies) do
-  --   if next.health <= 0 and #next.pixels <= 1 then
-  --     next:kill()
-  --     local _s = pos_pix(tile(next))
-  --     new_pop({_s[1],_s[2]})
-  --   end
-  -- end
 
 	if delay <= 0 then
 		-- game won test
@@ -1354,27 +1349,31 @@ function set_tile(thing, dest)
 		end
   -- trigger hero step sounds
 	elseif thing.type == "hero" then
-    local _b = find_type("button", tile(thing))
-		if _b and _b.charged then
-      if _b.color == 008 then
-        if thing.health < thing.max_health then
-          thing.health = min(thing.health + 1, thing.max_health)
-          new_num_effect(thing, 1, 008, 007)
-        else
-          new_num_effect(thing, 0, 008, 007)
-        end
-      elseif _b.color == 009 then
-        score += 1
-        new_num_effect({79, 99}, 1, 009, 000)
-      end
-      _b.charged = false
-		end
+    hero_buttons(thing)
 		if find_type("pad", dest) then
 			sfx(sounds.pad_step, 3)
 		else
 			sfx(sounds.step, 3)
 		end
 	end
+end
+
+function hero_buttons(hero)
+  local _b = find_type("button", tile(hero))
+  if _b and _b.charged then
+    if _b.color == 008 then
+      if hero.health < hero.max_health then
+        hero.health = min(hero.health + 1, hero.max_health)
+        new_num_effect(hero, 1, 008, 007)
+      else
+        new_num_effect(hero, 0, 008, 007)
+      end
+    elseif _b.color == 009 then
+      score += 1
+      new_num_effect({79, 99}, 1, 009, 000)
+    end
+    _b.charged = false
+  end
 end
 
 -- converts board position to screen pixels
@@ -1449,7 +1448,7 @@ function new_num_effect(ref, amount, color, outline)
     _y = function(self)
       return #self.ref == 2 and self.ref[2] or self.ref.pixels[1][2]
     end,
-		pixels = frames({0,-1,-2,-3,-4,-5,-6,-7,-7,-7,-7,-7,-7,-7,-7,-7,-7,-7,-7,-7,-7,-7,-7}, 2),
+		pixels = frames({0,-2,-4,-6,-8,-8,-8,-8,-8,-8,-8,-8,-8,-8,-8,-8,-8,-8,-8,-8,-8,-8,-8,-8,-8,-8,-8,-8}, 2),
 		draw = function(self)
       local base = {self:_x(),self:_y()+self.pixels[1]}
       local sign = amount >= 0 and "+" or ""
