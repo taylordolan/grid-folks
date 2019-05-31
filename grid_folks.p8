@@ -7,9 +7,10 @@ __lua__
 -- todo
 -- [x] make inactive heroes gray
 -- [x] show "+0" when not gaining health
+-- [x] bring back intro animations for buttons
 -- [ ] do something about when dash enemies dash to a health or score tile
--- [ ] bring back intro animations for buttons
 -- [ ] try giving enemies more health
+-- [ ] create a trim function for removing the first item in a table if its length is > 1
 
 -- game state that gets refreshed on restart
 function _init()
@@ -1972,13 +1973,13 @@ end
 function new_button(color)
 	local _b = new_thing()
 
-  _b.sprite = 019
+  _b.sprites = {016,016,016,016,017,017,017,017,019}
 	_b.type = "button"
 	_b.color = color
 	_b.list = buttons
   _b.charged = false
 	_b.draw = function(self)
-		local sprite = self.sprite
+		local sprite = self.sprites[1]
 		local sx = self.pixels[1][1]
 		local sy = self.pixels[1][2]
 		palt(015, true)
@@ -1998,6 +1999,9 @@ function new_button(color)
     end
 		spr(sprite, sx, sy)
 		self:end_draw()
+    if #self.sprites > 1 then
+      del(self.sprites,self.sprites[1])
+    end
 	end
 
 	add(buttons, _b)
@@ -2013,14 +2017,14 @@ ff000fff0007000ffff6ffffffaa6affffa6afffffffffffffffffff006006070006060006006060
 0007000ff07070fffffffffffffaaafffaa6aafffff6ffffffffffff60060007060606060006000006000600fff6666fffffffff00000000f6ff6ff6ff6ff6ff
 f07070fff07070fffff6ffffffffffffffffffffffffffffffffffff00000607000000000060060700060007ff6ffff6ffffffff000000006ff6ff6ff6ff6ff6
 f00000fff00000fffff6ffffffffffffffffffffffffffffffffffff06006007777777770600600700000607ffffffffffffffff00000000ff6ff6ff6ff6ff6f
-ffffffff6ff6ff6ffff66fffffffffffffffffffffffffffffffffffffffffffffffffff000000ffffffffffffffffffffffffff00000000f6ff6ff6ff6ff6ff
-ffffffffff6ff6ffff6ff6ffffffffffeeeeeeeeffffffffffffffffffffffff000000ff077770fff0000fffffffffffffffffff000000006ff6ff6ff6ff6ff6
-fffffffff6ff6ff6fff66fffffffffffeffffffe000000fff0000fffffffffff077770ff007070ff077770ffffffffffffffffff00000000ff6ff6ff6ff6ff6f
-f66ff66f6ff6ff6fffffffffff6666ffefeeeefe077770ff077770fff0000fff007070ff077770ff0070700fffffffffffffffff00000000f6ff6ff6ff6ff6ff
-f6ffff6fff6ff6fffffffffff666666fefeffefe007070ff077770ff077770ff0777700f0077700f0777770ffff6ffffffff6ff6000000006ff6ff6ff6ff6ff6
-fffffffff6ff6ff6fffffffff666666fefeeeefe077770ff0070700f007070ff0077770ff077770f0707070fff6ff6ff6ff6ff6f00000000ff6ff6ff6ff6ff6f
-f6ffff6f6ff6ff6ffffffffff566665feffffffe070700ff0777770f077770fff070700ff070700f0707070ff6ff6ff6ff6ff6ff00000000f6ff6ff6ff6ff6ff
-f66ff66fff6ff6ffffffffffff5555ffeeeeeeeef0000fff0000000f000000fff00000fff00000ff0000000ffff6ffffffffffff000000006ff6ff6ff6ff6ff6
+fffffffffffffffffff66fffffffffffffffffffffffffffffffffffffffffffffffffff000000ffffffffffffffffffffffffff00000000f6ff6ff6ff6ff6ff
+ffffffffffffffffff6ff6ffffffffffeeeeeeeeffffffffffffffffffffffff000000ff077770fff0000fffffffffffffffffff000000006ff6ff6ff6ff6ff6
+fffffffffffffffffff66fffffffffffeffffffe000000fff0000fffffffffff077770ff007070ff077770ffffffffffffffffff00000000ff6ff6ff6ff6ff6f
+f66ff66fffffffffffffffffff6666ffefeeeefe077770ff077770fff0000fff007070ff077770ff0070700fffffffffffffffff00000000f6ff6ff6ff6ff6ff
+f6ffff6fff6666fffffffffff666666fefeffefe007070ff077770ff077770ff0777700f0077700f0777770ffff6ffffffff6ff6000000006ff6ff6ff6ff6ff6
+fffffffff666666ffffffffff666666fefeeeefe077770ff0070700f007070ff0077770ff077770f0707070fff6ff6ff6ff6ff6f00000000ff6ff6ff6ff6ff6f
+f6ffff6ff666666ffffffffff566665feffffffe070700ff0777770f077770fff070700ff070700f0707070ff6ff6ff6ff6ff6ff00000000f6ff6ff6ff6ff6ff
+f66ff66fff6666ffffffffffff5555ffeeeeeeeef0000fff0000000f000000fff00000fff00000ff0000000ffff6ffffffffffff000000006ff6ff6ff6ff6ff6
 00000000bbbb00000000000000b00000000000000000000000000000000000099990000000000000000000000000000000000000ff6f6fff0000000000000000
 0070000bbbbbb0000000000000b00000000000000000000000000000000000999999000000000000000000000000000000000000f66666ff0000000000000000
 7777700bbbbbb00007770000bbbbb000770707007700770777000000777700999999000077700007770077070007700000000000f66666ff0000000000000000
