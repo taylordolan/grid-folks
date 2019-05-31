@@ -9,9 +9,12 @@ __lua__
 -- [x] show "+0" when not gaining health
 -- [x] bring back intro animations for buttons
 -- [x] do something about when dash enemies dash to a health or score tile
+-- [x] fix game end
 -- [ ] try giving enemies more health
+
+-- optimizations
 -- [ ] create a trim function for removing the first item in a table if its length is > 1
--- [ ] fix game end
+-- [ ] clean up hero_buttons()
 
 -- game state that gets refreshed on restart
 function _init()
@@ -58,6 +61,7 @@ function _init()
   depth = 32
   ani_frames = 4
   shakes = {{0,0}}
+  game_over = false
 
 	-- lists of `things`
 	heroes = {}
@@ -170,8 +174,10 @@ function _update60()
 		debug = not debug
 	end
 
-	if is_game_over() and btnp(5) then
-    _init()
+	if game_over then
+    if btnp(5) then
+      _init()
+    end
 		return
 	end
 
@@ -191,7 +197,17 @@ function _update60()
 
 	if delay > 0 then
 		delay -= 1
-	-- player turn
+  -- game win
+	elseif find_type("exit", tile(hero_a)) and find_type("exit", tile(hero_b)) then
+    score += 100
+    depth = 0
+    game_over = true
+    sfx(sounds.win, 3)
+  -- game lose
+  elseif hero_a.health <= 0 or hero_b.health <= 0 then
+    game_over = true
+    sfx(sounds.lose, 3)
+  -- player turn
 	elseif p_turn == true and #queue > 0 then
 		if queue[1] == 5 then
 			for next in all(heroes) do
@@ -239,20 +255,6 @@ function _update60()
     hero_buttons(hero_b)
 		crosshairs()
 		p_turn = true
-	end
-
-	if delay <= 0 then
-		-- game won test
-		local a_exit = find_type("exit", tile(hero_a))
-		local b_exit = find_type("exit", tile(hero_b))
-		if a_exit and b_exit then
-			score += 100
-			depth -= 1
-			sfx(sounds.win, 3)
-		-- game lost test
-		elseif hero_a.health <= 0 or hero_b.health <= 0 then
-			sfx(sounds.lose, 3)
-		end
 	end
 end
 
@@ -315,7 +317,7 @@ function _draw()
 	spr(009, 116, 85, 1, 1, true, true)
 	pal()
 
-	if is_game_over() then
+	if game_over then
 		-- draw game over state
 		local msg
 		local msg_x
@@ -1263,10 +1265,6 @@ function small(s)
     c=not c
   end
   return d
-end
-
-function is_game_over()
-  return depth == 0 or hero_a.health <= 0 or hero_b.health <= 0
 end
 
 function location_exists(tile)
