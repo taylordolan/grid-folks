@@ -1365,7 +1365,7 @@ function h_btns()
         end
       elseif _b.color == 009 then
         score += 1
-        new_num_effect({79, 99}, 1, 009, 000)
+        new_num_effect({91, 99}, 1, 009, 000)
       end
       _b.charged = false
     end
