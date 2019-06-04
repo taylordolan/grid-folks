@@ -10,13 +10,12 @@ __lua__
 -- [x] bring back intro animations for buttons
 -- [x] do something about when dash enemies dash to a health or score tile
 -- [x] fix game end
--- [ ] try giving enemies more health
 -- [ ] optimize pathfinding/movement
 -- [ ] report cpu and framerate in debug mode
 
 -- optimizations
--- [ ] create a trim function for removing the first item in a table if its length is > 1
--- [ ] clean up hero_buttons()
+-- [x] create a trim function for removing the first item in a table if its length is > 1
+-- [x] clean up hero_buttons()
 
 -- game state that gets refreshed on restart
 function _init()
@@ -58,8 +57,8 @@ function _init()
 	debug = false
 	delay = 0
 	has_advanced = false
-	t_score = 0
-	t_health = 0
+	-- t_score = 0
+	-- t_health = 0
   depth = 32
   ani_frames = 4
   shakes = {{0,0}}
@@ -221,8 +220,8 @@ function _update60()
 			active_hero():act(queue[1])
 		end
 		del(queue, queue[1])
-	elseif p_turn == false then
-
+	-- enemy turn
+  elseif p_turn == false then
 		if should_advance() then
 			add_button()
 			refresh_pads()
@@ -252,12 +251,11 @@ function _update60()
 			spawn_rate = spawn_rates[turns]
 		end
     -- update game state
-		trigger_btns()
-    hero_buttons(hero_a)
-    hero_buttons(hero_b)
 		crosshairs()
 		p_turn = true
 	end
+  hero_buttons(hero_a)
+  hero_buttons(hero_b)
 end
 
 function shake(dir)
@@ -266,14 +264,18 @@ function shake(dir)
   shakes = {a,a,b,b,b,b,a}
 end
 
+function trim(_a)
+  if #_a > 1 then
+    del(_a,_a[1])
+  end
+end
+
 function _draw()
 	cls()
 
   local _s = shakes[1]
   camera(_s[1],_s[2])
-  if #shakes > 1 then
-    del(shakes, _s)
-  end
+  trim(shakes)
 
 	-- draw_floor
 	rectfill(11, 11, 116, 86, 007)
@@ -415,11 +417,8 @@ function new_thing()
 		pals = {{010,010}},
 		sprite = 100,
 		end_draw = function(self)
-      for next in all({self.pixels, self.pals}) do
-        if #next > 1 then
-          del(next, next[1])
-        end
-      end
+      trim(self.pixels)
+      trim(self.pals)
 			pal()
 		end,
 		kill = function(self)
@@ -1349,7 +1348,6 @@ function set_tile(thing, dest)
 		end
   -- trigger hero step sounds
 	elseif thing.type == "hero" then
-    hero_buttons(thing)
 		if find_type("pad", dest) then
 			sfx(sounds.pad_step, 3)
 		else
@@ -1416,28 +1414,28 @@ function deploy(thing, avoid_list)
 	set_tile(thing, dest)
 end
 
-function trigger_btns()
-	for next in all(heroes) do
-		local start = next.health
-		next.health += t_health
-		if next.health > next.max_health then
-			next.health = next.max_health
-		end
-		local diff = next.health - start
-		if diff > 0 then
-			new_num_effect(next, diff, 008, 007)
-			sfx(sounds.health, 3)
-		end
-	end
-	if t_score > 0 then
-		score += t_score
-		local text = t_score .. ""
-		sfx(sounds.score, 3)
-		new_num_effect({95 - #text * 4, 99}, t_score, 009, 000)
-	end
-  t_health = 0
-  t_score = 0
-end
+-- function trigger_btns()
+-- 	for next in all(heroes) do
+-- 		local start = next.health
+-- 		next.health += t_health
+-- 		if next.health > next.max_health then
+-- 			next.health = next.max_health
+-- 		end
+-- 		local diff = next.health - start
+-- 		if diff > 0 then
+-- 			new_num_effect(next, diff, 008, 007)
+-- 			sfx(sounds.health, 3)
+-- 		end
+-- 	end
+-- 	if t_score > 0 then
+-- 		score += t_score
+-- 		local text = t_score .. ""
+-- 		sfx(sounds.score, 3)
+-- 		new_num_effect({95 - #text * 4, 99}, t_score, 009, 000)
+-- 	end
+--   t_health = 0
+--   t_score = 0
+-- end
 
 function new_num_effect(ref, amount, color, outline)
 	local new_num_effect = {
@@ -1967,9 +1965,7 @@ function new_button(color)
     end
 		spr(sprite, sx, sy)
 		self:end_draw()
-    if #self.sprites > 1 then
-      del(self.sprites,self.sprites[1])
-    end
+    trim(self.sprites)
 	end
 
 	add(buttons, _b)
