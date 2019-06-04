@@ -12,10 +12,11 @@ __lua__
 -- [x] fix game end
 -- [ ] optimize pathfinding/movement
 -- [ ] report cpu and framerate in debug mode
+-- [ ] fix position of score effect
 
 -- optimizations
 -- [x] create a trim function for removing the first item in a table if its length is > 1
--- [x] clean up hero_buttons()
+-- [x] clean up h_btns()
 
 -- game state that gets refreshed on restart
 function _init()
@@ -117,17 +118,19 @@ function _init()
 		[001] = 12,
 		[040] = 10,
 		[080] = 8,
-		[120] = 6,
-    [160] = 4,
-		[200] = 3,
-		[240] = 2,
-		[280] = 1,
+		[120] = 7,
+    [160] = 6,
+		[200] = 5,
+		[240] = 4,
+		[280] = 3,
+    [320] = 2,
+    [360] = 1,
 	}
   spawn_bags = {
     [001] = {"dash"},
-    [020] = {"dash","timid"},
-    [040] = {"dash","timid","slime"},
-    [060] = {"dash","timid","slime","grow"},
+    [030] = {"dash","timid"},
+    [060] = {"dash","timid","slime"},
+    [090] = {"dash","timid","slime","grow"},
   }
   spawn_functions = {
     ["timid"] = function()
@@ -254,8 +257,7 @@ function _update60()
 		crosshairs()
 		p_turn = true
 	end
-  hero_buttons(hero_a)
-  hero_buttons(hero_b)
+  h_btns()
 end
 
 function shake(dir)
@@ -828,7 +830,6 @@ function new_e_dash()
         self.dir = dir
       end
     end
-
     if target then
       return target
     else
@@ -838,9 +839,7 @@ function new_e_dash()
   end
 
   _e.get_step = function(self)
-    if self.target then
-      return tile(self.target)
-    else
+    if not self.target then
       return self:get_step_to_hero()
     end
   end
@@ -848,8 +847,9 @@ function new_e_dash()
   _e.attack = function(self)
     if self.target then
       hit_target(self.target, 1, self.dir)
-      local dest = pos_pix(tile(self.target))
-      ani_to(self, {dest}, ani_frames / 2, 0)
+      local _t = tile(self.target)
+      set_tile(self, _t)
+      ani_to(self, {pos_pix(_t)}, ani_frames, 0)
       delay = ani_frames * 1.5
       sfx(sounds.enemy_bump, 3)
       self.health = 0
@@ -1193,10 +1193,10 @@ function new_shot(thing, dir)
 end
 
 function frames(a, n)
-  local n = n or 4
+  local n = n or ani_frames
 	local b = {}
 	for next in all(a) do
-		for i = 1, n do
+		for i=1, n do
 			add(b, next)
 		end
 	end
@@ -1282,42 +1282,38 @@ function location_exists(tile)
 	return true
 end
 
-function ani_to(thing, destinations, frames, wait)
+function ani_to(thing, dests, frames, wait)
 
-	local s = {}
-	local current = thing.pixels[1]
+	local _p = {}
+	local _c = thing.pixels[1]
 
-	for i = 1, wait do
-		add(s, thing.pixels[1])
+	for i=1, wait do
+		add(_p, _c)
 	end
 
-	for next in all(destinations) do
-
-		local x_px_per_frame = (next[1] - current[1]) / frames
-		local y_px_per_frame = (next[2] - current[2]) / frames
-		local vel_per_frame = {x_px_per_frame, y_px_per_frame}
-
-		for j = 1, frames do
-			local next_x = current[1] + vel_per_frame[1]
-			local next_y = current[2] + vel_per_frame[2]
+	for next in all(dests) do
+		local frame_v = {(next[1] - _c[1]) / frames, (next[2] - _c[2]) / frames}
+		for j=1, frames do
+			local next_x = _c[1] + frame_v[1]
+			local next_y = _c[2] + frame_v[2]
 			local next = {next_x, next_y}
-			add(s, next)
-			current = next
+			add(_p, next)
+			_c = next
 		end
 	end
 
-	thing.pixels = s
+	thing.pixels = _p
 end
 
 function set_tile(thing, dest)
 
 	-- do nothing if dest is off the board
-	if location_exists(dest) == false then
+	if not location_exists(dest) then
 		return
 	end
 
 	-- remove it from its current tile
-	if thing.x and thing.y then
+	if thing.x then
 		del(board[thing.x][thing.y], thing)
 	end
 
@@ -1356,31 +1352,31 @@ function set_tile(thing, dest)
 	end
 end
 
-function hero_buttons(hero)
-  local _b = find_type("button", tile(hero))
-  if _b and _b.charged then
-    if _b.color == 008 then
-      if hero.health < hero.max_health then
-        hero.health = min(hero.health + 1, hero.max_health)
-        new_num_effect(hero, 1, 008, 007)
-      else
-        new_num_effect(hero, 0, 008, 007)
+function h_btns()
+  for hero in all(heroes) do
+    local _b = find_type("button", tile(hero))
+    if _b and _b.charged then
+      if _b.color == 008 then
+        if hero.health < hero.max_health then
+          hero.health = min(hero.health + 1, hero.max_health)
+          new_num_effect(hero, 1, 008, 007)
+        else
+          new_num_effect(hero, 0, 008, 007)
+        end
+      elseif _b.color == 009 then
+        score += 1
+        new_num_effect({79, 99}, 1, 009, 000)
       end
-    elseif _b.color == 009 then
-      score += 1
-      new_num_effect({79, 99}, 1, 009, 000)
+      _b.charged = false
     end
-    _b.charged = false
   end
 end
 
 -- converts board position to screen pixels
-function pos_pix(board_position)
-	local board_x = board_position[1]
-	local board_y = board_position[2]
-	local x_pos = (board_x - 1) * 8 + (board_x - 1) * 7 + 15
-	local y_pos = (board_y - 1) * 8 + (board_y - 1) * 7 + 15
-	return {x_pos, y_pos}
+function pos_pix(_bp)
+	local _bx = _bp[1] - 1
+	local _by = _bp[2] - 1
+	return {_bx * 15 + 15, _by * 15 + 15}
 end
 
 function shuff(t)
@@ -1414,28 +1410,15 @@ function deploy(thing, avoid_list)
 	set_tile(thing, dest)
 end
 
--- function trigger_btns()
--- 	for next in all(heroes) do
--- 		local start = next.health
--- 		next.health += t_health
--- 		if next.health > next.max_health then
--- 			next.health = next.max_health
--- 		end
--- 		local diff = next.health - start
--- 		if diff > 0 then
--- 			new_num_effect(next, diff, 008, 007)
--- 			sfx(sounds.health, 3)
--- 		end
--- 	end
--- 	if t_score > 0 then
--- 		score += t_score
--- 		local text = t_score .. ""
--- 		sfx(sounds.score, 3)
--- 		new_num_effect({95 - #text * 4, 99}, t_score, 009, 000)
--- 	end
---   t_health = 0
---   t_score = 0
--- end
+function merge(_a)
+  local _m = {}
+  for _t in all(_a) do
+    for next in all(_t) do
+      add(_m,next)
+    end
+  end
+  return _m
+end
 
 function new_num_effect(ref, amount, color, outline)
 	local new_num_effect = {
@@ -1446,7 +1429,7 @@ function new_num_effect(ref, amount, color, outline)
     _y = function(self)
       return #self.ref == 2 and self.ref[2] or self.ref.pixels[1][2]
     end,
-		pixels = frames({0,-2,-4,-6,-8,-8,-8,-8,-8,-8,-8,-8,-8,-8,-8,-8,-8,-8,-8,-8,-8,-8,-8,-8,-8,-8,-8,-8}, 2),
+    pixels = frames(merge({{0,-2,-4,-6,}, frames({-8},24)})),
 		draw = function(self)
       local base = {self:_x(),self:_y()+self.pixels[1]}
       local sign = amount >= 0 and "+" or ""
