@@ -11,6 +11,8 @@ __lua__
 -- [x] do something about when dash enemies dash to a health or score tile
 -- [x] fix game end
 -- [ ] try giving enemies more health
+-- [ ] optimize pathfinding/movement
+-- [ ] report cpu and framerate in debug mode
 
 -- optimizations
 -- [ ] create a trim function for removing the first item in a table if its length is > 1
@@ -1771,64 +1773,27 @@ function refresh_walls()
 	end
 end
 
-function generate_walls()
-  -- todo: combine this with the stuff below for creating wall_down
-	for i = 1, 12 do
-		local wall_right = {
+function new_wall(type)
+  local _w = {
 			x = null,
 			y = null,
-			type = "wall_right",
+			type = type,
 			draw = function(self)
-
 				palt(0, false)
 				local x_pos = (self.x - 1) * 8 + (self.x - 1) * 7 + 15
 				local y_pos = (self.y - 1) * 8 + (self.y - 1) * 7 + 15
-
-				local hero_l = find_type("hero", tile(self))
-				local hero_r = find_type("hero", {self.x + 1, self.y})
 
 				local x3 = x_pos + 11
-				local y3 = y_pos - 4
-				local x4 = x_pos + 11
-				local y4 = y_pos + 11
-
-				local x1 = x3 - 1
-				local y1 = y3 - 1
-				local x2 = x4 + 1
-				local y2 = y4 + 1
-
-				rectfill(x1, y1, x2, y2, 000)
-				rectfill(x3, y3, x4, y4, 007)
-
-				-- reset the palette
-				pal()
-			end,
-			kill = function(self)
-				del(board[self.x][self.y], self)
-				del(walls, self)
-			end,
-		}
-    add(walls, wall_right)
-		deploy(wall_right, {"wall_right"})
-	end
-	for i = 1, 9 do
-		local wall_down = {
-			x = null,
-			y = null,
-			type = "wall_down",
-			draw = function(self)
-				palt(0, false)
-				local x_pos = (self.x - 1) * 8 + (self.x - 1) * 7 + 15
-				local y_pos = (self.y - 1) * 8 + (self.y - 1) * 7 + 15
-
-				local hero_u = find_type("hero", tile(self))
-				local hero_d = find_type("hero", {self.x, self.y + 1})
-
-				local x3 = x_pos - 4
 				local y3 = y_pos + 11
 				local x4 = x_pos + 11
 				local y4 = y_pos + 11
 
+        if self.type == "wall_right" then
+          y3 = y_pos - 4
+        elseif self.type == "wall_down" then
+          x3 = x_pos - 4
+        end
+
 				local x1 = x3 - 1
 				local y1 = y3 - 1
 				local x2 = x4 + 1
@@ -1836,8 +1801,6 @@ function generate_walls()
 
 				rectfill(x1, y1, x2, y2, 000)
 				rectfill(x3, y3, x4, y4, 007)
-
-				-- reset the palette
 				pal()
 			end,
 			kill = function(self)
@@ -1845,8 +1808,16 @@ function generate_walls()
 				del(walls, self)
 			end,
 		}
-    add(walls, wall_down)
-		deploy(wall_down, {"wall_down"})
+    add(walls, _w)
+    return _w
+end
+
+function generate_walls()
+	for i=1, 12 do
+		deploy(new_wall("wall_right"), {"wall_right"})
+	end
+	for i=1, 9 do
+		deploy(new_wall("wall_down"), {"wall_down"})
 	end
 end
 
