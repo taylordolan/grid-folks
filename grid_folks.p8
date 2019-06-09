@@ -12,13 +12,13 @@ __lua__
 -- [x] fix game end
 -- [x] starting with the dash enemy makes it less clear that bumping is the typical way that enemies attack
 -- [x] position initial pads 2 steps away from hero start
+-- [x] tell the player about bumping in the main instructions
+-- [x] show completed instructions in gray
 -- [ ] make it clearer that buttons get charged when an enemy steps on them
 -- [ ] make it clearer that buttons need to be charged in order to heal
 -- [ ] flash threatened health
 -- [ ] maybe dash enemies should leave a visual trail
 -- [ ] make a clearer animation for when timid enemies wait
--- [ ] tell the player about bumping in the main instructions
--- [ ] show completed instructions in gray
 -- [ ] optimize pathfinding/movement
 -- [ ] report cpu and framerate in debug mode
 
@@ -65,7 +65,9 @@ function _init()
 	p_turn = true
 	debug = false
 	delay = 0
+  has_switched = false
 	has_advanced = false
+  has_bumped = false
   depth = 32
   ani_frames = 4
   shakes = {{0,0}}
@@ -216,6 +218,7 @@ function _update60()
 	elseif p_turn == true and #queue > 0 then
 		if queue[1] == 5 then
 			for next in all(heroes) do
+        has_switched = true
 				next.active = not next.active
 			end
 			crosshairs()
@@ -227,11 +230,13 @@ function _update60()
 	-- enemy turn
   elseif p_turn == false then
 		if should_advance() then
+      if has_switched and has_bumped and has_advanced then
+        new_num_effect({26 + #(depth .. "") * 4,99}, -1, 007, 000)
+      end
 			add_button()
 			refresh_pads()
 			refresh_walls()
 			depth -= 1
-			new_num_effect({26 + #(depth .. "") * 4,99}, -1, 007, 000)
 		end
 		shuff(enemies)
 		for next in all(enemies) do
@@ -357,25 +362,29 @@ function _draw()
 		msg_x = 65 - (#msg * 4) / 2
 		msg_y += 10
 		print(msg, msg_x, msg_y, 005)
-	elseif not has_advanced then
+	elseif not (has_switched and has_bumped and has_advanced) then
 		-- draw intro
-		pal(015, false)
-		pal(006, 007)
-		local _x = 22
-		local _y = 99
 		local _space = 3
-		local _a = small("press x to switch")
-		print(_a, _x, _y, 007)
-		spr(000, _x + #_a * 4 + _space, _y - 2)
-		spr(001, _x + #_a * 4 + 8 + _space, _y - 2)
 
-		_x = 18
+		local _a = small("press x to switch folks")
+		local _x = 64 - #_a*2
+		local _y = 99
+		print(_a, _x, _y, has_switched and 005 or 007)
+
+    local _a = small("bump to attack")
 		_y += 10
-		local _b = small("stand on 2")
-		print(_b, _x, _y, 007)
-		spr(016, _x + #_b * 4 + _space, _y - 2)
-		local _c = small("to advance")
-		print(_c, _x + #_b * 4 + _space + 8 + _space, _y, 007)
+    _x = 64 - #_a*2
+    print(_a, _x, _y, has_bumped and 005 or 007)
+
+		local _a = small("stand on 2")
+		_x = 17
+		_y += 10
+		print(_a, _x, _y, has_advanced and 005 or 007)
+    palt(015, true)
+    pal(006, has_advanced and 005 or 007)
+		spr(016, _x + #_a * 4 + _space - 1, _y - 3)
+		local _b = small("to advance")
+		print(_b, _x + #_a * 4 + _space + 8 + _space, _y, has_advanced and 005 or 007)
 		return
 		pal()
 	else
@@ -1627,9 +1636,10 @@ function add_button()
 	sfx(sounds.advance, 3)
 end
 
--- given an enemy and an amount of damage,
--- hit it and then kill if it has no health
 function hit_target(target, damage, direction)
+  if target.type == "enemy" then
+    has_bumped = true
+  end
 	target.health -= damage
   local r = {000,008}
   local y = {010,010}
