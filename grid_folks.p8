@@ -11,16 +11,16 @@ __lua__
 -- [x] do something about when dash enemies dash to a health or score tile
 -- [x] fix game end
 -- [x] starting with the dash enemy makes it less clear that bumping is the typical way that enemies attack
--- [ ] optimize pathfinding/movement
--- [ ] report cpu and framerate in debug mode
+-- [x] position initial pads 2 steps away from hero start
 -- [ ] make it clearer that buttons get charged when an enemy steps on them
 -- [ ] make it clearer that buttons need to be charged in order to heal
 -- [ ] flash threatened health
--- [ ] position pads 2 steps away from her start
 -- [ ] maybe dash enemies should leave a visual trail
 -- [ ] make a clearer animation for when timid enemies wait
 -- [ ] tell the player about bumping in the main instructions
 -- [ ] show completed instructions in gray
+-- [ ] optimize pathfinding/movement
+-- [ ] report cpu and framerate in debug mode
 
 -- optimizations
 -- [x] create a trim function for removing the first item in a table if its length is > 1
@@ -106,18 +106,7 @@ function _init()
 	end
 
 	-- initial pads
-  local _c = {008,011,012}
-	local _t = {{2,3},{4,3},{6,3}}
-  shuff(_t)
-  for i=1, 3 do
-    set_tile(new_pad(_c[i]), _t[i])
-  end
-	for next in all({{2,3},{3,3},{4,3},{5,3}}) do
-		local wall = find_type("wall_right", next)
-		if wall then
-			del(board[next[1]][next[2]], wall)
-		end
-	end
+  refresh_pads()
 
 	-- spawn stuff
 	spawn_rates = {
@@ -1619,6 +1608,7 @@ end
 
 function add_button()
 
+  has_advanced = true
   -- find the other pad
 	local o_p
 	for next in all(pads) do
@@ -1864,7 +1854,6 @@ end
 
 function refresh_pads()
 
-	has_advanced = true
 	if #colors_bag == 0 then
 		colors_bag = {008,008,008,008,008,008,009,011,012}
 		shuff(colors_bag)
