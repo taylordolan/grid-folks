@@ -10,8 +10,17 @@ __lua__
 -- [x] bring back intro animations for buttons
 -- [x] do something about when dash enemies dash to a health or score tile
 -- [x] fix game end
+-- [x] starting with the dash enemy makes it less clear that bumping is the typical way that enemies attack
 -- [ ] optimize pathfinding/movement
 -- [ ] report cpu and framerate in debug mode
+-- [ ] make it clearer that buttons get charged when an enemy steps on them
+-- [ ] make it clearer that buttons need to be charged in order to heal
+-- [ ] flash threatened health
+-- [ ] position pads 2 steps away from her start
+-- [ ] maybe dash enemies should leave a visual trail
+-- [ ] make a clearer animation for when timid enemies wait
+-- [ ] tell the player about bumping in the main instructions
+-- [ ] show completed instructions in gray
 
 -- optimizations
 -- [x] create a trim function for removing the first item in a table if its length is > 1
@@ -57,8 +66,6 @@ function _init()
 	debug = false
 	delay = 0
 	has_advanced = false
-	-- t_score = 0
-	-- t_health = 0
   depth = 32
   ani_frames = 4
   shakes = {{0,0}}
@@ -128,12 +135,16 @@ function _init()
     [440] = 1,
 	}
   spawn_bags = {
-    [001] = {"dash"},
-    [040] = {"dash","timid"},
-    [080] = {"dash","timid","slime"},
-    [120] = {"dash","timid","slime","grow"},
+    [001] = {"baby"},
+    [040] = {"baby", "dash"},
+    [080] = {"baby", "dash","timid"},
+    [120] = {"slime", "dash","timid"},
+    [160] = {"slime", "dash","timid","grow"},
   }
   spawn_functions = {
+    ["baby"] = function()
+      new_e_baby():deploy()
+    end,
     ["timid"] = function()
       new_e_timid():deploy()
     end,
