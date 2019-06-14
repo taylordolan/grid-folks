@@ -10,12 +10,13 @@ __lua__
 -- [x] bring back intro animations for buttons
 -- [x] do something about when dash enemies dash to a health or score tile
 -- [x] fix game end
--- [x] starting with the d  ash enemy makes it less clear that bumping is the typical way that enemies attack
+-- [x] starting with the dash enemy makes it less clear that bumping is the typical way that enemies attack
 -- [x] position initial pads 2 steps away from hero start
 -- [x] tell the player about bumping in the main instructions
 -- [x] show completed instructions in gray
--- [ ] make it clearer that buttons get charged when an enemy steps on them
--- [ ] make it clearer that buttons need to be charged in order to heal
+-- [x] make it clearer that buttons get charged when an enemy steps on them
+-- [ ] smooth out animations on new_num_effect and new_charge
+-- [ ] make it clearer that buttons need to be charged in order to heal?
 -- [ ] flash threatened health
 -- [ ] maybe dash enemies should leave a visual trail
 -- [ ] make a clearer animation for when timid enemies wait
@@ -1350,7 +1351,7 @@ function set_tile(thing, dest)
 	if thing.type == "enemy" then
 		local _b = find_type("button", tile(thing))
 		if _b and (_b.color == 008 or _b.color == 009) then
-			_b.charged = true
+      set_tile(new_charge(_b.color), tile(_b))
 		end
   -- trigger hero step sounds
 	elseif thing.type == "hero" then
@@ -1364,20 +1365,20 @@ end
 
 function h_btns()
   for hero in all(heroes) do
-    local _b = find_type("button", tile(hero))
-    if _b and _b.charged then
-      if _b.color == 008 then
+    local _c = find_type("charge", tile(hero))
+    if _c then
+      if _c.color == 008 then
         if hero.health < hero.max_health then
           hero.health = min(hero.health + 1, hero.max_health)
           new_num_effect(hero, 1, 008, 007)
         else
           new_num_effect(hero, 0, 008, 007)
         end
-      elseif _b.color == 009 then
+      elseif _c.color == 009 then
         score += 1
         new_num_effect({91, 99}, 1, 009, 000)
       end
-      _b.charged = false
+      _c:kill()
     end
   end
 end
@@ -1930,14 +1931,41 @@ function new_pad(color)
 	return new_pad
 end
 
+function new_charge(color)
+  local _c = new_thing()
+
+  _c.type = "charge"
+  _c.color = color
+  _c.list = effects
+  _c.offset = frames({-10,-8,-6,-4,-2})
+  _c.delay = ani_frames
+  _c.draw = function(self)
+    if self.delay > 0 then
+      self.delay -= 1
+    else
+      palt(015, true)
+      palt(000, false)
+      pal(006, color)
+      local sx = self.pixels[1][1]
+      local sy = self.pixels[1][2]
+      spr(019,sx,sy + self.offset[1])
+      trim(self.offset)
+      pal()
+    end
+  end
+
+  add(effects, _c)
+  return _c
+end
+
 function new_button(color)
 	local _b = new_thing()
 
   _b.sprites = {016,016,016,016,017,017,017,017,018}
+  _b.c_o = frames({-8,-7,-6,-5,-4,-3,-2,-1}) -- charge offset
 	_b.type = "button"
 	_b.color = color
 	_b.list = buttons
-  _b.charged = false
 	_b.draw = function(self)
 		local sprite = self.sprites[1]
 		local sx = self.pixels[1][1]
@@ -1954,9 +1982,6 @@ function new_button(color)
 		elseif self.color == 009 then
 			pal(005, 004)
 		end
-    if self.charged then
-      spr(019,sx,sy-1)
-    end
 		spr(sprite, sx, sy)
 		self:end_draw()
     trim(self.sprites)
@@ -1975,11 +2000,11 @@ ff000fff0007000ffff6ffffffaa6affffa6afffffffffffffffffff006006070006060006006060
 0007000ff07070fffffffffffffaaafffaa6aafffff6ffffffffffff600600070606060600060000060006000000000000000000000000000000000000000000
 f07070fff07070fffff6ffffffffffffffffffffffffffffffffffff000006070000000000600607000600070000000000000000000000000000000000000000
 f00000fff00000fffff6ffffffffffffffffffffffffffffffffffff060060077777777706006007000006070000000000000000000000000000000000000000
-fffffffffffffffffffffffffff66fffffffffffffffffffffffffffffffffffffffffff000000ffffffffff0000000000000000000000000000000000000000
-ffffffffffffffffffffffffff6ff6ffeeeeeeee00000fffffffffffffffffff000000ff077770ffffffffff0000000000000000000000000000000000000000
-fffffffffffffffffffffffffff66fffeffffffe07070ffff0000fffffffffff077770ff007070ff000000ff0000000000000000000000000000000000000000
-f66ff66fffffffffff6666ffffffffffefeeeefe070700ff077770fff0000fff007070ff077770ff077770ff0000000000000000000000000000000000000000
-f6ffff6fff6666fff666666fffffffffefeffefe077770ff077770ff077770ff0777700f0077700f0070700f0000000000000000000000000000000000000000
+fffffffffffffffffffffffffff77fffffffffffffffffffffffffffffffffffffffffff000000ffffffffff0000000000000000000000000000000000000000
+ffffffffffffffffffffffffff7667ffeeeeeeee00000fffffffffffffffffff000000ff077770ffffffffff0000000000000000000000000000000000000000
+fffffffffffffffffffffffff767767feffffffe07070ffff0000fffffffffff077770ff007070ff000000ff0000000000000000000000000000000000000000
+f66ff66fffffffffff6666ffff7667ffefeeeefe070700ff077770fff0000fff007070ff077770ff077770ff0000000000000000000000000000000000000000
+f6ffff6fff6666fff666666ffff77fffefeffefe077770ff077770ff077770ff0777700f0077700f0070700f0000000000000000000000000000000000000000
 fffffffff666666ff666666fffffffffefeeeefe007070ff007070ff007070ff0077770ff077770f0777770f0000000000000000000000000000000000000000
 f6ffff6ff666666ff566665fffffffffeffffffe077770ff0777770f077770fff070700ff070700f0707070f0000000000000000000000000000000000000000
 f66ff66fff6666ffff5555ffffffffffeeeeeeee000000ff0000000f000000fff00000fff00000ff0000000f0000000000000000000000000000000000000000
