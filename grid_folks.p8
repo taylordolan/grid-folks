@@ -15,8 +15,8 @@ __lua__
 -- [x] tell the player about bumping in the main instructions
 -- [x] show completed instructions in gray
 -- [x] make it clearer that buttons get charged when an enemy steps on them
--- [ ] smooth out animations on new_num_effect and new_charge
--- [ ] make it clearer that buttons need to be charged in order to heal?
+-- [x] make it clearer that buttons need to be charged in order to heal
+-- [x] smooth out animations on new_num_effect and new_charge
 -- [ ] flash threatened health
 -- [ ] maybe dash enemies should leave a visual trail
 -- [ ] make a clearer animation for when timid enemies wait
@@ -111,6 +111,9 @@ function _init()
 	-- initial pads
   refresh_pads()
 
+  -- initial button (for testing)
+  -- set_tile(new_button(008), {3,3})
+
 	-- spawn stuff
 	spawn_rates = {
 		[001] = 12,
@@ -180,6 +183,7 @@ function _update60()
 
 	if btnp(4) then
 		debug = not debug
+    -- new_num_effect({26 + #(depth .. "") * 4,99}, -1, 007, 000)
 	end
 
 	if game_over then
@@ -291,23 +295,6 @@ function _draw()
 	-- draw outlines
 	rect(10, 10, 117, 87, 000)
 	rect(12, 12, 115, 85, 000)
-	-- draw objects
-	for list in all({
-		-- things at the bottom appear on top
-		pads,
-		exits,
-		buttons,
-		walls,
-    particles,
-		enemies,
-		heroes,
-		effects,
-	}) do
-		for next in all(list) do
-			next:draw()
-		end
-	end
-
 	-- draw border
 	pal(006, 007)
 	-- top and bottom
@@ -329,6 +316,23 @@ function _draw()
 	-- bottom right
 	spr(009, 116, 85, 1, 1, true, true)
 	pal()
+
+  -- draw objects
+	for list in all({
+		-- things at the bottom appear on top
+		pads,
+		exits,
+		buttons,
+		walls,
+    particles,
+		enemies,
+		heroes,
+		effects,
+	}) do
+		for next in all(list) do
+			next:draw()
+		end
+	end
 
 	if game_over then
 		-- draw game over state
@@ -1431,6 +1435,7 @@ function merge(_a)
   return _m
 end
 
+-- todo: make this a `thing`?
 function new_num_effect(ref, amount, color, outline)
 	local new_num_effect = {
     ref = ref, -- position or parent thing
@@ -1440,17 +1445,19 @@ function new_num_effect(ref, amount, color, outline)
     _y = function(self)
       return #self.ref == 2 and self.ref[2] or self.ref.pixels[1][2]
     end,
-    pixels = frames(merge({{0,-2,-4,-6,}, frames({-8},16)})),
+    offset = 0,
+    t = 0,
 		draw = function(self)
-      local base = {self:_x(),self:_y()+self.pixels[1]}
+      local base = {self:_x(),self:_y()+self.offset}
       local sign = amount >= 0 and "+" or ""
 			for next in all(s_dirs) do
         local result = add_pairs(base,next)
         print(sign .. amount, result[1], result[2], outline)
 			end
 			print(sign .. amount, base[1], base[2], color)
-			if #self.pixels > 1 then
-				del(self.pixels, self.pixels[1])
+			if self.t < 128 then
+        self.t += 1
+        self.offset = max(-8, self.offset - 1)
 			else
 				del(effects, self)
 			end
@@ -1937,7 +1944,7 @@ function new_charge(color)
   _c.type = "charge"
   _c.color = color
   _c.list = effects
-  _c.offset = frames({-10,-8,-6,-4,-2})
+  _c.offset = -8
   _c.delay = ani_frames
   _c.draw = function(self)
     if self.delay > 0 then
@@ -1947,9 +1954,9 @@ function new_charge(color)
       palt(000, false)
       pal(006, color)
       local sx = self.pixels[1][1]
-      local sy = self.pixels[1][2]
-      spr(019,sx,sy + self.offset[1])
-      trim(self.offset)
+      local sy = self.pixels[1][2] - 2
+      spr(019,sx,sy + self.offset)
+      self.offset = min(self.offset + 1, 0)
       pal()
     end
   end
