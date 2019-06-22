@@ -17,8 +17,8 @@ __lua__
 -- [x] make it clearer that buttons get charged when an enemy steps on them
 -- [x] make it clearer that buttons need to be charged in order to heal
 -- [x] smooth out animations on new_num_effect and new_charge
--- [ ] flash threatened health
 -- [ ] maybe dash enemies should leave a visual trail
+-- [ ] flash threatened health
 -- [ ] make a clearer animation for when timid enemies wait
 -- [ ] optimize pathfinding/movement
 -- [ ] report cpu and framerate in debug mode
@@ -274,7 +274,8 @@ end
 function shake(dir)
   local a = {0,0}
   local b = {-dir[1],-dir[2]}
-  shakes = {a,a,b,b,b,b,a}
+  local c = {-dir[1]*2,-dir[2]*2}
+  shakes = {a,a,c,c,b,b,a}
 end
 
 function trim(_a)
@@ -481,7 +482,7 @@ function new_hero()
 				local _half = {(_here[1] + _next[1]) / 2, _here[2]-4}
 				set_tile(self, next_tile)
 				ani_to(self, {_half, _next}, ani_frames/2, 0)
-				delay = ani_frames * 1.5
+				delay = ani_frames
 				sfx(sounds.jump, 3)
 				p_turn = false
 
@@ -496,7 +497,7 @@ function new_hero()
           end
 					new_shot(self, direction)
 					sfx(sounds.shoot, 3)
-					delay = ani_frames * 1.5
+					delay = ani_frames
 					p_turn = false
 
 				-- otherwise, if there's an enemy in the destination, hit it
@@ -506,14 +507,14 @@ function new_hero()
 					local here = pos_pix(tile(self))
 					local bump = {here[1] + direction[1] * 4, here[2] + direction[2] * 4}
 					ani_to(self, {bump, here}, ani_frames/2, 0)
-					delay = ani_frames * 1.5
+					delay = ani_frames
 					p_turn = false
 
 				-- otherwise, move to the destination
 				else
 					set_tile(self, next_tile)
 					ani_to(self, {pos_pix(next_tile)}, ani_frames, 0)
-					delay = ani_frames * 1.5
+					delay = ani_frames
 					p_turn = false
 				end
 			end
@@ -722,7 +723,7 @@ function new_e()
       local here = pos_pix(tile(self))
       local bump = {here[1] + direction[1] * 4, here[2] + direction[2] * 4}
       ani_to(self, {bump, here}, ani_frames/2, 2)
-      delay = ani_frames * 1.5
+      delay = ani_frames
       sfx(sounds.enemy_bump, 3)
     end
   end
@@ -731,7 +732,7 @@ function new_e()
     if self.step then
       set_tile(self, self.step)
       ani_to(self, {pos_pix(self.step)}, ani_frames, 0)
-      delay = ani_frames * 1.5
+      delay = ani_frames
     end
   end
 
@@ -863,9 +864,22 @@ function new_e_dash()
     if self.target then
       hit_target(self.target, 1, self.dir)
       local _t = tile(self.target)
+      local _n = tile(self)
+      local _tiles = {_n}
+      while true do
+        _n = add_pairs(_n,self.dir)
+        if pair_equal(_n,_t) then
+          break
+        end
+        add(_tiles, _n)
+        printh(#_tiles)
+      end
+      for i=1, #_tiles do
+        new_pop(pos_pix(_tiles[i]),1,i*8,false)
+      end
       set_tile(self, _t)
       ani_to(self, {pos_pix(_t)}, ani_frames, 0)
-      delay = ani_frames * 1.5
+      delay = ani_frames
       sfx(sounds.enemy_bump, 3)
       self.health = 0
     end
@@ -883,7 +897,7 @@ function new_e_slime()
       set_tile(new_e_baby(), tile(self))
       set_tile(self, self.step)
       ani_to(self, {pos_pix(self.step)}, ani_frames, 0)
-      delay = ani_frames * 1.5
+      delay = ani_frames
       self.stunned = true
     end
   end
@@ -895,7 +909,7 @@ function new_e_slime()
       local here = pos_pix(tile(self))
       local bump = {here[1] + direction[1] * 4, here[2] + direction[2] * 4}
       ani_to(self, {bump, here}, ani_frames/2, 2)
-      delay = ani_frames * 1.5
+      delay = ani_frames
       sfx(sounds.enemy_bump, 3)
       self.stunned = true
     end
@@ -1004,7 +1018,7 @@ function new_e_grow()
     if self.step then
       set_tile(self, self.step)
       ani_to(self, {pos_pix(self.step)}, ani_frames, 0)
-      delay = ani_frames * 1.5
+      delay = ani_frames
 
       local grow_enemies = {}
       for next in all(enemies) do
@@ -1468,22 +1482,31 @@ function new_num_effect(ref, amount, color, outline)
 	return new_num_effect
 end
 
-function new_pop(s)
 
-  function new_particle(s)
-    local v_x = {.125,-.125,.5,-.5}
+function new_pop(screen, count, frames, move)
+  local _count = count or 8
+  local _frames = frames or 16
+  local _move = _move
+  if move == false then
+    _move = false
+  else
+    _move = true
+  end
+  function new_particle(screen, frames, move)
+    local v_x = move and {.125,-.125,.5,-.5} or {0}
     local v_y = copy(v_x)
     shuff(v_x)
     shuff(v_y)
-    local _p = {
-      s_x = s[1],
-      s_y = s[2],
+    local particle = {
+      s_x = screen[1],
+      s_y = screen[2],
       v_x = v_x[1],
       v_y = v_y[1],
-      frames = 18,
+      max_frames = frames,
+      frames = frames,
       draw = function(self)
         local sprite = 005
-        if self.frames < 6 then
+        if self.frames < self.max_frames / 3 then
           sprite = 006
         end
         palt(015,true)
@@ -1497,10 +1520,10 @@ function new_pop(s)
         pal()
       end
     }
-    add(particles,_p)
+    add(particles, particle)
   end
-  for i=1, 8 do
-    new_particle(s)
+  for i=1, _count do
+    new_particle(screen, _frames, _move)
   end
 end
 
