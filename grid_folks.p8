@@ -17,7 +17,7 @@ __lua__
 -- [x] make it clearer that buttons get charged when an enemy steps on them
 -- [x] make it clearer that buttons need to be charged in order to heal
 -- [x] smooth out animations on new_num_effect and new_charge
--- [ ] maybe dash enemies should leave a visual trail
+-- [x] maybe dash enemies should leave a visual trail
 -- [ ] flash threatened health
 -- [ ] make a clearer animation for when timid enemies wait
 -- [ ] optimize pathfinding/movement
@@ -177,7 +177,7 @@ function _update60()
     if next.health <= 0 and #next.pixels <= 1 then
       next:kill()
       local _s = pos_pix(tile(next))
-      new_pop({_s[1],_s[2]})
+      new_pop(_s, true)
     end
   end
 
@@ -875,7 +875,7 @@ function new_e_dash()
         printh(#_tiles)
       end
       for i=1, #_tiles do
-        new_pop(pos_pix(_tiles[i]),1,i*8,false)
+        new_pop(pos_pix(_tiles[i]), false, 1, 4+i*4)
       end
       set_tile(self, _t)
       ani_to(self, {pos_pix(_t)}, ani_frames, 0)
@@ -1439,16 +1439,6 @@ function deploy(thing, avoid_list)
 	set_tile(thing, dest)
 end
 
-function merge(_a)
-  local _m = {}
-  for _t in all(_a) do
-    for next in all(_t) do
-      add(_m,next)
-    end
-  end
-  return _m
-end
-
 -- todo: make this a `thing`?
 function new_num_effect(ref, amount, color, outline)
 	local new_num_effect = {
@@ -1483,23 +1473,17 @@ function new_num_effect(ref, amount, color, outline)
 end
 
 
-function new_pop(screen, count, frames, move)
-  local _count = count or 8
-  local _frames = frames or 16
-  local _move = _move
-  if move == false then
-    _move = false
-  else
-    _move = true
-  end
-  function new_particle(screen, frames, move)
-    local v_x = move and {.125,-.125,.5,-.5} or {0}
+function new_pop(pix, should_move, particle_count, frames)
+  local particle_count = particle_count or 8
+  local frames = frames or 16
+  function new_particle(pix, frames, should_move)
+    local v_x = should_move and {.125,-.125,.5,-.5} or {0}
     local v_y = copy(v_x)
     shuff(v_x)
     shuff(v_y)
     local particle = {
-      s_x = screen[1],
-      s_y = screen[2],
+      p_x = pix[1],
+      p_y = pix[2],
       v_x = v_x[1],
       v_y = v_y[1],
       max_frames = frames,
@@ -1510,10 +1494,10 @@ function new_pop(screen, count, frames, move)
           sprite = 006
         end
         palt(015,true)
-        spr(sprite,self.s_x,self.s_y)
+        spr(sprite,self.p_x,self.p_y)
         self.frames -= 1
-        self.s_x += self.v_x
-        self.s_y += self.v_y
+        self.p_x += self.v_x
+        self.p_y += self.v_y
         if self.frames <= 0 then
           del(particles,self)
         end
@@ -1522,8 +1506,8 @@ function new_pop(screen, count, frames, move)
     }
     add(particles, particle)
   end
-  for i=1, _count do
-    new_particle(screen, _frames, _move)
+  for i=1, particle_count do
+    new_particle(pix, frames, should_move)
   end
 end
 
