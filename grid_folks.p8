@@ -18,7 +18,7 @@ __lua__
 -- [x] make it clearer that buttons need to be charged in order to heal
 -- [x] smooth out animations on new_num_effect and new_charge
 -- [x] maybe dash enemies should leave a visual trail
--- [ ] flash threatened health
+-- [x] flash threatened health
 -- [ ] make a clearer animation for when timid enemies wait
 -- [ ] optimize pathfinding/movement
 -- [ ] report cpu and framerate in debug mode
@@ -73,6 +73,7 @@ function _init()
   ani_frames = 4
   shakes = {{0,0}}
   game_over = false
+  time = 0
 
 	-- lists of `things`
 	heroes = {}
@@ -172,6 +173,8 @@ function _init()
 end
 
 function _update60()
+
+  time += 1
 
   for next in all(enemies) do
     if next.health <= 0 and #next.pixels <= 1 then
@@ -275,7 +278,7 @@ function shake(dir)
   local a = {0,0}
   local b = {-dir[1],-dir[2]}
   local c = {-dir[1]*2,-dir[2]*2}
-  shakes = {a,a,c,c,b,b,a}
+  shakes = {a,c,c,b,a}
 end
 
 function trim(_a)
@@ -1235,8 +1238,8 @@ end
 function draw_health(x_pos, y_pos, current, threatened, offset)
   -- draw current amount of health in dark red
 	for i = 1, current do
-		pset(x_pos + offset, y_pos + 10 - i * 3, 002)
-		pset(x_pos + offset, y_pos + 9 - i * 3, 002)
+		pset(x_pos + offset, y_pos + 10 - i * 3, flr(time/24) % 2 == 0 and 002 or 008)
+		pset(x_pos + offset, y_pos + 9 - i * 3, flr(time/24) % 2 == 0 and 002 or 008)
 	end
   -- draw current - threatened amount of health in light red
   for i = 1, current - threatened do
