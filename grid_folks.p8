@@ -19,13 +19,13 @@ __lua__
 -- [x] smooth out animations on new_num_effect and new_charge
 -- [x] maybe dash enemies should leave a visual trail
 -- [x] flash threatened health
--- [ ] make a clearer animation for when timid enemies wait
+-- [x] make a clearer animation for when timid enemies wait
+-- [ ] different screen shake direction for shoot?
 -- [ ] optimize pathfinding/movement
 -- [ ] report cpu and framerate in debug mode
 
 -- optimizations
--- [x] create a trim function for removing the first item in a table if its length is > 1
--- [x] clean up h_btns()
+-- [ ] clean up end_draw()
 
 -- game state that gets refreshed on restart
 function _init()
@@ -70,7 +70,7 @@ function _init()
 	has_advanced = false
   has_bumped = false
   depth = 32
-  ani_frames = 4
+  ani_frames = 6
   shakes = {{0,0}}
   game_over = false
   time = 0
@@ -485,7 +485,7 @@ function new_hero()
 				local _half = {(_here[1] + _next[1]) / 2, _here[2]-4}
 				set_tile(self, next_tile)
 				ani_to(self, {_half, _next}, ani_frames/2, 0)
-				delay = ani_frames
+				delay = ani_frames * 2
 				sfx(sounds.jump, 3)
 				p_turn = false
 
@@ -500,7 +500,7 @@ function new_hero()
           end
 					new_shot(self, direction)
 					sfx(sounds.shoot, 3)
-					delay = ani_frames
+					delay = ani_frames * 2
 					p_turn = false
 
 				-- otherwise, if there's an enemy in the destination, hit it
@@ -510,14 +510,14 @@ function new_hero()
 					local here = pos_pix(tile(self))
 					local bump = {here[1] + direction[1] * 4, here[2] + direction[2] * 4}
 					ani_to(self, {bump, here}, ani_frames/2, 0)
-					delay = ani_frames
+					delay = ani_frames * 2
 					p_turn = false
 
 				-- otherwise, move to the destination
 				else
 					set_tile(self, next_tile)
 					ani_to(self, {pos_pix(next_tile)}, ani_frames, 0)
-					delay = ani_frames
+					delay = ani_frames * 2
 					p_turn = false
 				end
 			end
@@ -636,7 +636,7 @@ end
 
 function new_e()
 	local _e = new_thing()
-  _e.sprite = 021
+  _e.sprites = {021}
 	_e.type = "enemy"
   _e.target_type = "hero"
 	_e.stunned = true
@@ -726,7 +726,7 @@ function new_e()
       local here = pos_pix(tile(self))
       local bump = {here[1] + direction[1] * 4, here[2] + direction[2] * 4}
       ani_to(self, {bump, here}, ani_frames/2, 2)
-      delay = ani_frames
+      delay = ani_frames * 2
       sfx(sounds.enemy_bump, 3)
     end
   end
@@ -735,13 +735,13 @@ function new_e()
     if self.step then
       set_tile(self, self.step)
       ani_to(self, {pos_pix(self.step)}, ani_frames, 0)
-      delay = ani_frames
+      delay = ani_frames * 2
     end
   end
 
 	_e.draw = function(self)
 
-		local sprite = self.sprite
+		local sprite = self.sprites[1]
 
 		-- set the current screen destination using the first value in pixels
 		local sx = self.pixels[1][1]
@@ -768,6 +768,7 @@ function new_e()
       spr(002, sx, sy)
 		end
 
+    trim(self.sprites)
 		self:end_draw()
 	end
 
@@ -801,7 +802,7 @@ end
 
 function new_e_timid()
   local _e = new_e()
-  _e.sprite = 021
+  _e.sprites = {021}
 	_e.health = 1
 
   _e.get_step = function(self)
@@ -814,11 +815,12 @@ function new_e_timid()
           distance(step, tile(hero_b)) > 1
         then
           return step
+        -- wait
         else
           local dir = get_direction(tile(self), step)
           local _a = pos_pix(tile(self))
           local _b = {_a[1] + dir[1] * 2, _a[2] + dir[2] * 2}
-          ani_to(self, {_b,_a}, ani_frames / 2, 0)
+          self.sprites = frames({027,021},ani_frames)
         end
       end
     end
@@ -829,7 +831,7 @@ end
 
 function new_e_dash()
   local _e = new_e()
-  _e.sprite = 026
+  _e.sprites = {026}
   _e.health = 1
   _e.dir = {0,0}
 
@@ -882,7 +884,7 @@ function new_e_dash()
       end
       set_tile(self, _t)
       ani_to(self, {pos_pix(_t)}, ani_frames, 0)
-      delay = ani_frames
+      delay = ani_frames * 2
       sfx(sounds.enemy_bump, 3)
       self.health = 0
     end
@@ -893,14 +895,14 @@ end
 
 function new_e_slime()
   local _e = new_e()
-  _e.sprite = 022
+  _e.sprites = {022}
 
   _e.move = function(self)
     if self.step then
       set_tile(new_e_baby(), tile(self))
       set_tile(self, self.step)
       ani_to(self, {pos_pix(self.step)}, ani_frames, 0)
-      delay = ani_frames
+      delay = ani_frames * 2
       self.stunned = true
     end
   end
@@ -912,7 +914,7 @@ function new_e_slime()
       local here = pos_pix(tile(self))
       local bump = {here[1] + direction[1] * 4, here[2] + direction[2] * 4}
       ani_to(self, {bump, here}, ani_frames/2, 2)
-      delay = ani_frames
+      delay = ani_frames * 2
       sfx(sounds.enemy_bump, 3)
       self.stunned = true
     end
@@ -924,7 +926,7 @@ end
 function new_e_baby()
   local _e = new_e()
 	_e.health = 1
-  _e.sprite = 023
+  _e.sprites = {023}
   return _e
 end
 
@@ -1021,7 +1023,7 @@ function new_e_grow()
     if self.step then
       set_tile(self, self.step)
       ani_to(self, {pos_pix(self.step)}, ani_frames, 0)
-      delay = ani_frames
+      delay = ani_frames * 2
 
       local grow_enemies = {}
       for next in all(enemies) do
@@ -1462,7 +1464,7 @@ function new_num_effect(ref, amount, color, outline)
         print(sign .. amount, result[1], result[2], outline)
 			end
 			print(sign .. amount, base[1], base[2], color)
-			if self.t < 128 then
+			if self.t < 64 then
         self.t += 1
         self.offset = max(-8, self.offset - 1)
 			else
@@ -1955,7 +1957,7 @@ function new_charge(color)
   _c.color = color
   _c.list = effects
   _c.offset = -8
-  _c.delay = ani_frames
+  _c.delay = ani_frames * 2
   _c.draw = function(self)
     if self.delay > 0 then
       self.delay -= 1
@@ -1978,7 +1980,7 @@ end
 function new_button(color)
 	local _b = new_thing()
 
-  _b.sprites = {016,016,016,016,017,017,017,017,018}
+  _b.sprites = frames({016,017,018})
   _b.c_o = frames({-8,-7,-6,-5,-4,-3,-2,-1}) -- charge offset
 	_b.type = "button"
 	_b.color = color
@@ -2017,14 +2019,14 @@ ff000fff0007000ffff6ffffffaa6affffa6afffffffffffffffffff006006070006060006006060
 0007000ff07070fffffffffffffaaafffaa6aafffff6ffffffffffff600600070606060600060000060006000000000000000000000000000000000000000000
 f07070fff07070fffff6ffffffffffffffffffffffffffffffffffff000006070000000000600607000600070000000000000000000000000000000000000000
 f00000fff00000fffff6ffffffffffffffffffffffffffffffffffff060060077777777706006007000006070000000000000000000000000000000000000000
-fffffffffffffffffffffffffff77fffffffffffffffffffffffffffffffffffffffffff000000ffffffffff0000000000000000000000000000000000000000
-ffffffffffffffffffffffffff7667ffeeeeeeee00000fffffffffffffffffff000000ff077770ffffffffff0000000000000000000000000000000000000000
-fffffffffffffffffffffffff767767feffffffe07070ffff0000fffffffffff077770ff007070ff000000ff0000000000000000000000000000000000000000
-f66ff66fffffffffff6666ffff7667ffefeeeefe070700ff077770fff0000fff007070ff077770ff077770ff0000000000000000000000000000000000000000
-f6ffff6fff6666fff666666ffff77fffefeffefe077770ff077770ff077770ff0777700f0077700f0070700f0000000000000000000000000000000000000000
-fffffffff666666ff666666fffffffffefeeeefe007070ff007070ff007070ff0077770ff077770f0777770f0000000000000000000000000000000000000000
-f6ffff6ff666666ff566665fffffffffeffffffe077770ff0777770f077770fff070700ff070700f0707070f0000000000000000000000000000000000000000
-f66ff66fff6666ffff5555ffffffffffeeeeeeee000000ff0000000f000000fff00000fff00000ff0000000f0000000000000000000000000000000000000000
+fffffffffffffffffffffffffff77fffffffffffffffffffffffffffffffffffffffffff000000ffffffffffffffffff00000000000000000000000000000000
+ffffffffffffffffffffffffff7667ffeeeeeeee00000fffffffffffffffffff000000ff077770ffffffffffffffffff00000000000000000000000000000000
+fffffffffffffffffffffffff767767feffffffe07070ffff0000fffffffffff077770ff007070ff000000ff00000fff00000000000000000000000000000000
+f66ff66fffffffffff6666ffff7667ffefeeeefe070700ff077770fff0000fff007070ff077770ff077770ff07070fff00000000000000000000000000000000
+f6ffff6fff6666fff666666ffff77fffefeffefe077770ff077770ff077770ff0777700f0077700f0070700f070700ff00000000000000000000000000000000
+fffffffff666666ff666666fffffffffefeeeefe007070ff007070ff007070ff0077770ff077770f0777770f077770ff00000000000000000000000000000000
+f6ffff6ff666666ff566665fffffffffeffffffe077770ff0777770f077770fff070700ff070700f0707070f077770ff00000000000000000000000000000000
+f66ff66fff6666ffff5555ffffffffffeeeeeeee000000ff0000000f000000fff00000fff00000ff0000000f000000ff00000000000000000000000000000000
 00000000000000000000000000b00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 00000000bbbb00000000000000b00000000000000000000000000000000000000000009999000000000000000000000000000000000000000000000000000000
 0070000bbbbbb00007770000bbbbb000770707007700770777000000000000077770099999900007770000777007707000770000000000000000000000000000
