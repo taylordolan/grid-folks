@@ -4,30 +4,6 @@ __lua__
 -- grid folks
 -- taylor d
 
--- todo
--- [x] make inactive heroes gray
--- [x] show "+0" when not gaining health
--- [x] bring back intro animations for buttons
--- [x] do something about when dash enemies dash to a health or score tile
--- [x] fix game end
--- [x] starting with the dash enemy makes it less clear that bumping is the typical way that enemies attack
--- [x] position initial pads 2 steps away from hero start
--- [x] tell the player about bumping in the main instructions
--- [x] show completed instructions in gray
--- [x] make it clearer that buttons get charged when an enemy steps on them
--- [x] make it clearer that buttons need to be charged in order to heal
--- [x] smooth out animations on new_num_effect and new_charge
--- [x] maybe dash enemies should leave a visual trail
--- [x] flash threatened health
--- [x] make a clearer animation for when timid enemies wait
--- [x] different screen shake direction for shoot
--- [ ] optimize pathfinding/movement
--- [ ] report cpu and framerate in debug mode
-
--- optimizations
--- [x] clean up end_draw()
-
--- game state that gets refreshed on restart
 function _init()
 
 	-- board size
@@ -112,23 +88,20 @@ function _init()
 	-- initial pads
   refresh_pads()
 
-  -- initial button (for testing)
-  -- set_tile(new_button(008), {4,3})
-
 	-- spawn stuff
 	spawn_rates = {
 		[001] = 12,
-		[040] = 11,
-		[080] = 10,
-		[120] = 9,
-    [160] = 8,
-		[200] = 7,
-		[240] = 6,
-		[280] = 5,
-    [320] = 4,
-    [360] = 3,
-    [400] = 2,
-    [440] = 1,
+		[030] = 11,
+		[060] = 10,
+		[090] = 9,
+    [120] = 8,
+		[150] = 7,
+		[180] = 6,
+		[210] = 5,
+    [240] = 4,
+    [270] = 3,
+    [300] = 2,
+    [330] = 1,
 	}
   spawn_bags = {
     [001] = {"baby"},
@@ -1478,7 +1451,6 @@ function new_num_effect(ref, amount, color, outline)
 	return new_num_effect
 end
 
-
 function new_pop(pix, should_move, particle_count, frames)
   local particle_count = particle_count or 8
   local frames = frames or 16
@@ -1550,7 +1522,7 @@ function find_types(types, tile)
   return found
 end
 
--- returns an array of all existing adjacent tiles that don't have walls in the way
+-- avoids walls
 function get_adjacent_tiles(tile)
 
 	local self_x = tile[1]
@@ -1746,7 +1718,6 @@ function distance(start, goal, avoid_a)
 	return distance_map[start[1]][start[2]]
 end
 
--- check if there's a wall between two tiles
 function is_wall_between(tile_a, tile_b)
 
 	local a_x = tile_a[1]
@@ -1835,7 +1806,6 @@ function generate_walls()
 	end
 end
 
--- checks if the map is contiguous by starting in one tile and seeing if all other tiles can be reached from there
 function is_map_contiguous()
 
 	-- we can start in any tile
