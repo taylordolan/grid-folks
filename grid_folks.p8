@@ -25,7 +25,7 @@ __lua__
 -- [ ] report cpu and framerate in debug mode
 
 -- optimizations
--- [ ] clean up end_draw()
+-- [x] clean up end_draw()
 
 -- game state that gets refreshed on restart
 function _init()
@@ -435,10 +435,11 @@ function new_thing()
 		pixels = {},
 		-- a sequence of palette modifications
 		pals = {{010,010}},
-		sprite = 100,
+		sprites = {100},
 		end_draw = function(self)
       trim(self.pixels)
       trim(self.pals)
+      trim(self.sprites)
 			pal()
 		end,
 		kill = function(self)
@@ -454,7 +455,6 @@ end
 function new_hero()
 	local _h = new_thing()
 
-	_h.sprite = 000
 	_h.type = "hero"
   _h.target_type = "enemy"
 	_h.max_health = 3
@@ -537,7 +537,7 @@ function new_hero()
 	_h.draw = function(self)
 
 		-- set sprite
-		local sprite = self.active and 001 or self.sprite
+		local sprite = self.active and 001 or 000
 
 		-- set the current screen destination using the first value in pixels
 		local sx = self.pixels[1][1]
@@ -767,7 +767,6 @@ function new_e()
       spr(002, sx, sy)
 		end
 
-    trim(self.sprites)
 		self:end_draw()
 	end
 
@@ -950,7 +949,7 @@ end
 function new_e_grow()
   local _e = new_e()
 	_e.health = 1
-  _e.sprite = 024
+  _e.sprites = {024}
   _e.sub_type = "grow"
 
   _e.get_friends = function(self)
@@ -1117,7 +1116,7 @@ end
 function new_e_grown()
   local _e = new_e()
 	_e.health = 3
-  _e.sprite = 025
+  _e.sprites = {025}
   return _e
 end
 
@@ -1931,12 +1930,12 @@ end
 
 function new_pad(color)
 	local new_pad = new_thing()
-	new_pad.sprite = 016
+	new_pad.sprites = {016}
 	new_pad.type = "pad"
 	new_pad.color = color
 	new_pad.list = pads
 	new_pad.draw = function(self)
-		local sprite = self.sprite
+		local sprite = self.sprites[1]
 		local sx = self.pixels[1][1]
 		local sy = self.pixels[1][2]
 		palt(015, true)
@@ -2002,7 +2001,6 @@ function new_button(color)
 		end
 		spr(sprite, sx, sy)
 		self:end_draw()
-    trim(self.sprites)
 	end
 
 	add(buttons, _b)
