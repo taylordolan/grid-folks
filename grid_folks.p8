@@ -20,7 +20,7 @@ __lua__
 -- [x] maybe dash enemies should leave a visual trail
 -- [x] flash threatened health
 -- [x] make a clearer animation for when timid enemies wait
--- [ ] different screen shake direction for shoot?
+-- [x] different screen shake direction for shoot
 -- [ ] optimize pathfinding/movement
 -- [ ] report cpu and framerate in debug mode
 
@@ -70,7 +70,7 @@ function _init()
 	has_advanced = false
   has_bumped = false
   depth = 32
-  ani_frames = 6
+  ani_frames = 4
   shakes = {{0,0}}
   game_over = false
   time = 0
@@ -78,7 +78,6 @@ function _init()
 	-- lists of `things`
 	heroes = {}
 	enemies = {}
-  -- grow_enemies = {}
 	pads = {}
 	buttons = {}
 	-- other lists
@@ -485,7 +484,7 @@ function new_hero()
 				local _half = {(_here[1] + _next[1]) / 2, _here[2]-4}
 				set_tile(self, next_tile)
 				ani_to(self, {_half, _next}, ani_frames/2, 0)
-				delay = ani_frames * 2
+				delay = ani_frames
 				sfx(sounds.jump, 3)
 				p_turn = false
 
@@ -496,11 +495,11 @@ function new_hero()
 				local shoot_targets = get_ranged_targets(self, direction)
 				if self.shoot and #shoot_targets > 0 then
           for next in all(shoot_targets) do
-            hit_target(next, 1, direction)
+            hit_target(next, 1, {-direction[1],-direction[2]})
           end
 					new_shot(self, direction)
 					sfx(sounds.shoot, 3)
-					delay = ani_frames * 2
+					delay = ani_frames
 					p_turn = false
 
 				-- otherwise, if there's an enemy in the destination, hit it
@@ -510,14 +509,14 @@ function new_hero()
 					local here = pos_pix(tile(self))
 					local bump = {here[1] + direction[1] * 4, here[2] + direction[2] * 4}
 					ani_to(self, {bump, here}, ani_frames/2, 0)
-					delay = ani_frames * 2
+					delay = ani_frames
 					p_turn = false
 
 				-- otherwise, move to the destination
 				else
 					set_tile(self, next_tile)
 					ani_to(self, {pos_pix(next_tile)}, ani_frames, 0)
-					delay = ani_frames * 2
+					delay = ani_frames
 					p_turn = false
 				end
 			end
@@ -726,7 +725,7 @@ function new_e()
       local here = pos_pix(tile(self))
       local bump = {here[1] + direction[1] * 4, here[2] + direction[2] * 4}
       ani_to(self, {bump, here}, ani_frames/2, 2)
-      delay = ani_frames * 2
+      delay = ani_frames
       sfx(sounds.enemy_bump, 3)
     end
   end
@@ -735,7 +734,7 @@ function new_e()
     if self.step then
       set_tile(self, self.step)
       ani_to(self, {pos_pix(self.step)}, ani_frames, 0)
-      delay = ani_frames * 2
+      delay = ani_frames
     end
   end
 
@@ -884,7 +883,7 @@ function new_e_dash()
       end
       set_tile(self, _t)
       ani_to(self, {pos_pix(_t)}, ani_frames, 0)
-      delay = ani_frames * 2
+      delay = ani_frames
       sfx(sounds.enemy_bump, 3)
       self.health = 0
     end
@@ -902,7 +901,7 @@ function new_e_slime()
       set_tile(new_e_baby(), tile(self))
       set_tile(self, self.step)
       ani_to(self, {pos_pix(self.step)}, ani_frames, 0)
-      delay = ani_frames * 2
+      delay = ani_frames
       self.stunned = true
     end
   end
@@ -914,7 +913,7 @@ function new_e_slime()
       local here = pos_pix(tile(self))
       local bump = {here[1] + direction[1] * 4, here[2] + direction[2] * 4}
       ani_to(self, {bump, here}, ani_frames/2, 2)
-      delay = ani_frames * 2
+      delay = ani_frames
       sfx(sounds.enemy_bump, 3)
       self.stunned = true
     end
@@ -1023,7 +1022,7 @@ function new_e_grow()
     if self.step then
       set_tile(self, self.step)
       ani_to(self, {pos_pix(self.step)}, ani_frames, 0)
-      delay = ani_frames * 2
+      delay = ani_frames
 
       local grow_enemies = {}
       for next in all(enemies) do
@@ -1957,7 +1956,7 @@ function new_charge(color)
   _c.color = color
   _c.list = effects
   _c.offset = -8
-  _c.delay = ani_frames * 2
+  _c.delay = ani_frames
   _c.draw = function(self)
     if self.delay > 0 then
       self.delay -= 1
