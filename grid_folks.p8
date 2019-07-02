@@ -4,6 +4,21 @@ __lua__
 -- grid folks
 -- taylor d
 
+-- todo
+-- [ ] fix grow enemy deploy bug
+-- [ ] even out the potential distance for pads
+-- [ ] consider adjusting the quantity of health buttons
+-- [ ] increase the number of turns between spawn rate increases as the game progresses
+-- [ ] stress test enemy pathfinding
+-- [ ] move info area up 1 or 2 pixels
+-- [ ] add missing sounds
+-- [ ] update enemy intro animations to match charge and num animations
+-- [ ] consider making arrows shorter
+-- [ ] tweak screen shake
+-- [ ] add easing to pop animations
+-- [ ] is it possible to add one more level?
+-- [ ] i think the game has to stay "really hard" longer before it gets impossible
+
 function _init()
 
 	-- board size
@@ -78,12 +93,12 @@ function _init()
 
 	-- initial walls
 	refresh_walls()
-	for next in all({{2,3},{3,3},{4,3},{5,3}}) do
-		local wall = find_type("wall_right", next)
-		if wall then
-			wall:kill()
-		end
-	end
+	-- for next in all({{2,3},{3,3},{4,3},{5,3}}) do
+	-- 	local wall = find_type("wall_right", next)
+	-- 	if wall then
+	-- 		wall:kill()
+	-- 	end
+	-- end
 
 	-- initial pads
   refresh_pads()
@@ -91,24 +106,24 @@ function _init()
 	-- spawn stuff
 	spawn_rates = {
 		[001] = 12,
-		[030] = 11,
-		[060] = 10,
-		[090] = 9,
-    [120] = 8,
-		[150] = 7,
-		[180] = 6,
-		[210] = 5,
-    [240] = 4,
-    [270] = 3,
-    [300] = 2,
-    [330] = 1,
+		[012] = 11,
+		[024] = 10,
+    [038] = 9,
+		[055] = 8,
+		[076] = 7,
+		[102] = 6,
+    [134] = 5,
+    [173] = 4,
+    [220] = 3,
+    [276] = 2,
+    [342] = 1,
 	}
   spawn_bags = {
-    [001] = {"baby"},
-    [030] = {"baby", "dash"},
-    [060] = {"baby", "dash","timid"},
-    [090] = {"slime", "dash","timid"},
-    [120] = {"slime", "dash","timid","grow"},
+    [01] = {"baby"},
+    [20] = {"baby", "dash"},
+    [40] = {"baby", "dash","timid"},
+    [60] = {"slime", "dash","timid"},
+    [80] = {"slime", "dash","timid","grow"},
   }
   spawn_functions = {
     ["baby"] = function()
@@ -232,7 +247,7 @@ function _update60()
     end
 
     -- spawn rate stuff
-    turns = turns + 1
+    turns += 1
 		update_spawn_turns()
     for i = 1, spawn_turns[turns] do
       spawn_enemy()
@@ -366,7 +381,7 @@ function _draw()
     palt(015, true)
     pal(006, has_advanced and 005 or 007)
 		spr(016, _x + #_a * 4 + _space - 1, _y - 3)
-		local _b = small("to advance")
+		local _b = small("to ascend")
 		print(_b, _x + #_a * 4 + _space + 8 + _space, _y, has_advanced and 005 or 007)
 		return
 		pal()
@@ -688,7 +703,6 @@ function new_e()
   _e.get_step = function(self)
     -- if not attacking this turn
     if not self.target then
-      printh(self:get_step_to_hero())
       return self:get_step_to_hero()
     end
   end
@@ -850,10 +864,9 @@ function new_e_dash()
           break
         end
         add(_tiles, _n)
-        printh(#_tiles)
       end
       for i=1, #_tiles do
-        new_pop(pos_pix(_tiles[i]), false, 1, 4+i*4)
+        new_pop(pos_pix(_tiles[i]), false, 1, 4+i*8)
       end
       set_tile(self, _t)
       ani_to(self, {pos_pix(_t)}, ani_frames, 0)
@@ -1121,8 +1134,6 @@ function get_steps(start, goal, avoid_a)
   local valid_tiles = {}
 
   for next in all(get_adjacent_tiles(start)) do
-    -- local should_avoid = find_types(avoid, next)
-    -- local next_dist = distance(next, goal, avoid)
     if
       not find_types(avoid, next) and
       distance(next, goal, avoid) < current_dist
@@ -1856,7 +1867,7 @@ end
 function refresh_pads()
 
 	if #colors_bag == 0 then
-		colors_bag = {008,008,008,008,008,008,009,011,012}
+		colors_bag = {008,008,008,009,011,012}
 		shuff(colors_bag)
 	end
 
@@ -1897,7 +1908,7 @@ function refresh_pads()
 	for next in all(_c) do
 		local new_pad = new_pad(next)
 		deploy(new_pad, {"pad", "button", "hero"})
-	end
+    end
 	del(colors_bag, colors_bag[1])
 end
 
