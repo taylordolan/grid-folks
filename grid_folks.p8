@@ -5,8 +5,8 @@ __lua__
 -- taylor d
 
 -- todo
--- [ ] fix grow enemy deploy bug
 -- [ ] even out the potential distance for pads
+-- [ ] fix grow enemy deploy bug
 -- [ ] consider adjusting the quantity of health buttons
 -- [ ] increase the number of turns between spawn rate increases as the game progresses
 -- [ ] stress test enemy pathfinding
@@ -18,6 +18,7 @@ __lua__
 -- [ ] add easing to pop animations
 -- [ ] is it possible to add one more level?
 -- [ ] i think the game has to stay "really hard" longer before it gets impossible
+-- [ ] optimize up all nested {x,y} loops
 
 function _init()
 
@@ -27,10 +28,12 @@ function _init()
 
 	-- 2d array for the board
 	board = {}
+  tiles = {}
 	for x = 1, cols do
 		board[x] = {}
 		for y = 1, rows do
 			board[x][y] = {}
+      add(tiles, {x,y})
 		end
 	end
 
@@ -93,12 +96,6 @@ function _init()
 
 	-- initial walls
 	refresh_walls()
-	-- for next in all({{2,3},{3,3},{4,3},{5,3}}) do
-	-- 	local wall = find_type("wall_right", next)
-	-- 	if wall then
-	-- 		wall:kill()
-	-- 	end
-	-- end
 
 	-- initial pads
   refresh_pads()
@@ -761,18 +758,15 @@ function new_e()
 
 	_e.deploy = function(self)
 		local valid_tiles = {}
-		for x = 1, cols do
-			for y = 1, rows do
-				local _t = {x,y}
-        if
-          not find_type("hero", _t) and
-          not find_type("enemy", _t) and
-          dumb_distance(tile(hero_a), _t) >= 2 and
-          dumb_distance(tile(hero_b), _t) >= 2
-        then
-					add(valid_tiles, _t)
-				end
-			end
+    for next in all(tiles) do
+      if
+        not find_type("hero", next) and
+        not find_type("enemy", next) and
+        dumb_distance(tile(hero_a), next) >= 2 and
+        dumb_distance(tile(hero_b), next) >= 2
+      then
+        add(valid_tiles, next)
+      end
 		end
 
     if #valid_tiles > 0 then
@@ -1074,11 +1068,9 @@ function new_e_grow()
         add(grow_enemies, next)
       end
     end
-    for x = 1, cols do
-      for y = 1, rows do
-        if not is_too_close({x,y}, grow_enemies) then
-          add(valid_tiles, {x,y})
-        end
+    for next in all(tiles) do
+      if not is_too_close(next, grow_enemies) then
+        add(valid_tiles, next)
       end
     end
     for next in all(valid_tiles) do
@@ -1407,22 +1399,22 @@ end
 
 function deploy(thing, avoid_list)
 	local valid_tiles = {}
-	for x = 1, cols do
-		for y = 1, rows do
-			local tile_is_valid = true
-			local tile = board[x][y]
-			for tile_item in all(tile) do
-				for avoid_item in all(avoid_list) do
-					-- check everything in the tile to see if it matches anything in the avoid list
-					if tile_item.type == avoid_item then
-						tile_is_valid = false
-					end
-				end
-			end
-			if tile_is_valid then
-				add(valid_tiles, {x,y})
-			end
-		end
+	for next in all(tiles) do
+    local tile_is_valid = true
+    local x = next[1]
+    local y = next[2]
+    local tile = board[x][y]
+    for tile_item in all(tile) do
+      for avoid_item in all(avoid_list) do
+        -- check everything in the tile to see if it matches anything in the avoid list
+        if tile_item.type == avoid_item then
+          tile_is_valid = false
+        end
+      end
+    end
+    if tile_is_valid then
+      add(valid_tiles, {x,y})
+    end
 	end
 	local index = flr(rnd(#valid_tiles)) + 1
 	local dest = valid_tiles[index]
@@ -1685,7 +1677,7 @@ function dumb_distance(a,b)
 end
 
 -- takes two tiles
-function distance(start, goal, avoid_a)
+function get_distance_map(start, goal, avoid_a)
 	local avoid = avoid_a or {}
   local frontier = {goal}
 	local next_frontier = {}
@@ -1699,7 +1691,7 @@ function distance(start, goal, avoid_a)
 	end
 	local steps = 0
 
-	-- todo: stop building the map once `start` is reached
+	-- todo: stop building the map once `start` is reached?
 	while #frontier > 0 do
 		for i = 1, #frontier do
 			local here = frontier[i]
@@ -1726,7 +1718,12 @@ function distance(start, goal, avoid_a)
 		frontier = next_frontier
 		next_frontier = {}
 	end
-	return distance_map[start[1]][start[2]]
+	return distance_map
+end
+
+function distance(start, goal, avoid_a)
+  local map = get_distance_map(start, goal, avoid_a)
+  return map[start[1]][start[2]]
 end
 
 function is_wall_between(tile_a, tile_b)
@@ -1853,12 +1850,10 @@ function is_map_contiguous()
 	end
 
 	-- if any position in reached_map is false, then the map isn't contiguous
-	for x = 1, cols do
-		for y = 1, rows do
-			if reached_map[x][y] == false then
-				return false
-			end
-		end
+	for next in all(tiles) do
+    if reached_map[next[1]][next[2]] == false then
+      return false
+    end
 	end
 
 	return true
@@ -1890,7 +1885,6 @@ function refresh_pads()
           palt(015, true)
           local sx = self.pixels[1][1]
           local sy = self.pixels[1][2]
-          -- local sprite = 020
 					spr(020, sx, sy)
           pal()
 				end,
@@ -1901,24 +1895,56 @@ function refresh_pads()
 		return
 	end
 
-	local _c = {008,009,011,012}
-	del(_c, colors_bag[1])
+	local pad_colors = {008,009,011,012}
+	del(pad_colors, colors_bag[1])
+  del(colors_bag, colors_bag[1])
 
 	-- place new pads
-	for next in all(_c) do
-		local new_pad = new_pad(next)
-		deploy(new_pad, {"pad", "button", "hero"})
+  local pads = {new_pad(pad_colors[1]), new_pad(pad_colors[2]), new_pad(pad_colors[3])}
+
+  local open_tiles = {}
+  for next in all(tiles) do
+    if
+      not find_type("pad", next) and
+      not find_type("button", next) and
+      not find_type("hero", next)
+    then
+      add(open_tiles, next)
     end
-	del(colors_bag, colors_bag[1])
+  end
+  shuff(open_tiles)
+
+  -- todo: maybe I should create a distance map for each hero, and then
+  -- loop through each tile and group them by distance from the hero
+  local distant_tiles = {}
+  for next in all(open_tiles) do
+    if
+      distance(next, tile(hero_a)) >= 3 and
+      distance(next, tile(hero_b)) >= 3
+    then
+      add(distant_tiles, next)
+    end
+  end
+  shuff(distant_tiles)
+
+  for i=1, #pads do
+    if distant_tiles[i] then
+      set_tile(pads[i], distant_tiles[i])
+      del(distant_tiles, distant_tiles[i])
+      del(open_tiles, distant_tiles[i])
+    else
+      set_tile(pads[i], open_tiles[i])
+    end
+  end
 end
 
 function new_pad(color)
-	local new_pad = new_thing()
-	new_pad.sprites = {016}
-	new_pad.type = "pad"
-	new_pad.color = color
-	new_pad.list = pads
-	new_pad.draw = function(self)
+	local _p = new_thing()
+	_p.sprites = {016}
+	_p.type = "pad"
+	_p.color = color
+	_p.list = pads
+	_p.draw = function(self)
 		local sprite = self.sprites[1]
 		local sx = self.pixels[1][1]
 		local sy = self.pixels[1][2]
@@ -1928,8 +1954,8 @@ function new_pad(color)
 		spr(sprite, sx, sy)
 		self:end_draw()
 	end
-	add(pads, new_pad)
-	return new_pad
+	add(pads, _p)
+	return _p
 end
 
 function new_charge(color)
