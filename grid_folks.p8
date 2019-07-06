@@ -101,6 +101,7 @@ function _init()
 	hero_a.active = true
 	set_tile(hero_a, {3,3})
 	set_tile(hero_b, {5,3})
+	update_maps()
 
 	-- initial pads
 	refresh_pads()
@@ -236,6 +237,10 @@ function _update60()
 			refresh_walls()
 			depth -= 1
 		end
+
+		-- update distance maps for heroes and grow enemies
+		update_maps()
+
 		shuff(enemies)
 		for next in all(enemies) do
 			next:update()
@@ -1379,19 +1384,26 @@ function set_tile(thing, dest)
 		if _b and (_b.color == 008 or _b.color == 009) and not _c then
 			set_tile(new_charge(_b.color), tile(_b))
 		end
-		if thing.sub_type == "grow" then
-			thing.dmap_ideal = get_distance_map(tile(thing))
-			thing.dmap_avoid = get_distance_map(tile(thing), {"enemy", "hero"})
-		end
 	-- trigger hero step sounds
+	-- todo: this shouldn't get triggered when the hero is initially deployed
 	elseif thing.type == "hero" then
-		thing.dmap_ideal = get_distance_map(tile(thing))
-		thing.dmap_avoid = get_distance_map(tile(thing), {"enemy"})
-		-- todo: this shouldn't get triggered when the hero is initially deployed
 		if find_type("pad", dest) then
 			sfx(sounds.pad_step, 3)
 		else
 			sfx(sounds.step, 3)
+		end
+	end
+end
+
+function update_maps()
+	for next in all(heroes) do
+		next.dmap_ideal = get_distance_map(tile(next))
+		next.dmap_avoid = get_distance_map(tile(next), {"enemy"})
+	end
+	for next in all(enemies) do
+		if next.sub_type == "grow" then
+			next.dmap_ideal = get_distance_map(tile(next))
+			next.dmap_avoid = get_distance_map(tile(next), {"enemy", "hero"})
 		end
 	end
 end
