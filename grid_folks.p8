@@ -8,7 +8,7 @@ __lua__
 -- [x] optimize all nested {x,y} loops
 -- [x] optimize pathfinding
 -- [x] even out the potential distance for pads
--- [ ] fix grow enemy deploy bug
+-- [x] fix grow enemy deploy bug
 -- [ ] consider adjusting the quantity of health buttons
 -- [ ] increase the number of turns between spawn rate increases as the game progresses
 -- [ ] stress test enemy pathfinding
@@ -1009,7 +1009,7 @@ function new_e_grow()
 
     -- get valid steps to target
 
-    -- if they're already on the same time, dont move
+    -- if they're already on the same tile, don't move
     if current_dist == 0 then
       return nil
     end
@@ -1061,20 +1061,19 @@ function new_e_grow()
   end
 
   _e.move = function(self)
-    if self.step then
-      set_tile(self, self.step)
-      ani_to(self, {pos_pix(self.step)}, ani_frames, 0)
-      delay = ani_frames
-
-      local friends = self:get_friends()
-      if #friends > 0 then
-        local close_friends = closest(tile(self), friends, false)
-        local friend = close_friends[1]
-        if pair_equal(tile(self), tile(friend)) then
+    if self.health > 0 then
+      -- move, if necessary
+      if self.step then
+        set_tile(self, self.step)
+        ani_to(self, {pos_pix(self.step)}, ani_frames, 0)
+        delay = ani_frames
+      end
+      -- grow, if possible
+      for next in all(board[self.x][self.y]) do
+        if next ~= self and next.sub_type == "grow" then
           self.health = 0
-          friend.health = 0
-          local e_grown = new_e_grown()
-          set_tile(e_grown, tile(self))
+          next.health = 0
+          set_tile(new_e_grown(), tile(self))
         end
       end
     end
@@ -1154,11 +1153,11 @@ function closest(start, options, avoid)
   local avoid = avoid or {}
   local closest = {options[1]}
   for i = 2, #options do
-    local a_dist = distance_by_map(avoid and closest[1].dmap_avoid or closest[1].dmap_ideal, start)
-    local b_dist = distance_by_map(avoid and options[1].dmap_avoid or options[1].dmap_ideal, start)
-    if b_dist < a_dist then
+    local now_dist = distance_by_map(avoid and closest[1].dmap_avoid or closest[1].dmap_ideal, start)
+    local new_dist = distance_by_map(avoid and options[i].dmap_avoid or options[i].dmap_ideal, start)
+    if new_dist < now_dist then
       closest = {options[i]}
-    elseif b_dist == a_dist then
+    elseif new_dist == now_dist then
       add(closest, options[i])
     end
   end
