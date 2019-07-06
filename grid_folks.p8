@@ -122,10 +122,10 @@ function _init()
 	}
   spawn_bags = {
     [01] = {"baby"},
-    [20] = {"baby", "dash"},
-    [40] = {"baby", "dash","timid"},
-    [60] = {"slime", "dash","timid"},
-    [80] = {"slime", "dash","timid","grow"},
+    [21] = {"baby", "dash"},
+    [41] = {"baby", "dash","timid"},
+    [61] = {"slime", "dash","timid"},
+    [81] = {"slime", "dash","timid","grow"},
   }
   spawn_functions = {
     ["baby"] = function()
@@ -263,7 +263,7 @@ function _update60()
 	end
   h_btns()
 
-  if stat(1) > 1 then printh(stat(1)) end
+  -- if stat(1) > 1 then printh(stat(1)) end
 end
 
 function shake(dir)
