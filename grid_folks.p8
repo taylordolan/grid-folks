@@ -7,7 +7,7 @@ __lua__
 -- todo
 -- [x] optimize all nested {x,y} loops
 -- [x] optimize pathfinding
--- [ ] even out the potential distance for pads
+-- [x] even out the potential distance for pads
 -- [ ] fix grow enemy deploy bug
 -- [ ] consider adjusting the quantity of health buttons
 -- [ ] increase the number of turns between spawn rate increases as the game progresses
@@ -21,6 +21,9 @@ __lua__
 -- [ ] is it possible to add one more level?
 -- [ ] i think the game has to stay "really hard" longer before it gets impossible
 -- [ ] remove instances of `for next in all()`?
+
+-- future
+-- [ ] playtest and consider evening out the potential distance or pads even more
 
 function _init()
 
@@ -1900,9 +1903,8 @@ function refresh_pads()
 		next:kill()
 	end
 
-	-- if there are only 5 spaces left, deploy exits
-	-- right now i'm thinking it has to be 5 because otherwise pads get spawned below heroes
-	-- but i should probably do something to make this more elegant.
+	-- if there are only 4 spaces left, deploy exits (the 2 spaces where heroes
+  -- are currently standing will remain empty)
 	if #buttons == rows * cols - 4 then
 		for i = 1, 2 do
 			local exit = {
@@ -1929,8 +1931,8 @@ function refresh_pads()
   del(colors_bag, colors_bag[1])
 
 	-- place new pads
-  local pads = {new_pad(pad_colors[1]), new_pad(pad_colors[2]), new_pad(pad_colors[3])}
 
+  local pads = {new_pad(pad_colors[1]), new_pad(pad_colors[2]), new_pad(pad_colors[3])}
   local open_tiles = {}
   for next in all(tiles) do
     if
@@ -1941,28 +1943,45 @@ function refresh_pads()
       add(open_tiles, next)
     end
   end
-  shuff(open_tiles)
 
-  -- todo: maybe I should create a distance map for each hero, and then
-  -- loop through each tile and group them by distance from the hero
-  local distant_tiles = {}
+  -- find open tiles that are > 3 tiles away from heroes
+  local dist_3_tiles = {}
   for next in all(open_tiles) do
     if
       distance_by_map(hero_a.dmap_ideal, next) >= 3 and
       distance_by_map(hero_b.dmap_ideal, next) >= 3
     then
-      add(distant_tiles, next)
+      add(dist_3_tiles, next)
+      del(open_tiles, next)
     end
   end
-  shuff(distant_tiles)
+
+  -- find open tiles that are > 2 tiles away from heroes
+  local dist_2_tiles = {}
+  for next in all(open_tiles) do
+    if
+      distance_by_map(hero_a.dmap_ideal, next) >= 2 and
+      distance_by_map(hero_b.dmap_ideal, next) >= 2
+    then
+      add(dist_2_tiles, next)
+      del(open_tiles, next)
+    end
+  end
+
+  shuff(dist_3_tiles)
+  shuff(dist_2_tiles)
+  shuff(open_tiles)
 
   for i=1, #pads do
-    if distant_tiles[i] then
-      set_tile(pads[i], distant_tiles[i])
-      del(distant_tiles, distant_tiles[i])
-      del(open_tiles, distant_tiles[i])
+    if dist_3_tiles[1] then
+      set_tile(pads[i], dist_3_tiles[1])
+      del(dist_3_tiles, dist_3_tiles[1])
+    elseif dist_2_tiles[1] then
+      set_tile(pads[i], dist_2_tiles[1])
+      del(dist_2_tiles, dist_2_tiles[1])
     else
-      set_tile(pads[i], open_tiles[i])
+      set_tile(pads[i], open_tiles[1])
+      del(open_tiles, open_tiles[1])
     end
   end
 end
