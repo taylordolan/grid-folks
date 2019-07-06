@@ -6,7 +6,7 @@ __lua__
 
 -- todo
 -- [x] optimize all nested {x,y} loops
--- [ ] optimize pathfinding
+-- [x] optimize pathfinding
 -- [ ] even out the potential distance for pads
 -- [ ] fix grow enemy deploy bug
 -- [ ] consider adjusting the quantity of health buttons
@@ -184,8 +184,8 @@ function _update60()
 		return
 	end
 
-	-- for complicated reasons, this value should be set to
-	-- one *less* than the maximum allowed number of rapid player inputs
+	-- for complicated reasons, this value should be set to one *less* than the
+	-- maximum allowed number of rapid player inputs
 	if #queue < 2 then
     local input
     for i=0, 3 do
@@ -846,19 +846,22 @@ function new_e_dash()
   _e.health = 1
   _e.dir = {0,0}
 
+  -- returns a dash target if one exists, and sets `self.dir` to the direction
+  -- the target is in
   _e.get_target = function(self)
     local target
     for dir in all(o_dirs) do
-      local _t = get_ranged_targets(self, dir)[1]
-      if _t and target then
-        local s_t = tile(self)
-        local t_t = tile(_t)
-        local tar_t = tile(target)
-        if distance(s_t,t_t) < distance(s_t,tar_t) then
-          target = _t
+      local candidate = get_ranged_targets(self, dir)[1]
+      -- if multiple targets are available, set `target` to the closest one
+      if candidate and target then
+        local c_dist = distance_by_map(candidate.dmap_ideal, tile(self))
+        local t_dist = distance_by_map(target.dmap_ideal, tile(self))
+        if c_dist < t_dist then
+          target = candidate
+          self.dir = dir
         end
-      elseif _t then
-        target = _t
+      elseif candidate then
+        target = candidate
         self.dir = dir
       end
     end
@@ -1075,34 +1078,27 @@ function new_e_grow()
   end
 
   _e.get_target = function(self)
-    local grow_enemies = {}
-    for next in all(enemies) do
-      if next.sub_type == "grow" then
-        add(grow_enemies, next)
-      end
-    end
-    if #grow_enemies <= 1 then
+    local friends = self:get_friends()
+    if #friends == 0 then
       local targets = {}
       for next in all(heroes) do
-        if distance(tile(self),tile(next)) == 1 then
+        if distance_by_map(next.dmap_ideal, tile(self)) == 1 then
           add(targets, next)
         end
       end
-      if #targets >= 1 then
+      if #targets > 0 then
         shuff(targets)
         return targets[1]
-      else
-        return nil
       end
     end
   end
 
   _e.deploy = function(self)
-    function is_too_close(_t, grow_enemies)
+    function is_too_close(dest, grow_enemies)
       for next in all(grow_enemies) do
         if
           next.x and
-          distance(_t,tile(next)) < 5
+          distance_by_map(next.dmap_ideal, dest) < 5
         then
           return true
         end
@@ -1619,21 +1615,21 @@ function add_pairs(tile,dir)
 end
 
 function crosshairs()
-  local h = active_hero()
+  local hero = active_hero()
 	for next in all(enemies) do
 		next.is_target = 0
-    if distance(tile(h), tile(next)) == 1 then
+    if distance_by_map(hero.dmap_ideal, tile(next)) == 1 then
       next.is_target = 006
     end
 	end
-  for d in all(o_dirs) do
-    if h.shoot then
-      local targets = get_ranged_targets(h, d)
+  for dir in all(o_dirs) do
+    if hero.shoot then
+      local targets = get_ranged_targets(hero, dir)
       for next in all(targets) do
         next.is_target = 011
       end
-    elseif h.jump then
-      local enemy = find_type("enemy", add_pairs(tile(h),d))
+    elseif hero.jump then
+      local enemy = find_type("enemy", add_pairs(tile(hero), dir))
       if enemy then
         enemy.is_target = 012
       end
@@ -1673,7 +1669,7 @@ function hit_target(target, damage, direction)
   if target.type == "enemy" then
     has_bumped = true
   end
-	-- target.health -= damage
+	target.health -= damage
   local r = {000,008}
   local y = {010,010}
   target.pals = {y,y,r,r,r,r,y}
@@ -1757,11 +1753,6 @@ end
 
 function distance_by_map(map, tile)
   return map[tile[1]][tile[2]]
-end
-
-function distance(start, goal, avoid_a)
-  local map = get_distance_map(goal, avoid_a)
-  return map[start[1]][start[2]]
 end
 
 function is_wall_between(tile_a, tile_b)
@@ -1957,8 +1948,8 @@ function refresh_pads()
   local distant_tiles = {}
   for next in all(open_tiles) do
     if
-      distance(next, tile(hero_a)) >= 3 and
-      distance(next, tile(hero_b)) >= 3
+      distance_by_map(hero_a.dmap_ideal, next) >= 3 and
+      distance_by_map(hero_b.dmap_ideal, next) >= 3
     then
       add(distant_tiles, next)
     end
