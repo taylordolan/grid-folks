@@ -9,9 +9,10 @@ __lua__
 -- [x] optimize pathfinding
 -- [x] even out the potential distance for pads
 -- [x] fix grow enemy deploy bug
--- [ ] consider adjusting the quantity of health buttons
--- [ ] increase the number of turns between spawn rate increases as the game progresses
--- [ ] stress test enemy pathfinding
+-- [x] consider adjusting the quantity of health buttons
+-- [x] increase the number of turns between spawn rate increases as the game progresses
+-- [x] stress test enemy pathfinding
+-- [x] fix flashing of threatened health
 -- [ ] move info area up 1 or 2 pixels
 -- [ ] add missing sounds
 -- [ ] update enemy intro animations to match charge and num animations
@@ -19,7 +20,6 @@ __lua__
 -- [ ] tweak screen shake
 -- [ ] add easing to pop animations
 -- [ ] is it possible to add one more level?
--- [ ] i think the game has to stay "really hard" longer before it gets impossible
 -- [ ] remove instances of `for next in all()`?
 
 -- future
@@ -157,15 +157,14 @@ function _init()
 
   -- initial enemy
   spawn_enemy()
-  -- for i=1, 2 do
-  --   new_e_grow():deploy()
-  -- end
 
 	-- start the music!
 	music(sounds.music)
 end
 
 function _update60()
+
+  time += 1
 
   for next in all(enemies) do
     if next.health <= 0 and #next.pixels <= 1 then
