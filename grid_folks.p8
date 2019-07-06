@@ -5,7 +5,7 @@ __lua__
 -- taylor d
 
 -- todo
--- [x] optimize up all nested {x,y} loops
+-- [x] optimize all nested {x,y} loops
 -- [ ] optimize pathfinding
 -- [ ] even out the potential distance for pads
 -- [ ] fix grow enemy deploy bug
@@ -89,15 +89,15 @@ function _init()
 	-- log of recent user input
 	queue = {}
 
+  -- initial walls
+	refresh_walls()
+
 	-- heroes
 	hero_a = new_hero()
 	hero_b = new_hero()
 	hero_a.active = true
 	set_tile(hero_a, {3,3})
 	set_tile(hero_b, {5,3})
-
-	-- initial walls
-	refresh_walls()
 
 	-- initial pads
   refresh_pads()
@@ -153,10 +153,10 @@ function _init()
 	spawned_early = false
 
   -- initial enemy
-  -- spawn_enemy()
-  for i=1, 20 do
-    new_e_baby():deploy()
-  end
+  spawn_enemy()
+  -- for i=1, 2 do
+  --   new_e_grow():deploy()
+  -- end
 
 	-- start the music!
 	music(sounds.music)
@@ -452,9 +452,6 @@ function new_hero()
 	_h.max_health = 3
 	_h.health = 3
 	_h.list = heroes
-  _h.dmap_avoid_0 = {} -- ideal distance (don't avoid any types)
-  _h.dmap_avoid_1 = {} -- avoid enemies
-  _h.dmap_avoid_2 = {} -- avoid enemies and heroes
 
 	_h.act = function(self, direction)
 
@@ -656,7 +653,7 @@ function new_e()
   _e.get_target = function(self)
     local targets = {}
     for next in all(heroes) do
-      if distance_by_map(next.dmap_avoid_0, tile(self)) == 1 then
+      if distance_by_map(next.dmap_ideal, tile(self)) == 1 then
         add(targets, next)
       end
     end
@@ -674,41 +671,30 @@ function new_e()
     local target
     local current_dist
     local steps = {}
+    local target_options
 
-    local a0 = distance_by_map(hero_a.dmap_avoid_0, here)
-    local b0 = distance_by_map(hero_b.dmap_avoid_0, here)
-    local a1 = distance_by_map(hero_a.dmap_avoid_1, here)
-    local b1 = distance_by_map(hero_b.dmap_avoid_1, here)
+    local a_ideal = distance_by_map(hero_a.dmap_ideal, here)
+    local b_ideal = distance_by_map(hero_b.dmap_ideal, here)
+    local a_avoid = distance_by_map(hero_a.dmap_avoid, here)
+    local b_avoid = distance_by_map(hero_b.dmap_avoid, here)
 
     -- pick a hero to target
 
-    -- if both heroes are equidistant by ideal distance
-    if a0 == b0 then
-      -- if both heroes are also equal when avoiding enemies, then target one randomly
-      if a1 == b1 then
-        local targets = {hero_a, hero_b}
-        shuff(targets)
-        target = targets[1]
-      -- otherwise target whichever hero is closer when avoiding enemies
-      elseif a1 < b1 then
-        target = hero_a
-      else
-        target = hero_b
-      end
-      current_dist = a0
-    -- otherwise target whichever hero is closer
-    elseif a0 < b0 then
-      target = hero_a
-      current_dist = a0
+    local close_heroes_ideal = closest(here, heroes, false)
+    local close_heroes_avoid = closest(here, heroes, true)
+    if #close_heroes_ideal > 1 and #close_heroes_avoid > 0 then
+      target_options = close_heroes_avoid
     else
-      target = hero_b
-      current_dist = b0
+      target_options = close_heroes_ideal
     end
+    shuff(target_options)
+    target = target_options[1]
+    current_dist = distance_by_map(target.dmap_ideal, here)
 
     -- get valid steps to target
 
     -- get adjacent tiles that don't have enemies in them
-    local adjacent_tiles = get_adjacent_tiles(tile(self))
+    local adjacent_tiles = get_adjacent_tiles(here)
     for next in all(adjacent_tiles) do
       if find_type("enemy", next) then
         del(adjacent_tiles, next)
@@ -716,7 +702,7 @@ function new_e()
     end
     -- get closer adjacent tiles
     for next in all(adjacent_tiles) do
-      if distance_by_map(target.dmap_avoid_0, here) < current_dist then
+      if distance_by_map(target.dmap_ideal, next) < current_dist then
         add(steps, next)
       end
     end
@@ -724,16 +710,15 @@ function new_e()
     -- on paths that avoid enemies
     if #steps == 0 then
       for next in all(adjacent_tiles) do
-        if distance_by_map(target.dmap_avoid_1, here) < current_dist then
+        if distance_by_map(target.dmap_avoid, next) < current_dist then
           add(steps, next)
         end
       end
     end
-
+    -- if there still aren't any options, then move randomly
     if #steps == 0 then
       steps = adjacent_tiles
     end
-
     -- set the step
     if #steps > 0 then
       shuff(steps)
@@ -833,11 +818,12 @@ function new_e_timid()
   _e.get_step = function(self)
     -- if not attacking this turn
     if not self.target then
+      local here = tile(self)
       local step = self:get_step_to_hero()
       if step then
         if
-          distance(step, tile(hero_a)) > 1 and
-          distance(step, tile(hero_b)) > 1
+          distance_by_map(hero_a.dmap_ideal, here) > 1 and
+          distance_by_map(hero_b.dmap_ideal, here) > 1
         then
           return step
         -- wait
@@ -992,40 +978,66 @@ function new_e_grow()
 
   -- this is only called if there is at least one friend
   _e.get_step_to_friend = function(self)
-    local start = tile(self)
-    -- find the closest friends by ideal distance
+
+    local here = tile(self)
     local friends = self:get_friends()
-    friends = closest(self, friends)
-    -- if there's more than one
-    if #friends > 1 then
-      -- find the closest friends by avoid distance
-      local alt_friends = closest(self, friends, {"enemy", "hero"})
-      -- if any friends can be reached via avoid distance, then they're the friends
-      friends = #alt_friends > 0 and alt_friends or friends
+    local steps = {}
+    local target_options
+
+    -- pick a friend to target
+
+    -- find the closest friends by ideal distance and avoid distance
+    local close_friends_ideal = closest(tile(self), friends, false)
+    local close_friends_avoid = closest(tile(self), friends, true)
+    -- if there's more than one friend by ideal distance, use closest friends by
+    -- avoid distance, if there are any
+    if #close_friends_ideal > 1 and #close_friends_avoid > 0 then
+      target_options = close_friends_avoid
+    else
+      target_options = close_friends_ideal
     end
-    -- pick randomly from what's left
-    shuff(friends)
-    local friend = friends[1]
-    -- get possible steps by ideal distance
-    local steps = get_steps(start,tile(friend))
-    -- eliminate any ideal steps that have non-friend enemies or heroes in them
-    for next in all(steps) do
+    -- pick a random target
+    shuff(target_options)
+    local target = target_options[1]
+    local current_dist = distance_by_map(target.dmap_ideal, here)
+
+    -- get valid steps to target
+
+    -- if they're already on the same time, dont move
+    if current_dist == 0 then
+      return nil
+    end
+    -- otherwise, get adjacent tiles that don't have enemies or heroes in them
+    local adjacent_tiles = get_adjacent_tiles(tile(self))
+    for next in all(adjacent_tiles) do
       local enemy = find_type("enemy", next)
-      if (enemy and enemy.sub_type ~= "grow") or find_type("hero", next) then
-        del(steps, next)
+      if
+        find_type("hero", next) or
+        enemy and enemy.sub_type ~= "grow"
+      then
+        del(adjacent_tiles, next)
       end
     end
-    -- if there are now no options, get possible steps by avoid distance
+    -- get closer adjacent tiles
+    for next in all(adjacent_tiles) do
+      if distance_by_map(target.dmap_ideal, next) < current_dist then
+        add(steps, next)
+      end
+    end
+    -- if there aren't any closer adjacent tiles, then get closer adjacent tiles
+    -- on paths that avoid enemies and heroes
     if #steps == 0 then
-      steps = get_steps(start,tile(friend),{"enemy","hero"})
+      for next in all(adjacent_tiles) do
+        if distance_by_map(target.dmap_avoid, next) < current_dist then
+          add(steps, next)
+        end
+      end
     end
-    -- if there still no options, or friend is on the same tile
-    if
-      #steps == 0 or
-      pair_equal(start,tile(friend))
-    then
-      steps = get_random_moves(start)
+    -- if there still aren't any options, then move randomly
+    if #steps == 0 then
+      steps = adjacent_tiles
     end
+    -- set the step
     if #steps > 0 then
       shuff(steps)
       return steps[1]
@@ -1033,9 +1045,8 @@ function new_e_grow()
   end
 
   _e.get_step = function(self)
-    local friends = self:get_friends()
     -- if there are friends
-    if #friends > 0 then
+    if #self:get_friends() > 0 then
       return self:get_step_to_friend()
     -- if there's no friend and this enemy isn't attacking this turn
     elseif not self.target then
@@ -1049,22 +1060,15 @@ function new_e_grow()
       ani_to(self, {pos_pix(self.step)}, ani_frames, 0)
       delay = ani_frames
 
-      local grow_enemies = {}
-      for next in all(enemies) do
-        if next.sub_type == "grow" then
-          add(grow_enemies, next)
-        end
-      end
-      if #grow_enemies > 1 then
-        local friends = grow_enemies
-        del(friends, self)
-        local friends = closest(self, friends, {"hero"})
-        local friend = friends[1]
-        if pair_equal(tile(self),tile(friend)) then
+      local friends = self:get_friends()
+      if #friends > 0 then
+        local close_friends = closest(tile(self), friends, false)
+        local friend = close_friends[1]
+        if pair_equal(tile(self), tile(friend)) then
           self.health = 0
           friend.health = 0
-          local big = new_e_grown()
-          set_tile(big,tile(self))
+          local e_grown = new_e_grown()
+          set_tile(e_grown, tile(self))
         end
       end
     end
@@ -1145,42 +1149,21 @@ function new_e_grown()
 end
 
 -- from an array of options, return an array of the ones that are closest to a
--- thing. `avoid_a` is a list of types to avoid
-function closest(thing, options, avoid_a)
-  local avoid = avoid_a or {}
+-- start tile. `avoid` is a bool of whether or not to use the options' "avoid
+-- distance" maps
+function closest(start, options, avoid)
+  local avoid = avoid or {}
   local closest = {options[1]}
-  local here = tile(thing)
-
   for i = 2, #options do
-    local a = tile(closest[1])
-    local a_dist = distance(here, a, avoid)
-    local b = tile(options[i])
-    local b_dist = distance(here, b, avoid)
+    local a_dist = distance_by_map(avoid and closest[1].dmap_avoid or closest[1].dmap_ideal, start)
+    local b_dist = distance_by_map(avoid and options[1].dmap_avoid or options[1].dmap_ideal, start)
     if b_dist < a_dist then
       closest = {options[i]}
     elseif b_dist == a_dist then
       add(closest, options[i])
     end
   end
-
   return closest
-end
-
-function get_steps(start, goal, avoid_a)
-  local avoid = avoid_a or {}
-  local current_dist = distance(start, goal, avoid)
-  local valid_tiles = {}
-
-  for next in all(get_adjacent_tiles(start)) do
-    if
-      not find_types(avoid, next) and
-      distance(next, goal, avoid) < current_dist
-    then
-      add(valid_tiles, next)
-    end
-  end
-
-  return valid_tiles
 end
 
 function new_shot(thing, dir)
@@ -1399,11 +1382,14 @@ function set_tile(thing, dest)
 		if _b and (_b.color == 008 or _b.color == 009) and not _c then
       set_tile(new_charge(_b.color), tile(_b))
 		end
+    if thing.sub_type == "grow" then
+      thing.dmap_ideal = get_distance_map(tile(thing))
+      thing.dmap_avoid = get_distance_map(tile(thing), {"enemy", "hero"})
+    end
   -- trigger hero step sounds
 	elseif thing.type == "hero" then
-    thing.dmap_avoid_0 = get_distance_map(tile(thing))
-    thing.dmap_avoid_1 = get_distance_map(tile(thing), {"enemy"})
-    thing.dmap_avoid_2 = get_distance_map(tile(thing), {"enemy", "hero"})
+    thing.dmap_ideal = get_distance_map(tile(thing))
+    thing.dmap_avoid = get_distance_map(tile(thing), {"enemy"})
     -- todo: this shouldn't get triggered when the hero is initially deployed
 		if find_type("pad", dest) then
 			sfx(sounds.pad_step, 3)
@@ -1582,6 +1568,7 @@ function get_adjacent_tiles(tile)
 	local self_y = tile[2]
 	local adjacent_tiles = {}
 
+  -- todo: use `o_dirs` to clean this up
 	local up = {self_x, self_y - 1}
 	local down = {self_x, self_y + 1}
 	local left = {self_x - 1, self_y}
