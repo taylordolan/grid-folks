@@ -178,6 +178,20 @@ function _update60()
 	if btnp(4) then
 		debug = not debug
 		-- new_num_effect({26 + #(depth .. "") * 4,99}, -1, 007, 000)
+		-- if depth > 2 then
+		-- 	local open_tiles = {}
+		-- 	for next in all(tiles) do
+		-- 		if
+		-- 			not find_type("button", next) and
+		-- 			not find_type("pad", next)
+		-- 		then
+		-- 			add(open_tiles, next)
+		-- 		end
+		-- 	end
+		-- 	shuff(open_tiles)
+		-- 	set_tile(new_button(012), open_tiles[1])
+		-- 	depth -= 1
+		-- end
 	end
 
 	if game_over then
@@ -361,11 +375,7 @@ function _draw()
 		msg_y += 10
 		print(msg, msg_x, msg_y, 007)
 		-- line 3
-		if debug then
-			msg = small("turns: " .. turns ..", spawn rate: " .. spawn_rate)
-		else
-			msg = small("press x to restart")
-		end
+		msg = small("press x to restart")
 		msg_x = 65 - (#msg * 4) / 2
 		msg_y += 10
 		print(msg, msg_x, msg_y, 005)
@@ -392,18 +402,14 @@ function _draw()
 		spr(016, _x + #_a * 4 + _space - 1, _y - 3)
 		local _b = small("to ascend")
 		print(_b, _x + #_a * 4 + _space + 8 + _space, _y, has_advanced and 005 or 007)
-		return
+		-- return
 		pal()
 	else
 		-- draw instructions area
-		if not debug then
-			local msg = small("depth")
-			print(msg, 11, 99, 007)
-			print(depth, 34, 99, 007)
-		else
-			local text = turns .."/"..spawn_rate
-			print(text, 11, 99, 005)
-		end
+		-- depth
+		local msg = small("depth")
+		print(msg, 11, 99, 007)
+		print(depth, 34, 99, 007)
 		-- score
 		local text = small("gold")
 		local num = score .. ""
@@ -413,8 +419,22 @@ function _draw()
 		spr(032, 11, 108, 7, 2)
 		spr(039, 72, 108, 6, 2)
 	end
+
 	for next in all(effects) do
 		next:draw()
+	end
+
+	if debug then
+		local x = 0
+		local y = 0
+		print("wip dev deets", x, y+1, 000)
+		print("wip dev deets", x, y, 008)
+		y += 10
+		print("turns: " .. turns, x, y+1, 000)
+		print("turns: " .. turns, x, y, 008)
+		y += 10
+		print("spawn rate: " .. spawn_rate, x, y+1, 000)
+		print("spawn rate: " .. spawn_rate, x, y, 008)
 	end
 end
 
