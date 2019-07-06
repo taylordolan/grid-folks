@@ -233,13 +233,13 @@ function _update60()
 				new_num_effect({26 + #(depth .. "") * 4,99}, -1, 007, 000)
 			end
 			add_button()
-			refresh_pads()
 			refresh_walls()
+			update_maps()
+			refresh_pads()
 			depth -= 1
+		else
+			update_maps()
 		end
-
-		-- update distance maps for heroes and grow enemies
-		update_maps()
 
 		shuff(enemies)
 		for next in all(enemies) do
@@ -1103,7 +1103,7 @@ function new_e_grow()
 		function is_too_close(dest, grow_enemies)
 			for next in all(grow_enemies) do
 				if
-					next.x and
+					next.x and next.y and
 					distance_by_map(next.dmap_ideal, dest) < 5
 				then
 					return true
@@ -1135,6 +1135,8 @@ function new_e_grow()
 		if #valid_tiles > 0 then
 			shuff(valid_tiles)
 			set_tile(self, valid_tiles[1])
+			self.dmap_ideal = get_distance_map(tile(self))
+			self.dmap_avoid = get_distance_map(tile(self), {"enemy", "hero"})
 		else
 			self:kill()
 		end
@@ -1395,6 +1397,7 @@ function set_tile(thing, dest)
 	end
 end
 
+-- update distance maps for heroes and grow enemies
 function update_maps()
 	for next in all(heroes) do
 		next.dmap_ideal = get_distance_map(tile(next))
