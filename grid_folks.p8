@@ -107,26 +107,41 @@ function _init()
 	refresh_pads()
 
 	-- spawn stuff
-	spawn_rates = {
-		[001] = 12,
-		[012] = 11,
-		[024] = 10,
-		[038] = 9,
-		[055] = 8,
-		[076] = 7,
-		[102] = 6,
-		[134] = 5,
-		[173] = 4,
-		[220] = 3,
-		[276] = 2,
-		[342] = 1,
-	}
+	-- spawn_rates = {
+  --   [001] = 12,
+  --   [012] = 11,
+	-- 	[024] = 10,
+	-- 	[038] = 9,
+	-- 	[055] = 8,
+	-- 	[076] = 7,
+	-- 	[102] = 6,
+	-- 	[134] = 5,
+	-- 	[173] = 4,
+	-- 	[220] = 3,
+	-- 	[276] = 2,
+	-- 	[342] = 1,
+  -- }
+	function get_spawn_rates(base, offset, starting_spawn_rate)
+    local spawn_rates = {
+      [001] = starting_spawn_rate,
+    }
+    local offset = 1
+    local increase = base
+    for i=1, starting_spawn_rate - 1 do
+      increase += i - 1
+      local next = offset + increase
+      spawn_rates[next] = starting_spawn_rate - i
+      offset = next
+    end
+    return spawn_rates
+  end
+  spawn_rates = get_spawn_rates(11, 1, 12)
 	spawn_bags = {
-		[01] = {"baby"},
-		[21] = {"baby", "dash"},
-		[41] = {"baby", "dash","timid"},
-		[61] = {"slime", "dash","timid"},
-		[81] = {"slime", "dash","timid","grow"},
+		[001] = {"baby"},
+		[031] = {"baby", "dash"},
+		[061] = {"baby", "dash","timid"},
+		[091] = {"slime", "dash","timid"},
+		[121] = {"slime", "dash","timid","grow"},
 	}
 	spawn_functions = {
 		["baby"] = function()
@@ -282,7 +297,7 @@ function _update60()
 	end
 	h_btns()
 
-	-- if stat(1) > 1 then printh(stat(1)) end
+	if stat(1) > 1 then printh(stat(1)) end
 end
 
 function shake(dir)

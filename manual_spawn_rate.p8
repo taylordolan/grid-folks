@@ -6,19 +6,37 @@ __lua__
 
 function _init()
 
-  spawn_rates = {
-    [1] = 16,
-		[30] = 14,
-		[60] = 12,
-		[90] = 10,
-    [120] = 8,
-		[150] = 6,
-		[180] = 5,
-		[210] = 4,
-		[240] = 3,
-		[300] = 2,
-		[360] = 1,
-  }
+  -- spawn_rates = {
+  --   [001] = 12,
+  --   [012] = 11,
+	-- 	[024] = 10,
+	-- 	[038] = 9,
+	-- 	[055] = 8,
+	-- 	[076] = 7,
+	-- 	[102] = 6,
+	-- 	[134] = 5,
+	-- 	[173] = 4,
+	-- 	[220] = 3,
+	-- 	[276] = 2,
+	-- 	[342] = 1,
+  -- }
+  function get_spawn_rates(base, offset, starting_spawn_rate)
+    local spawn_rates = {
+      [001] = starting_spawn_rate,
+    }
+    local offset = 1
+    local increase = base
+    for i=1, starting_spawn_rate - 1 do
+      increase += i - 1
+      local next = offset + increase
+      spawn_rates[next] = starting_spawn_rate - i
+      offset = next
+    end
+    return spawn_rates
+  end
+
+  spawn_rates = get_spawn_rates(11, 1, 12)
+
   max_turns = 600
   graph_mode = true
 end
