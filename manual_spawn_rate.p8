@@ -20,24 +20,22 @@ function _init()
 	-- 	[276] = 2,
 	-- 	[342] = 1,
   -- }
-  function get_spawn_rates(base, offset, starting_spawn_rate)
+  function get_spawn_rates(base, starting_spawn_rate, offset)
     local spawn_rates = {
       [001] = starting_spawn_rate,
     }
-    local offset = 1
+    local previous = 1
     local increase = base
     for i=1, starting_spawn_rate - 1 do
-      increase += i - 1
-      local next = offset + increase
+      increase += i + offset
+      local next = previous + increase
       spawn_rates[next] = starting_spawn_rate - i
-      offset = next
+      previous = next
     end
     return spawn_rates
   end
-
-  spawn_rates = get_spawn_rates(11, 1, 12)
-
-  max_turns = 600
+  spawn_rates = get_spawn_rates(11, 12, 3)
+  max_turns = 800
   graph_mode = true
 end
 
