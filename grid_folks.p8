@@ -13,13 +13,10 @@ __lua__
 -- [x] increase the number of turns between spawn rate increases as the game progresses
 -- [x] stress test enemy pathfinding
 -- [x] fix flashing of threatened health
+-- [x] update enemy intro animations to match charge and num animations
 -- [ ] move info area up 1 or 2 pixels
--- [ ] add missing sounds
--- [ ] update enemy intro animations to match charge and num animations
--- [ ] consider making arrows shorter
--- [ ] tweak screen shake
 -- [ ] add easing to pop animations
--- [ ] is it possible to add one more level?
+-- [ ] add missing sounds
 -- [ ] remove instances of `for next in all()`?
 
 -- future
@@ -1404,13 +1401,13 @@ function set_tile(thing, dest)
 
 	-- enter transitions for enemies
 	if thing.pixels and #thing.pixels == 0 then
-		local _c = pos_pix(dest)
+		local pix = pos_pix(dest)
 		if thing.type == "enemy" then
-			local _x = _c[1]
-			local _y = _c[2]
-			thing.pixels = frames({{_x,_y-2},{_x,_y-1},_c})
+			for i = -4, 0 do
+				add(thing.pixels, {pix[1], pix[2] + i})
+			end
 		else
-			thing.pixels = {_c}
+			thing.pixels = {pix}
 		end
 	end
 
