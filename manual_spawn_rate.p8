@@ -28,13 +28,13 @@ function _init()
     local increase = base
     for i=1, starting_spawn_rate - 1 do
       increase += i + offset
-      local next = previous + increase
+      local next = previous + flr(increase)
       spawn_rates[next] = starting_spawn_rate - i
       previous = next
     end
     return spawn_rates
   end
-  spawn_rates = get_spawn_rates(11, 12, 3)
+  spawn_rates = get_spawn_rates(11, 12, 1.5)
   max_turns = 800
   graph_mode = true
 end

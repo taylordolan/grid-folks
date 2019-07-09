@@ -14,13 +14,15 @@ __lua__
 -- [x] stress test enemy pathfinding
 -- [x] fix flashing of threatened health
 -- [x] update enemy intro animations to match charge and num animations
+-- [x] add easing to pop animations
 -- [ ] move info area up 1 or 2 pixels
--- [ ] add easing to pop animations
 -- [ ] add missing sounds
 -- [ ] remove instances of `for next in all()`?
+-- [ ] make grown sprites not block buttons
+-- [ ] make arrows not block grown sprites
 
 -- future
--- [ ] playtest and consider evening out the potential distance or pads even more
+-- [ ] playtest and consider evening out the potential distance of pads even more, maybe with a max distance?
 
 function _init()
 
@@ -126,13 +128,13 @@ function _init()
     local increase = base
     for i=1, starting_spawn_rate - 1 do
       increase += i + offset
-      local next = previous + increase
+      local next = previous + flr(increase)
       spawn_rates[next] = starting_spawn_rate - i
       previous = next
     end
     return spawn_rates
   end
-  spawn_rates = get_spawn_rates(11, 12, 3)
+  spawn_rates = get_spawn_rates(11, 12, 1.5)
 	spawn_bags = {
 		[001] = {"baby"},
 		[031] = {"baby", "dash"},
@@ -1536,29 +1538,34 @@ end
 
 function new_pop(pix, should_move, particle_count, frames)
 	local particle_count = particle_count or 8
-	local frames = frames or 16
+	local frames = frames or 12
 	function new_particle(pix, frames, should_move)
-		local v_x = should_move and {.125,-.125,.5,-.5} or {0}
-		local v_y = copy(v_x)
-		shuff(v_x)
-		shuff(v_y)
+		local vel_x = should_move and {1,-1,1.5,-1.5,2,-2} or {0}
+		local vel_y = copy(vel_x)
+		shuff(vel_x)
+		shuff(vel_y)
 		local particle = {
-			p_x = pix[1],
-			p_y = pix[2],
-			v_x = v_x[1],
-			v_y = v_y[1],
+			pix_x = pix[1],
+			pix_y = pix[2],
+			vel_x = vel_x[1],
+			vel_y = vel_y[1],
 			max_frames = frames,
 			frames = frames,
+			sprite = 011,
+			speed = 1,
 			draw = function(self)
-				local sprite = 005
-				if self.frames < self.max_frames / 3 then
-					sprite = 006
+				if self.frames == flr(self.max_frames * 2/3) then
+					self.sprite = 005
+					self.speed /= 3
+				elseif self.frames == flr(self.max_frames * 1/3) then
+					self.sprite = 006
+					self.speed /= 3
 				end
 				palt(015,true)
-				spr(sprite,self.p_x,self.p_y)
+				self.pix_x += self.vel_x * self.speed
+				self.pix_y += self.vel_y * self.speed
+				spr(self.sprite,self.pix_x,self.pix_y)
 				self.frames -= 1
-				self.p_x += self.v_x
-				self.p_y += self.v_y
 				if self.frames <= 0 then
 					del(particles,self)
 				end
@@ -2111,14 +2118,14 @@ function new_button(color)
 end
 
 __gfx__
-ffffffffff000fffffffffffffffffffffffffffffffffffffffffff000006070060006000060600000600600000000000000000000000000000000000000000
-ffffffffff070ffffff6fffffffaaaffffffffffffffffffffffffff600600076000000000600006006006000000000000000000000000000000000000000000
-ff000fff0007000ffff6ffffffaa6affffa6afffffffffffffffffff006006070006060006006060060000060000000000000000000000000000000000000000
-0007000f0777770fffffffffff6aa6fffaaaaafffff6ffffffffffff000060070060006000060000000060000000000000000000000000000000000000000000
-0777770f0007000f66fff66fffaa6afffa6a6affff666ffffff6ffff006006076000600006000606006000600000000000000000000000000000000000000000
-0007000ff07070fffffffffffffaaafffaa6aafffff6ffffffffffff600600070606060600060000060006000000000000000000000000000000000000000000
-f07070fff07070fffff6ffffffffffffffffffffffffffffffffffff000006070000000000600607000600070000000000000000000000000000000000000000
-f00000fff00000fffff6ffffffffffffffffffffffffffffffffffff060060077777777706006007000006070000000000000000000000000000000000000000
+ffffffffff000fffffffffffffffffffffffffffffffffffffffffff00000607006000600006060000060060ffffffff00000000000000000000000000000000
+ffffffffff070ffffff6fffffffaaaffffffffffffffffffffffffff60060007600000000060000600600600ffffffff00000000000000000000000000000000
+ff000fff0007000ffff6ffffffaa6affffa6afffffffffffffffffff00600607000606000600606006000006ffffffff00000000000000000000000000000000
+0007000f0777770fffffffffff6aa6fffaaaaafffff6ffffffffffff00006007006000600006000000006000ff666fff00000000000000000000000000000000
+0777770f0007000f66fff66fffaa6afffa6a6affff666ffffff6ffff00600607600060000600060600600060ff666fff00000000000000000000000000000000
+0007000ff07070fffffffffffffaaafffaa6aafffff6ffffffffffff60060007060606060006000006000600ff666fff00000000000000000000000000000000
+f07070fff07070fffff6ffffffffffffffffffffffffffffffffffff00000607000000000060060700060007ffffffff00000000000000000000000000000000
+f00000fff00000fffff6ffffffffffffffffffffffffffffffffffff06006007777777770600600700000607ffffffff00000000000000000000000000000000
 fffffffffffffffffffffffffff77fffffffffffffffffffffffffffffffffffffffffff000000ffffffffffffffffff00000000000000000000000000000000
 ffffffffffffffffffffffffff7667ffeeeeeeee00000fffffffffffffffffff000000ff077770ffffffffffffffffff00000000000000000000000000000000
 fffffffffffffffffffffffff767767feffffffe07070ffff0000fffffffffff077770ff007070ff000000ff00000fff00000000000000000000000000000000
