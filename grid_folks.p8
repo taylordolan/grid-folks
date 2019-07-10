@@ -15,7 +15,7 @@ __lua__
 -- [x] fix flashing of threatened health
 -- [x] update enemy intro animations to match charge and num animations
 -- [x] add easing to pop animations
--- [ ] move info area up 1 or 2 pixels
+-- [x] move info area up 1 or 2 pixels
 -- [ ] add missing sounds
 -- [ ] remove instances of `for next in all()`?
 -- [ ] make grown sprites not block buttons
@@ -258,7 +258,7 @@ function _update60()
 	elseif p_turn == false then
 		if should_advance() then
 			if has_switched and has_bumped and has_advanced then
-				new_num_effect({26 + #(depth .. "") * 4,99}, -1, 007, 000)
+				new_num_effect({26 + #(depth .. "") * 4, 98}, -1, 007, 000)
 			end
 			add_button()
 			refresh_walls()
@@ -376,7 +376,7 @@ function _draw()
 			msg = small("you escaped! +100 gold")
 		end
 		local msg_x = 65 - (#msg * 4) / 2
-		local msg_y = 99
+		local msg_y = 98
 		print(msg, msg_x, msg_y, 007)
 		-- line 2
 		if depth != 0 then
@@ -399,7 +399,7 @@ function _draw()
 
 		local _a = small("press x to switch folks")
 		local _x = 64 - #_a*2
-		local _y = 99
+		local _y = 98
 		print(_a, _x, _y, has_switched and 005 or 007)
 
 		local _a = small("bump to attack")
@@ -422,16 +422,16 @@ function _draw()
 		-- draw instructions area
 		-- depth
 		local msg = small("depth")
-		print(msg, 11, 99, 007)
-		print(depth, 34, 99, 007)
+		print(msg, 11, 98, 007)
+		print(depth, 34, 98, 007)
 		-- score
 		local text = small("gold")
 		local num = score .. ""
-		print(text, 118 - #text * 4, 99, 007)
-		print(num, 99 - #num * 4, 99, 007)
+		print(text, 118 - #text * 4, 98, 007)
+		print(num, 99 - #num * 4, 98, 007)
 		-- instructions
-		spr(032, 11, 108, 7, 2)
-		spr(039, 72, 108, 6, 2)
+		spr(032, 11, 107, 7, 2)
+		spr(039, 72, 107, 6, 2)
 	end
 
 	for next in all(effects) do
@@ -1458,7 +1458,7 @@ function h_btns()
 				end
 			elseif _c.color == 009 then
 				score += 1
-				new_num_effect({91, 99}, 1, 009, 000)
+				new_num_effect({91, 98}, 1, 009, 000)
 			end
 			_c:kill()
 		end
