@@ -16,13 +16,13 @@ __lua__
 -- [x] update enemy intro animations to match charge and num animations
 -- [x] add easing to pop animations
 -- [x] move info area up 1 or 2 pixels
+-- [x] make grown sprites not block buttons
+-- [x] make arrows not block grown sprites
 -- [ ] add missing sounds
--- [ ] remove instances of `for next in all()`?
--- [ ] make grown sprites not block buttons
--- [ ] make arrows not block grown sprites
 
 -- future
 -- [ ] playtest and consider evening out the potential distance of pads even more, maybe with a max distance?
+-- [ ] remove instances of `for next in all()`?
 
 function _init()
 
@@ -355,8 +355,8 @@ function _draw()
 		walls,
 		particles,
 		charges,
-		enemies,
 		heroes,
+		enemies,
 		effects,
 	}) do
 		for next in all(list) do
@@ -2129,8 +2129,8 @@ f00000fff00000fffff6ffffffffffffffffffffffffffffffffffff060060077777777706006007
 fffffffffffffffffffffffffff77fffffffffffffffffffffffffffffffffffffffffff000000ffffffffffffffffff00000000000000000000000000000000
 ffffffffffffffffffffffffff7667ffeeeeeeee00000fffffffffffffffffff000000ff077770ffffffffffffffffff00000000000000000000000000000000
 fffffffffffffffffffffffff767767feffffffe07070ffff0000fffffffffff077770ff007070ff000000ff00000fff00000000000000000000000000000000
-f66ff66fffffffffff6666ffff7667ffefeeeefe070700ff077770fff0000fff007070ff077770ff077770ff07070fff00000000000000000000000000000000
-f6ffff6fff6666fff666666ffff77fffefeffefe077770ff077770ff077770ff0777700f0077700f0070700f070700ff00000000000000000000000000000000
+f66ff66fffffffffff6666ffff7667ffefeeeefe07070fff077770fff0000fff007070ff077770ff077770ff07070fff00000000000000000000000000000000
+f6ffff6fff6666fff666666ffff77fffefeffefe077770ff077770ff077770ff077770ff007770ff007070ff07070fff00000000000000000000000000000000
 fffffffff666666ff666666fffffffffefeeeefe007070ff007070ff007070ff0077770ff077770f0777770f077770ff00000000000000000000000000000000
 f6ffff6ff666666ff566665fffffffffeffffffe077770ff0777770f077770fff070700ff070700f0707070f077770ff00000000000000000000000000000000
 f66ff66fff6666ffff5555ffffffffffeeeeeeee000000ff0000000f000000fff00000fff00000ff0000000f000000ff00000000000000000000000000000000
