@@ -45,7 +45,6 @@ function _init()
 
 	-- sounds dictionary
 	sounds = {
-		music = 000,
 		a_step = 011,
     b_step = 012,
 		pad_step = 013, -- stepping on a pad
@@ -59,6 +58,22 @@ function _init()
     enemy_step = 000,
 		win = 000,
 		lose = 000,
+	}
+
+  active_sounds = {
+		a_step = false,
+    b_step = false,
+		pad_step = false,
+		advance = false,
+		bump = false,
+		shoot = false,
+		jump = false,
+		health = false,
+		score = false,
+    enemy_die = false,
+    enemy_step = false,
+		win = false,
+		lose = false,
 	}
 
 	-- some game state
@@ -164,7 +179,7 @@ function _init()
   new_e_grown():deploy()
 
 	-- start the music!
-	music(sounds.music)
+	music(000)
 end
 
 function _update60()
@@ -226,11 +241,11 @@ function _update60()
 		score += 100
 		depth = 0
 		game_over = true
-		sfx(sounds.win, 3)
+		active_sounds.win = true
 	-- game lose
 	elseif hero_a.health <= 0 or hero_b.health <= 0 then
 		game_over = true
-		sfx(sounds.lose, 3)
+		active_sounds.lose = true
 	-- player turn
 	elseif p_turn == true and #queue > 0 then
 		if queue[1] == 5 then
@@ -239,7 +254,7 @@ function _update60()
 				next.active = not next.active
 			end
 			crosshairs()
-			sfx(sounds.switch, 3)
+			active_sounds.switch = true
 		else
 			active_hero():act(queue[1])
 		end
@@ -285,6 +300,33 @@ function _update60()
 		p_turn = true
 	end
 	h_btns()
+
+  -- lower sounds are higher priority
+  local sound_priorities = {
+    "enemy_step",
+		"a_step",
+    "b_step",
+		"pad_step",
+		"advance",
+		"bump",
+		"shoot",
+		"jump",
+		"health",
+		"score",
+    "enemy_die",
+		"win",
+		"lose",
+	}
+  local active_sound = false
+  for next in all(sound_priorities) do
+    if active_sounds[next] then
+      active_sound = next
+    end
+    active_sounds[next] = false
+  end
+  if active_sound then
+    sfx(sounds[active_sound], 3)
+  end
 
 	if stat(1) > 1 then printh(stat(1)) end
 end
@@ -508,7 +550,7 @@ function new_hero()
 				set_tile(self, next_tile)
 				ani_to(self, {_half, _next}, ani_frames/2, 0)
 				delay = ani_frames
-				sfx(sounds.jump, 3)
+				active_sounds.jump = true
 				p_turn = false
 
 			-- if there's no wall
@@ -521,13 +563,13 @@ function new_hero()
 						hit_target(next, 1, {-direction[1],-direction[2]})
 					end
 					new_shot(self, direction)
-					sfx(sounds.shoot, 3)
+					active_sounds.shoot = true
 					delay = ani_frames
 					p_turn = false
 
 				-- otherwise, if there's an enemy in the destination, hit it
 				elseif enemy then
-					sfx(sounds.bump, 3)
+					active_sounds.bump = true
 					hit_target(enemy, 1, direction)
 					local here = pos_pix(tile(self))
 					local bump = {here[1] + direction[1] * 4, here[2] + direction[2] * 4}
@@ -772,7 +814,7 @@ function new_e()
 			local bump = {here[1] + direction[1] * 4, here[2] + direction[2] * 4}
 			ani_to(self, {bump, here}, ani_frames/2, 2)
 			delay = ani_frames
-			sfx(sounds.bump, 3)
+			active_sounds.bump = true
 		end
 	end
 
@@ -929,7 +971,7 @@ function new_e_dash()
 			set_tile(self, _t)
 			ani_to(self, {pos_pix(_t)}, ani_frames, 0)
 			delay = ani_frames
-			sfx(sounds.enemy_bump, 3)
+			active_sounds.enemy_bump = true
 			self.health = 0
 		end
 	end
@@ -959,7 +1001,7 @@ function new_e_slime()
 			local bump = {here[1] + direction[1] * 4, here[2] + direction[2] * 4}
 			ani_to(self, {bump, here}, ani_frames/2, 2)
 			delay = ani_frames
-			sfx(sounds.enemy_bump, 3)
+			active_sounds.enemy_bump = true
 			self.stunned = true
 		end
 	end
@@ -1384,11 +1426,11 @@ function set_tile(thing, dest)
   -- being deployed
 	if thing.type == "hero" and thing.x then
 		if find_type("pad", dest) then
-			sfx(sounds.pad_step, 3)
+			active_sounds.pad_step = true
 		elseif thing == hero_a then
-			sfx(sounds.a_step, 3)
+			active_sounds.a_step = true
     elseif thing == hero_b then
-      sfx(sounds.b_step, 3)
+      active_sounds.b_step = true
 		end
 	end
 
@@ -1447,7 +1489,7 @@ function h_btns()
 			if _c.color == 008 then
 				if hero.health < hero.max_health then
 					hero.health = min(hero.health + 1, hero.max_health)
-          sfx(sounds.health, 3)
+          active_sounds.health = true
 					new_num_effect(hero, 1, 008, 007)
 				else
 					new_num_effect(hero, 0, 008, 007)
@@ -1713,7 +1755,7 @@ function add_button()
 	set_tile(new_button(o_p.color), {o_p.x, o_p.y})
 
 	-- make the advance sound
-	sfx(sounds.advance, 3)
+	active_sounds.advance = true
 end
 
 function hit_target(target, damage, direction)
@@ -1721,7 +1763,7 @@ function hit_target(target, damage, direction)
 	if target.type == "enemy" then
 		has_bumped = true
     if target.health <= 0 then
-      sfx(sounds.enemy_die, 3)
+      active_sounds.enemy_die = true
     end
 	end
 	local r = {000,008}
