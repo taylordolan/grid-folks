@@ -34,7 +34,7 @@ function _init()
     end
     return spawn_rates
   end
-  spawn_rates = get_spawn_rates(11, 12, 1.5)
+  spawn_rates = get_spawn_rates(11, 12, 6)
   max_turns = 800
   graph_mode = true
 end
