@@ -45,18 +45,18 @@ function _init()
 
 	-- sounds dictionary
 	sounds = {
-		a_step = 011,
-    b_step = 012,
-		pad_step = 013, -- stepping on a pad
-    button_step = 021, -- stepping on a button
-		advance = 014, -- creating new buttons
-		bump = 015,
-		shoot = 016,
-		jump = 017,
-    charge = 021,
-		health = 018, -- gaining health
-		score = 019, -- gaining gold
-    enemy_dash = 020,
+		["a_step"] = 011,
+    ["b_step"] = 012,
+		["pad_step"] = 013, -- stepping on a pad
+    ["button_step"] = 021, -- stepping on a button
+		["advance"] = 014, -- creating new buttons
+		["bump"] = 015,
+		["shoot"] = 016,
+		["jump"] = 017,
+    ["charge"] = 021,
+		["health"] = 018, -- gaining health
+		["score"] = 019, -- gaining gold
+    ["enemy_dash"] = 020,
 	}
 
   -- lower sounds are higher priority
@@ -140,7 +140,7 @@ function _init()
     end
     return spawn_rates
   end
-  spawn_rates = get_spawn_rates(11, 12, 2.5)
+  spawn_rates = get_spawn_rates(11, 12, 3)
 	spawn_bags = {
 		[001] = {"baby"},
 		[031] = {"baby", "dash"},
@@ -254,7 +254,7 @@ function _update60()
 				next.active = not next.active
 			end
 			crosshairs()
-			active_sounds.switch = true
+			active_sounds["switch"] = true
 		else
 			active_hero():act(queue[1])
 		end
@@ -534,7 +534,7 @@ function new_hero()
 				set_tile(self, next_tile)
 				ani_to(self, {_half, _next}, ani_frames/2, 0)
 				delay = ani_frames
-				active_sounds.jump = true
+				active_sounds["jump"] = true
 				p_turn = false
 
 			-- if there's no wall
@@ -547,13 +547,13 @@ function new_hero()
 						hit_target(next, 1, {-direction[1],-direction[2]})
 					end
 					new_shot(self, direction)
-					active_sounds.shoot = true
+					active_sounds["shoot"] = true
 					delay = ani_frames
 					p_turn = false
 
 				-- otherwise, if there's an enemy in the destination, hit it
 				elseif enemy then
-					active_sounds.bump = true
+					active_sounds["bump"] = true
 					hit_target(enemy, 1, direction)
 					local here = pos_pix(tile(self))
 					local bump = {here[1] + direction[1] * 4, here[2] + direction[2] * 4}
@@ -798,7 +798,7 @@ function new_e()
 			local bump = {here[1] + direction[1] * 4, here[2] + direction[2] * 4}
 			ani_to(self, {bump, here}, ani_frames/2, 2)
 			delay = ani_frames
-			active_sounds.bump = true
+			active_sounds["bump"] = true
 		end
 	end
 
@@ -955,7 +955,7 @@ function new_e_dash()
 			set_tile(self, _t)
 			ani_to(self, {pos_pix(_t)}, ani_frames, 0)
 			delay = ani_frames
-			active_sounds.enemy_dash = true
+			active_sounds["enemy_dash"] = true
 			self.health = 0
 		end
 	end
@@ -985,7 +985,7 @@ function new_e_slime()
 			local bump = {here[1] + direction[1] * 4, here[2] + direction[2] * 4}
 			ani_to(self, {bump, here}, ani_frames/2, 2)
 			delay = ani_frames
-			active_sounds.enemy_bump = true
+			active_sounds["enemy_bump"] = true
 			self.stunned = true
 		end
 	end
@@ -1411,16 +1411,16 @@ function set_tile(thing, dest)
 	if thing.type == "hero" and thing.x then
     local button = find_type("button", dest)
 		if find_type("pad", dest) then
-			active_sounds.pad_step = true
+			active_sounds["pad_step"] = true
     elseif
       button and button.color == 011 or
       button and button.color == 012
     then
-      active_sounds.button_step = true
+      active_sounds["button_step"] = true
 		elseif thing == hero_a then
-			active_sounds.a_step = true
+			active_sounds["a_step"] = true
     elseif thing == hero_b then
-      active_sounds.b_step = true
+      active_sounds["b_step"] = true
 		end
 	end
 
@@ -1454,7 +1454,7 @@ function set_tile(thing, dest)
 		local _c = find_type("charge", tile(thing))
 		if _b and (_b.color == 008 or _b.color == 009) and not _c then
 			set_tile(new_charge(_b.color), tile(_b))
-      active_sounds.charge = true
+      active_sounds["charge"] = true
 		end
 	end
 end
@@ -1484,11 +1484,11 @@ function h_btns()
 				else
 					new_num_effect(hero, 0, 008, 007)
 				end
-        active_sounds.health = true
+        active_sounds["health"] = true
 			elseif _c.color == 009 then
 				score += 1
 				new_num_effect({91, 98}, 1, 009, 000)
-        active_sounds.score = true
+        active_sounds["score"] = true
 			end
 			_c:kill()
 		end
@@ -1747,7 +1747,7 @@ function add_button()
 	set_tile(new_button(o_p.color), {o_p.x, o_p.y})
 
 	-- make the advance sound
-	active_sounds.advance = true
+	active_sounds["advance"] = true
 end
 
 function hit_target(target, damage, direction)
@@ -1755,7 +1755,7 @@ function hit_target(target, damage, direction)
 	if target.type == "enemy" then
 		has_bumped = true
     if target.health <= 0 then
-      active_sounds.bump = true
+      active_sounds["bump"] = true
     end
 	end
 	local r = {000,008}
