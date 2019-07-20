@@ -23,7 +23,6 @@ __lua__
 -- [x] stop flashing health after game over
 -- [x] clear out some early tiles
 -- [x] bump drum sound in music?
--- [ ] maybe add some sort of animating pattern for pads (and exits)
 
 -- future
 -- [ ] playtest and consider evening out the potential distance of pads even more, maybe with a max distance?
@@ -204,24 +203,24 @@ function _update60()
 		end
 	end
 
-	if btnp(4) then
-		debug = not debug
-		-- new_num_effect({26 + #(depth .. "") * 4,99}, -1, 007, 000)
-		-- if depth > 2 then
-		-- 	local open_tiles = {}
-		-- 	for next in all(tiles) do
-		-- 		if
-		-- 			not find_type("button", next) and
-		-- 			not find_type("pad", next)
-		-- 		then
-		-- 			add(open_tiles, next)
-		-- 		end
-		-- 	end
-		-- 	shuff(open_tiles)
-		-- 	set_tile(new_button(008), open_tiles[1])
-		-- 	depth -= 1
-		-- end
-	end
+	-- if btnp(4) then
+	-- 	-- debug = not debug
+	-- 	-- new_num_effect({26 + #(depth .. "") * 4,99}, -1, 007, 000)
+	-- 	-- if depth > 2 then
+	-- 	-- 	local open_tiles = {}
+	-- 	-- 	for next in all(tiles) do
+	-- 	-- 		if
+	-- 	-- 			not find_type("button", next) and
+	-- 	-- 			not find_type("pad", next)
+	-- 	-- 		then
+	-- 	-- 			add(open_tiles, next)
+	-- 	-- 		end
+	-- 	-- 	end
+	-- 	-- 	shuff(open_tiles)
+	-- 	-- 	set_tile(new_button(008), open_tiles[1])
+	-- 	-- 	depth -= 1
+	-- 	-- end
+	-- end
 
 	if game_over then
 		if btnp(5) then
