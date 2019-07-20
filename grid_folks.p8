@@ -20,8 +20,7 @@ __lua__
 -- [x] make arrows not block grown sprites
 -- [x] plug in sounds from the dictionary
 -- [x] create missing sounds
--- [ ] maybe new enemy types should show up a bit more quickly
--- [ ] stop flashing health after game over
+-- [x] stop flashing health after game over
 
 -- future
 -- [ ] playtest and consider evening out the potential distance of pads even more, maybe with a max distance?
@@ -1299,10 +1298,10 @@ end
 
 function draw_health(x_pos, y_pos, current, threatened, offset)
 	-- draw current amount of health in dark red
-	for i = 1, current do
-		pset(x_pos + offset, y_pos + 10 - i * 3, flr(time/24) % 2 == 0 and 002 or 008)
-		pset(x_pos + offset, y_pos + 9 - i * 3, flr(time/24) % 2 == 0 and 002 or 008)
-	end
+  for i = 1, current do
+    pset(x_pos + offset, y_pos + 10 - i * 3, not game_over and flr(time/24) % 2 == 0 and 002 or 008)
+    pset(x_pos + offset, y_pos + 9 - i * 3, not game_over and flr(time/24) % 2 == 0 and 002 or 008)
+  end
 	-- draw current - threatened amount of health in light red
 	for i = 1, current - threatened do
 		pset(x_pos + offset, y_pos + 10 - i * 3, 008)
