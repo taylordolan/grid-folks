@@ -58,26 +58,26 @@ function _init()
 		health = 018, -- gaining health
 		score = 019, -- gaining gold
     enemy_dash = 020,
-		win = 000,
-		lose = 000,
 	}
 
-  active_sounds = {
-		a_step = false,
-    b_step = false,
-		pad_step = false,
-    button_step = false,
-		advance = false,
-		bump = false,
-		shoot = false,
-		jump = false,
-		health = false,
-		score = false,
-    enemy_dash = false,
-    enemy_step = false,
-		win = false,
-		lose = false,
+  -- lower sounds are higher priority
+  sound_priorities = {
+		"a_step",
+    "b_step",
+		"pad_step",
+    "button_step",
+		"advance",
+		"bump",
+		"jump",
+    "charge",
+		"health",
+		"score",
+    "enemy_dash",
+		"shoot",
 	}
+
+  -- no need to list the actual sounds here since they're all false by default
+  active_sounds = {}
 
 	-- some game state
 	score = 0
@@ -244,11 +244,9 @@ function _update60()
 		score += 100
 		depth = 0
 		game_over = true
-		active_sounds.win = true
 	-- game lose
 	elseif hero_a.health <= 0 or hero_b.health <= 0 then
 		game_over = true
-		active_sounds.lose = true
 	-- player turn
 	elseif p_turn == true and #queue > 0 then
 		if queue[1] == 5 then
@@ -304,24 +302,6 @@ function _update60()
 	end
 	h_btns()
 
-  -- lower sounds are higher priority
-  local sound_priorities = {
-    "enemy_step",
-		"a_step",
-    "b_step",
-		"pad_step",
-    "button_step",
-		"advance",
-		"bump",
-		"jump",
-    "charge",
-		"health",
-		"score",
-    "enemy_dash",
-		"shoot",
-		"win",
-		"lose",
-	}
   local active_sound = false
   for next in all(sound_priorities) do
     if active_sounds[next] then
