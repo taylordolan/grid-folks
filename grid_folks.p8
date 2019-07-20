@@ -21,6 +21,7 @@ __lua__
 -- [x] plug in sounds from the dictionary
 -- [x] create missing sounds
 -- [x] stop flashing health after game over
+-- [ ] bump drum sound in music?
 
 -- future
 -- [ ] playtest and consider evening out the potential distance of pads even more, maybe with a max distance?
@@ -113,6 +114,12 @@ function _init()
 
 	-- initial walls
 	refresh_walls()
+  for next in all({{2,3},{3,3},{4,3},{5,3}}) do
+    local wall = find_type("wall_right", next)
+    if wall then
+      wall:kill()
+    end
+  end
 
 	-- heroes
 	hero_a = new_hero()
@@ -140,7 +147,7 @@ function _init()
     end
     return spawn_rates
   end
-  spawn_rates = get_spawn_rates(11, 12, 2.5)
+  spawn_rates = get_spawn_rates(11, 12, 3)
 	spawn_bags = {
 		[001] = {"baby"},
 		[026] = {"baby", "dash"},
