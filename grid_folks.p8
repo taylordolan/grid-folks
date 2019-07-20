@@ -177,8 +177,7 @@ function _init()
 	spawned_early = false
 
 	-- initial enemy
-	-- spawn_enemy()
-  new_e_dash():deploy()
+	spawn_enemy()
 
 	-- start the music!
 	music(000)
