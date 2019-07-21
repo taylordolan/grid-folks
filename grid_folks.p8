@@ -855,8 +855,8 @@ function new_e()
 			if
 				not find_type("hero", next) and
 				not find_type("enemy", next) and
-				dumb_distance(tile(hero_a), next) >= 2 and
-				dumb_distance(tile(hero_b), next) >= 2
+        distance_by_map(hero_a.dmap_ideal, next) >= 3 and
+        distance_by_map(hero_b.dmap_ideal, next) >= 3
 			then
 				add(valid_tiles, next)
 			end
@@ -1183,8 +1183,8 @@ function new_e_grow()
 		for next in all(valid_tiles) do
 			if
 				find_type("enemy", next) or
-				dumb_distance(tile(hero_a), next) < 2 or
-				dumb_distance(tile(hero_b), next) < 2
+				distance_by_map(hero_a.dmap_ideal, next) < 3 or
+				distance_by_map(hero_b.dmap_ideal, next) < 3
 			then
 				del(valid_tiles,next)
 			end
