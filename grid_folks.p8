@@ -148,7 +148,7 @@ function _init()
     end
     return spawn_rates
   end
-  spawn_rates = get_spawn_rates(11, 12, 5)
+  spawn_rates = get_spawn_rates(14, 12, 4)
 	spawn_bags = {
 		[001] = {"baby"},
 		[026] = {"baby", "dash"},
