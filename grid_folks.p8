@@ -10,7 +10,7 @@ __lua__
 -- [x] design player totems
 -- [x] update instruction graphic (with plus signs and totems)
 -- [x] explain totems
--- [ ] make sure everything is aligned
+-- [x] make sure everything is aligned
 -- [ ] update game balance
 -- [ ] dash enemies should fill totems they touch while dashing
 -- [ ] write new instructions for itch page
@@ -402,8 +402,8 @@ function _draw()
 		else
 			msg = small("you escaped! +100 gold")
 		end
-		local msg_x = 65 - (#msg * 4) / 2
-		local msg_y = 98
+		local msg_x = 64 - (#msg * 4) / 2
+		local msg_y = 99
 		print(msg, msg_x, msg_y, 007)
 		-- line 2
 		if depth != 0 then
@@ -412,12 +412,12 @@ function _draw()
 		else
 			msg = small("final score: " .. score)
 		end
-		msg_x = 65 - (#msg * 4) / 2
+		msg_x = 64 - (#msg * 4) / 2
 		msg_y += 10
 		print(msg, msg_x, msg_y, 007)
 		-- line 3
 		msg = small("press x to restart")
-		msg_x = 65 - (#msg * 4) / 2
+		msg_x = 64 - (#msg * 4) / 2
 		msg_y += 10
 		print(msg, msg_x, msg_y, 005)
 	elseif not (has_switched and has_bumped and has_advanced) then
@@ -426,7 +426,7 @@ function _draw()
 
 		local _a = small("press x to switch heroes")
 		local _x = 64 - #_a*2
-		local _y = 98
+		local _y = 99
 		print(_a, _x, _y, has_switched and 005 or 007)
 
 		local _a = small("bump to attack")
@@ -531,48 +531,48 @@ function _draw()
 		-- draw instructions area
 		-- depth
 		local msg = small("depth")
-		print(msg, 11, 98, 007)
-		print(depth, 34, 98, 007)
+		print(msg, 11, 99, 007)
+		print(depth, 34, 99, 007)
 		-- score
 		local text = small("gold")
 		local num = score .. ""
-		print(text, 118 - #text * 4, 98, 007)
-		print(num, 99 - #num * 4, 98, 007)
+		print(text, 118 - #text * 4, 99, 007)
+		print(num, 99 - #num * 4, 99, 007)
 		-- instructions
-		spr(032, 11, 105, 7, 1) -- green
-    spr(048, 11, 115, 7, 1) -- blue
-		spr(039, 70, 105, 6, 1) -- orange
-    spr(055, 70, 115, 6, 1) -- red
+		spr(032, 11, 106, 7, 1) -- green
+    spr(048, 11, 116, 7, 1) -- blue
+		spr(039, 70, 106, 6, 1) -- orange
+    spr(055, 70, 116, 6, 1) -- red
 	end
 
 	for next in all(effects) do
 		next:draw()
 	end
 
-	if debug then
-		local x = 0
-		local y = 0
-		print("wip dev deets", x, y+1, 000)
-		print("wip dev deets", x, y, 008)
-		y += 10
-		print("turns: " .. turns, x, y+1, 000)
-		print("turns: " .. turns, x, y, 008)
-		y += 10
-		print("spawn rate: " .. spawn_rate, x, y+1, 000)
-		print("spawn rate: " .. spawn_rate, x, y, 008)
-	end
+	-- if debug then
+	-- 	local x = 0
+	-- 	local y = 0
+	-- 	print("wip dev deets", x, y+1, 000)
+	-- 	print("wip dev deets", x, y, 008)
+	-- 	y += 10
+	-- 	print("turns: " .. turns, x, y+1, 000)
+	-- 	print("turns: " .. turns, x, y, 008)
+	-- 	y += 10
+	-- 	print("spawn rate: " .. spawn_rate, x, y+1, 000)
+	-- 	print("spawn rate: " .. spawn_rate, x, y, 008)
+	-- end
 
   -- draw grid
-  if grid then
-    for x = -1, 128, 8 do
-      for y = -1, 128, 8 do
-        pset(x, y, 014)
-        pset(x+1, y, 014)
-        pset(x, y+1, 014)
-        pset(x+1, y+1, 014)
-      end
-    end
-  end
+  -- if grid then
+  --   for x = -1, 128, 8 do
+  --     for y = -1, 128, 8 do
+  --       pset(x, y, 014)
+  --       pset(x+1, y, 014)
+  --       pset(x, y+1, 014)
+  --       pset(x+1, y+1, 014)
+  --     end
+  --   end
+  -- end
 end
 
 function copy(_a)
