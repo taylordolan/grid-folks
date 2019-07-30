@@ -9,11 +9,13 @@ __lua__
 -- [x] enemy totems should be filled by default
 -- [x] design player totems
 -- [x] update instruction graphic (with plus signs and totems)
--- [ ] explain enemy totems when players are standing on an empty one
+-- [x] explain totems
+-- [ ] make sure everything is aligned
 -- [ ] update game balance
 -- [ ] dash enemies should fill totems they touch while dashing
 -- [ ] write new instructions for itch page
 -- [ ] clean up sprite sheet
+-- [ ] starting places for pads (to help communicate how totems are created)?
 -- [ ] add shine to health and score balls?
 -- [ ] maybe the game can end earlier even though the board won't be filled with totems?
 
@@ -79,9 +81,7 @@ function _init()
 	p_turn = true
 	debug = false
 	delay = 0
-	has_switched = false
-	has_advanced = false
-	has_bumped = false
+  completed_guides = {}
 	depth = 32
 	ani_frames = 4
 	shakes = {{0,0}}
@@ -213,9 +213,10 @@ function _update60()
 		-- 	set_tile(new_button(008), open_tiles[1])
 		-- 	depth -= 1
 		-- end
-    set_tile(new_button(012), {2,2})
-    set_tile(new_button(008), {3,2})
-    set_tile(new_charge(008), {3,2})
+    -- set_tile(new_button(011), {2,2})
+    -- set_tile(new_button(008), {3,2})
+    -- set_tile(new_charge(008), {3,2})
+    grid = not grid
 	end
 
 	if game_over then
@@ -383,6 +384,13 @@ function _draw()
 		end
 	end
 
+  local a_btn = find_type("button",  tile(hero_a))
+  local b_btn = find_type("button",  tile(hero_b))
+  local a_btn_clr = false
+  local a_btn_clr = false
+  if (a_btn) a_btn_clr = a_btn.color
+  if (b_btn) b_btn_clr = b_btn.color
+
 	if game_over then
 		-- draw game over state
 		local msg
@@ -416,7 +424,7 @@ function _draw()
 		-- draw intro
 		local _space = 3
 
-		local _a = small("press x to switch folks")
+		local _a = small("press x to switch heroes")
 		local _x = 64 - #_a*2
 		local _y = 98
 		print(_a, _x, _y, has_switched and 005 or 007)
@@ -427,7 +435,7 @@ function _draw()
 		print(_a, _x, _y, has_bumped and 005 or 007)
 
 		local _a = small("stand on 2")
-		_x = 17
+		_x = 19
 		_y += 10
 		print(_a, _x, _y, has_advanced and 005 or 007)
 		palt(015, true)
@@ -437,6 +445,88 @@ function _draw()
 		print(_b, _x + #_a * 4 + _space + 8 + _space, _y, has_advanced and 005 or 007)
 		-- return
 		pal()
+  elseif current_guide == 012 and not completed_guides[012] and (a_btn_clr == 012 or b_btn_clr == 012) then
+    -- messages
+    local _a = small("when a hero stands on")
+    local _b = small("the other hero can jump")
+    -- coordinates
+    xa = 57 - #_a*2
+    ya = 99
+    xb = 64 - #_b*2
+    yb = ya + 10
+    xs = xa+#_a*4 + 3
+    ys = ya - 3
+    -- print messages
+    print(_a, xa, ya, 007)
+    print(",", xs + 9, ya, 007)
+    print(_b, xb, yb, 007)
+    -- print sprite
+    palt(15,true)
+    pal(005,001)
+    pal(006,012)
+    spr(018, xs, ys)
+    pal()
+  elseif current_guide == 011 and not completed_guides[011] and (a_btn_clr == 011 or b_btn_clr == 011) then
+    -- messages
+    local _a = small("when a hero stands on")
+    local _b = small("the other hero can shoot")
+    -- coordinates
+    xa = 57 - #_a*2
+    ya = 99
+    xb = 64 - #_b*2
+    yb = ya + 10
+    xs = xa+#_a*4 + 3
+    ys = ya - 3
+    -- print messages
+    print(_a, xa, ya, 007)
+    print(",", xs + 9, ya, 007)
+    print(_b, xb, yb, 007)
+    -- print sprite
+    palt(15,true)
+    pal(005,003)
+    pal(006,011)
+    spr(018, xs, ys)
+    pal()
+  elseif current_guide == 008 and not completed_guides[008] and (a_btn_clr == 008 or b_btn_clr == 008) then
+    -- messages
+    local _a = small("are refilled with health")
+    local _b = small("when enemies step on them")
+    -- coordinates
+    xa = 70 - #_a*2
+    ya = 99
+    xb = 64 - #_b*2
+    yb = ya + 10
+    xs = xa - 12
+    ys = ya - 3
+    -- print messages
+    print(_a, xa, ya, 007)
+    print(_b, xb, yb, 007)
+    -- print sprite
+    palt(15,true)
+    pal(005,002)
+    pal(006,008)
+    spr(017, xs, ys)
+    pal()
+  elseif current_guide == 009 and not completed_guides[009] and (a_btn_clr == 009 or b_btn_clr == 009) then
+    -- messages
+    local _a = small("are refilled with gold")
+    local _b = small("when enemies step on them")
+    -- coordinates
+    xa = 70 - #_a*2
+    ya = 99
+    xb = 64 - #_b*2
+    yb = ya + 10
+    xs = xa - 12
+    ys = ya - 3
+    -- print messages
+    print(_a, xa, ya, 007)
+    print(_b, xb, yb, 007)
+    -- print sprite
+    palt(15,true)
+    pal(005,004)
+    pal(006,009)
+    spr(017, xs, ys)
+    pal()
 	else
 		-- draw instructions area
 		-- depth
@@ -471,6 +561,18 @@ function _draw()
 		print("spawn rate: " .. spawn_rate, x, y+1, 000)
 		print("spawn rate: " .. spawn_rate, x, y, 008)
 	end
+
+  -- draw grid
+  if grid then
+    for x = -1, 128, 8 do
+      for y = -1, 128, 8 do
+        pset(x, y, 014)
+        pset(x+1, y, 014)
+        pset(x, y+1, 014)
+        pset(x+1, y+1, 014)
+      end
+    end
+  end
 end
 
 function copy(_a)
@@ -527,12 +629,10 @@ function new_hero()
 			local enemy = find_type("enemy", next_tile)
 			local wall = is_wall_between(tile(self), next_tile)
 
-			-- if jump is enabled and there's a wall in the way
+			-- if jump is enabled
 			if self.jump then
-				if enemy then
-					hit_target(enemy, 3, direction)
-					p_turn = false
-				end
+        if (enemy or wall) completed_guides[012] = true
+        if (enemy) hit_target(enemy, 3, direction)
 				local _here = pos_pix(tile(self))
 				local _next = pos_pix(next_tile)
 				local _half = {(_here[1] + _next[1]) / 2, _here[2]-4}
@@ -552,6 +652,7 @@ function new_hero()
 						hit_target(next, 1, {-direction[1],-direction[2]})
 					end
 					new_shot(self, direction)
+          completed_guides[011] = true
 					active_sounds["shoot"] = true
 					delay = ani_frames
 					p_turn = false
@@ -1410,23 +1511,37 @@ function set_tile(thing, dest)
 		return
 	end
 
+  local _c = find_type("charge", dest)
+
   -- trigger hero step sounds
 	-- checking for x because we don't want to make this sound if the hero is
   -- being deployed
 	if thing.type == "hero" and thing.x then
-    local button = find_type("button", dest)
-		if find_type("pad", dest) then
-			active_sounds["pad_step"] = true
-    elseif
-      button and button.color == 011 or
-      button and button.color == 012
-    then
-      active_sounds["button_step"] = true
-		elseif thing == hero_a then
+    local _b = find_type("button", dest)
+    local _p = find_type("pad", dest)
+    if thing == hero_a then
 			active_sounds["a_step"] = true
-    elseif thing == hero_b then
+      local _f = find_type("button", tile(hero_b))
+      -- if the friend is standing on a button that hasn't had its guide
+      -- completed yet, then set the guide to that color
+      if (_f and not completed_guides[_f.color]) current_guide = _f.color
+    else
       active_sounds["b_step"] = true
+      local _f = find_type("button", tile(hero_a))
+      if (_f and not completed_guides[_f.color]) current_guide = _f.color
 		end
+		if _p then
+			active_sounds["pad_step"] = true
+    elseif _b then
+      -- green or blue
+      if _b.color == 011 or _b.color == 012 then
+        active_sounds["button_step"] = true
+      end
+      -- set current guide
+      if _b.color and not completed_guides[_b.color] and not _c then
+        current_guide = _b.color
+      end
+    end
 	end
 
 	-- remove it from its current tile
@@ -1457,9 +1572,13 @@ function set_tile(thing, dest)
 	if thing.type == "enemy" then
 		local _b = find_type("button", tile(thing))
 		local _c = find_type("charge", tile(thing))
-		if _b and (_b.color == 008 or _b.color == 009) and not _c then
-			-- set_tile(new_charge(_b.color), tile(_b))
+		if _b and _b.color == 008 and not _c then
       _b:charge()
+      completed_guides[008] = true
+      active_sounds["charge"] = true
+		elseif _b and _b.color == 009 and not _c then
+      _b:charge()
+      completed_guides[009] = true
       active_sounds["charge"] = true
 		end
 	end
@@ -1479,6 +1598,7 @@ function update_maps()
 	end
 end
 
+-- todo: why am I not doing this is part of set_tile()?
 function h_btns()
 	for hero in all(heroes) do
 		local _c = find_type("charge", tile(hero))
@@ -2186,14 +2306,14 @@ function new_button(color)
 end
 
 __gfx__
-ffffffffff000fffffffffffffffffffffffffffffffffffffffffff00000607006000600006060000060060ffffffff00000000000000000000000000000000
-ffffffffff070ffffff6fffffffaaaffffffffffffffffffffffffff60060007600000000060000600600600ffffffff00000000000000000000000000000000
-ff000fff0007000ffff6ffffffaa6affffa6afffffffffffffffffff00600607000606000600606006000006ffffffff00000000000000000000000000000000
-0007000f0777770fffffffffff6aa6fffaaaaafffff6ffffffffffff00006007006000600006000000006000ff666fff00000000000000000000000000000000
-0777770f0007000f66fff66fffaa6afffa6a6affff666ffffff6ffff00600607600060000600060600600060ff666fff00000000000000000000000000000000
-0007000ff07070fffffffffffffaaafffaa6aafffff6ffffffffffff60060007060606060006000006000600ff666fff00000000000000000000000000000000
-f07070fff07070fffff6ffffffffffffffffffffffffffffffffffff00000607000000000060060700060007ffffffff00000000000000000000000000000000
-f00000fff00000fffff6ffffffffffffffffffffffffffffffffffff06006007777777770600600700000607ffffffff00000000000000000000000000000000
+ffffffffff000fffffffffffffffffffffffffffffffffffffffffff00000607006000600006060000060060fffffffffff65ffffff65fffff6ff5ff00000000
+ffffffffff070ffffff6fffffffaaaffffffffffffffffffffffffff60060007600000000060000600600600fffffffffff65ffffff65ffffff65fff00000000
+ff000fff0007000ffff6ffffffaa6affffa6afffffffffffffffffff00600607000606000600606006000006fffffffffff65ffffff65ffffff65fff00000000
+0007000f0777770fffffffffff6aa6fffaaaaafffff6ffffffffffff00006007006000600006000000006000ff666ffff666555ff666555ff666555f00000000
+0777770f0007000f66fff66fffaa6afffa6a6affff666ffffff6ffff00600607600060000600060600600060ff666ffffff66ffffff66ffffff66fff00000000
+0007000ff07070fffffffffffffaaafffaa6aafffff6ffffffffffff60060007060606060006000006000600ff666fffff6655fff666555ff666555f00000000
+f07070fff07070fffff6ffffffffffffffffffffffffffffffffffff00000607000000000060060700060007fffffffffff66fffff6666fffff66fff00000000
+f00000fff00000fffff6ffffffffffffffffffffffffffffffffffff06006007777777770600600700000607fffffffff666555ff666555ff666555f00000000
 fffffffffffffffffff65fffffffffffffffffffffffffffffffffffffffffffffffffff000000ffffffffffffffffff00000000000000000000000000000000
 fffffffffffffffffff65ffffff77fffeeeeeeee00000fffffffffffffffffff000000ff077770ffffffffffffffffff00000000000000000000000000000000
 fffffffffffffffffff65fffff7667ffeffffffe07070ffff0000fffffffffff077770ff007070ff000000ff00000fff00000000000000000000000000000000
