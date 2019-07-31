@@ -11,7 +11,7 @@ __lua__
 -- [x] update instruction graphic (with plus signs and totems)
 -- [x] explain totems
 -- [x] make sure everything is aligned
--- [ ] consider updating totem designs
+-- [ ] update style for num effects
 -- [ ] update game balance
 -- [ ] dash enemies should fill totems they touch while dashing
 -- [ ] write new instructions for itch page
@@ -1447,6 +1447,13 @@ function active_hero()
 	end
 end
 
+function dark(color)
+  if (color == 012) return 001 -- blue
+  if (color == 008) return 002 -- red
+  if (color == 011) return 003 -- green
+  if (color == 009) return 004 -- orange
+end
+
 function small(s)
 	local d=""
 	local c
@@ -1662,7 +1669,7 @@ end
 
 -- todo: make this a `thing`?
 function new_num_effect(ref, amount, color, outline)
-	local new_num_effect = {
+	local _n = {
 		ref = ref, -- position or parent thing
 		_x = function(self)
 			return #self.ref == 2 and self.ref[1] or self.ref.pixels[1][1]
@@ -1673,10 +1680,11 @@ function new_num_effect(ref, amount, color, outline)
 		offset = 0,
 		t = 0,
 		draw = function(self)
-			local base = {self:_x(),self:_y()+self.offset}
+      -- base is the screep position where the main text gets drawn
+			local base = {self:_x(), self:_y() + self.offset}
 			local sign = amount >= 0 and "+" or ""
 			for next in all(s_dirs) do
-				local result = add_pairs(base,next)
+				local result = add_pairs(base, next)
 				print(sign .. amount, result[1], result[2], outline)
 			end
 			print(sign .. amount, base[1], base[2], color)
@@ -1689,8 +1697,8 @@ function new_num_effect(ref, amount, color, outline)
 			pal()
 		end,
 	}
-	add(effects, new_num_effect)
-	return new_num_effect
+	add(effects, _n)
+	return _n
 end
 
 function new_pop(pix, should_move, particle_count, frames)
@@ -1822,7 +1830,7 @@ function get_ranged_targets(thing, direction)
 	end
 end
 
-function add_pairs(tile,dir)
+function add_pairs(tile, dir)
 	return {tile[1] + dir[1], tile[2] + dir[2]}
 end
 
@@ -2233,15 +2241,7 @@ function new_charge(color)
 			palt(015, true)
 			palt(000, false)
 			pal(006, color)
-      -- if self.color == 012 then
-      --   pal(005, 001)
-      if self.color == 008 then
-        pal(005, 002)
-      -- elseif self.color == 011 then
-      --   pal(005, 003)
-      elseif self.color == 009 then
-        pal(005, 004)
-      end
+      pal(005, dark(color))
 			local sx = self.pixels[1][1]
 			local sy = self.pixels[1][2] - 2
 			spr(019,sx,sy + self.offset)
@@ -2289,15 +2289,7 @@ function new_button(color)
 		palt(015, true)
 		palt(000, false)
 		pal(006, color)
-		if self.color == 012 then
-			pal(005, 001)
-		elseif self.color == 008 then
-			pal(005, 002)
-		elseif self.color == 011 then
-			pal(005, 003)
-		elseif self.color == 009 then
-			pal(005, 004)
-		end
+    pal(005, dark(self.color))
 		spr(sprite, sx, sy)
 		self:end_draw()
 	end
