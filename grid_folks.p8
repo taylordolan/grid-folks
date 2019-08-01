@@ -11,10 +11,11 @@ __lua__
 -- [x] update instruction graphic (with plus signs and totems)
 -- [x] explain totems
 -- [x] make sure everything is aligned
--- [ ] update style for num effects
+-- [x] update style for num effects
 -- [ ] update game balance
 -- [ ] dash enemies should fill totems they touch while dashing
 -- [ ] write new instructions for itch page
+-- [ ] capture a new gif
 -- [ ] clean up sprite sheet
 -- [ ] starting places for pads (to help communicate how totems are created)?
 -- [ ] add shine to health and score balls?
@@ -199,7 +200,7 @@ function _update60()
 
 	if btnp(4) then
 		-- debug = not debug
-		-- new_num_effect({26 + #(depth .. "") * 4,99}, -1, 007, 000)
+    -- new_num_effect(hero_a, small("+1 health"), 008, 007)
 		-- if depth > 2 then
 		-- 	local open_tiles = {}
 		-- 	for next in all(tiles) do
@@ -267,9 +268,6 @@ function _update60()
 	-- enemy turn
 	elseif p_turn == false then
 		if should_advance() then
-			if has_switched and has_bumped and has_advanced then
-				new_num_effect({26 + #(depth .. "") * 4, 98}, -1, 007, 000)
-			end
 			add_button()
 			refresh_walls()
 			update_maps()
@@ -1614,14 +1612,14 @@ function h_btns()
 			if _c.color == 008 then
 				if hero.health < hero.max_health then
 					hero.health = min(hero.health + 1, hero.max_health)
-					new_num_effect(hero, 1, 008, 007)
+					new_num_effect(hero, small("+1 health"), 008, 007)
 				else
-					new_num_effect(hero, 0, 008, 007)
+					new_num_effect(hero, small("+0 health"), 008, 007)
 				end
         active_sounds["health"] = true
 			elseif _c.color == 009 then
 				score += 1
-				new_num_effect({91, 98}, 1, 009, 000)
+				new_num_effect(hero, small("+1 gold"), 009, 007)
         active_sounds["score"] = true
 			end
 			_c:kill()
@@ -1668,27 +1666,33 @@ function deploy(thing, avoid_list)
 end
 
 -- todo: make this a `thing`?
-function new_num_effect(ref, amount, color, outline)
+function new_num_effect(parent, string, color, outline)
 	local _n = {
-		ref = ref, -- position or parent thing
+		parent = parent, -- hero to base position of effect on
 		_x = function(self)
-			return #self.ref == 2 and self.ref[1] or self.ref.pixels[1][1]
+			return self.parent.pixels[1][1]
 		end,
 		_y = function(self)
-			return #self.ref == 2 and self.ref[2] or self.ref.pixels[1][2]
+			return self.parent.pixels[1][2]
 		end,
 		offset = 0,
 		t = 0,
 		draw = function(self)
-      -- base is the screep position where the main text gets drawn
-			local base = {self:_x(), self:_y() + self.offset}
-			local sign = amount >= 0 and "+" or ""
+      -- the screen position where the main color text gets drawn
+			local base = {self:_x() - #string * 2 + 4, self:_y() + self.offset}
+      -- outline
 			for next in all(s_dirs) do
 				local result = add_pairs(base, next)
-				print(sign .. amount, result[1], result[2], outline)
+				print(string, result[1], result[2], outline)
 			end
-			print(sign .. amount, base[1], base[2], color)
-			if self.t < 64 then
+      print(string, base[1], base[2] + 2, outline)
+      print(string, base[1] - 1, base[2] + 2, outline)
+      print(string, base[1] + 1, base[2] + 2, outline)
+      -- dark color
+      print(string, base[1], base[2] + 1, dark(color))
+      -- main color
+			print(string, base[1], base[2], color)
+			if self.t < 96 then
 				self.t += 1
 				self.offset = max(-8, self.offset - 1)
 			else
