@@ -12,11 +12,11 @@ __lua__
 -- [x] explain totems
 -- [x] make sure everything is aligned
 -- [x] update style for num effects
--- [x] dash enemies should fill totems they touch while dashing
+-- [x] dash enemies should w totems they touch while dashing
 -- [x] has_bumped should only happen when they actually bump
--- [ ] fixed starting places for pads (to help communicate how totems are created)?
--- [ ] update game balance
+-- [x] fixed starting places for pads (to help communicate how totems are created)?
 -- [ ] allow multiple dash enemies to attack the same hero in the same turn
+-- [ ] update game balance
 
 -- [ ] improve enemy death animations
 -- [ ] clean up sprite sheet
@@ -121,6 +121,12 @@ function _init()
       wall:kill()
     end
   end
+  for next in all({{2,3},{4,2},{6,3}}) do
+    local wall = find_type("wall_down", next)
+    if wall then
+      wall:kill()
+    end
+  end
 
 	-- heroes
 	hero_a = new_hero()
@@ -131,7 +137,7 @@ function _init()
 	update_maps()
 
 	-- initial pads
-	refresh_pads()
+	refresh_pads({{2,4}, {4,2}, {6,4}})
 
 	-- spawn stuff
 	function get_spawn_rates(base, starting_spawn_rate, offset)
@@ -2125,8 +2131,9 @@ function is_map_contiguous()
 	return true
 end
 
-function refresh_pads()
+function refresh_pads(preset_tiles)
 
+  local preset_tiles = preset_tiles or {}
 	if #colors_bag == 0 then
 		colors_bag = {008,008,008,009,011,012}
 		shuff(colors_bag)
@@ -2165,59 +2172,63 @@ function refresh_pads()
 	del(colors_bag, colors_bag[1])
 
 	-- place new pads
-
 	local pads = {new_pad(pad_colors[1]), new_pad(pad_colors[2]), new_pad(pad_colors[3])}
-	local open_tiles = {}
-	for next in all(tiles) do
-		if
-			not find_type("pad", next) and
-			not find_type("button", next) and
-			not find_type("hero", next)
-		then
-			add(open_tiles, next)
-		end
-	end
+  if #preset_tiles > 0 then
+    shuff(preset_tiles)
+    for i=1, #pads do
+      set_tile(pads[i], preset_tiles[i])
+    end
+  else
+    local open_tiles = {}
+    for next in all(tiles) do
+      if
+        not find_type("pad", next) and
+        not find_type("button", next) and
+        not find_type("hero", next)
+      then
+        add(open_tiles, next)
+      end
+    end
+    -- find open tiles that are > 3 tiles away from heroes
+    local dist_3_tiles = {}
+    for next in all(open_tiles) do
+      if
+        distance_by_map(hero_a.dmap_ideal, next) >= 3 and
+        distance_by_map(hero_b.dmap_ideal, next) >= 3
+      then
+        add(dist_3_tiles, next)
+        del(open_tiles, next)
+      end
+    end
+    -- find open tiles that are > 2 tiles away from heroes
+    local dist_2_tiles = {}
+    for next in all(open_tiles) do
+      if
+        distance_by_map(hero_a.dmap_ideal, next) >= 2 and
+        distance_by_map(hero_b.dmap_ideal, next) >= 2
+      then
+        add(dist_2_tiles, next)
+        del(open_tiles, next)
+      end
+    end
 
-	-- find open tiles that are > 3 tiles away from heroes
-	local dist_3_tiles = {}
-	for next in all(open_tiles) do
-		if
-			distance_by_map(hero_a.dmap_ideal, next) >= 3 and
-			distance_by_map(hero_b.dmap_ideal, next) >= 3
-		then
-			add(dist_3_tiles, next)
-			del(open_tiles, next)
-		end
-	end
+    shuff(dist_3_tiles)
+    shuff(dist_2_tiles)
+    shuff(open_tiles)
 
-	-- find open tiles that are > 2 tiles away from heroes
-	local dist_2_tiles = {}
-	for next in all(open_tiles) do
-		if
-			distance_by_map(hero_a.dmap_ideal, next) >= 2 and
-			distance_by_map(hero_b.dmap_ideal, next) >= 2
-		then
-			add(dist_2_tiles, next)
-			del(open_tiles, next)
-		end
-	end
-
-	shuff(dist_3_tiles)
-	shuff(dist_2_tiles)
-	shuff(open_tiles)
-
-	for i=1, #pads do
-		if dist_3_tiles[1] then
-			set_tile(pads[i], dist_3_tiles[1])
-			del(dist_3_tiles, dist_3_tiles[1])
-		elseif dist_2_tiles[1] then
-			set_tile(pads[i], dist_2_tiles[1])
-			del(dist_2_tiles, dist_2_tiles[1])
-		else
-			set_tile(pads[i], open_tiles[1])
-			del(open_tiles, open_tiles[1])
-		end
-	end
+    for i=1, #pads do
+      if dist_3_tiles[1] then
+        set_tile(pads[i], dist_3_tiles[1])
+        del(dist_3_tiles, dist_3_tiles[1])
+      elseif dist_2_tiles[1] then
+        set_tile(pads[i], dist_2_tiles[1])
+        del(dist_2_tiles, dist_2_tiles[1])
+      else
+        set_tile(pads[i], open_tiles[1])
+        del(open_tiles, open_tiles[1])
+      end
+    end
+  end
 end
 
 function new_pad(color)
