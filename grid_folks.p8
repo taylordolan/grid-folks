@@ -12,13 +12,18 @@ __lua__
 -- [x] explain totems
 -- [x] make sure everything is aligned
 -- [x] update style for num effects
+-- [x] dash enemies should fill totems they touch while dashing
+-- [ ] starting places for pads (to help communicate how totems are created)?
+-- [ ] has_bumped should only happen when they actually bump
 -- [ ] update game balance
--- [ ] dash enemies should fill totems they touch while dashing
+-- [ ] allow multiple dash enemies to attack the same hero in the same turn
+
+-- [ ] improve enemy death animations
+-- [ ] clean up sprite sheet
+-- [ ] add shine to health and score balls?
+
 -- [ ] write new instructions for itch page
 -- [ ] capture a new gif
--- [ ] clean up sprite sheet
--- [ ] starting places for pads (to help communicate how totems are created)?
--- [ ] add shine to health and score balls?
 -- [ ] maybe the game can end earlier even though the board won't be filled with totems?
 
 -- future
@@ -212,7 +217,9 @@ function _update60()
 		-- 		end
 		-- 	end
 		-- 	shuff(open_tiles)
-		-- 	set_tile(new_button(008), open_tiles[1])
+    --   local _b = new_button(008)
+		-- 	set_tile(_b, open_tiles[1])
+    --   _b:charge()
 		-- 	depth -= 1
 		-- end
     -- set_tile(new_button(011), {2,2})
@@ -1055,6 +1062,11 @@ function new_e_dash()
 				add(_tiles, _n)
 			end
 			for i=1, #_tiles do
+        local _b = find_type("button", _tiles[i])
+        local _c = find_type("charge", _tiles[i])
+        if _b and (_b.color == 009 or _b.color == 008) and not _c then
+          _b:charge(i*2)
+        end
 				new_pop(pos_pix(_tiles[i]), false, 1, 4+i*8)
 			end
 			set_tile(self, _t)
@@ -2230,14 +2242,15 @@ function new_pad(color)
 	return _p
 end
 
-function new_charge(color)
+function new_charge(color, extra_delay)
 	local _c = new_thing()
+  local _e = extra_delay or 0
 
 	_c.type = "charge"
 	_c.color = color
 	_c.list = charges
 	_c.offset = -8
-	_c.delay = ani_frames
+	_c.delay = ani_frames + _e
 	_c.draw = function(self)
 		if self.delay > 0 then
 			self.delay -= 1
@@ -2266,14 +2279,14 @@ function new_button(color)
   -- green or blue
   if color == 011 or color == 012 then
     sprites =  {018}
-    charge = function(self)
+    charge = function(self, extra_delay)
       return
     end
   -- red or orange
   elseif color == 008 or color == 009 then
     sprites = {017}
-    charge = function(self)
-      set_tile(new_charge(color), tile(self))
+    charge = function(self, extra_delay)
+      set_tile(new_charge(color, extra_delay), tile(self))
     end
   end
 
