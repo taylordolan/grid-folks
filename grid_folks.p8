@@ -13,8 +13,8 @@ __lua__
 -- [x] make sure everything is aligned
 -- [x] update style for num effects
 -- [x] dash enemies should fill totems they touch while dashing
--- [ ] starting places for pads (to help communicate how totems are created)?
--- [ ] has_bumped should only happen when they actually bump
+-- [x] has_bumped should only happen when they actually bump
+-- [ ] fixed starting places for pads (to help communicate how totems are created)?
 -- [ ] update game balance
 -- [ ] allow multiple dash enemies to attack the same hero in the same turn
 
@@ -628,7 +628,6 @@ function new_hero()
 		local ally = heroes[1] == self and heroes[2] or heroes[1]
 		local next_tile = add_pairs(tile(self), direction)
 
-		-- this is where the actual acting starts
 		-- if the destination exists and the tile isn't occupied by your ally
 		if location_exists(next_tile) and not find_type("hero", next_tile) then
 
@@ -650,7 +649,6 @@ function new_hero()
 
 			-- if there's no wall
 			elseif not wall then
-
 				-- if shoot is enabled and shoot targets exist
 				local shoot_targets = get_ranged_targets(self, direction)
 				if self.shoot and #shoot_targets > 0 then
@@ -666,6 +664,7 @@ function new_hero()
 				-- otherwise, if there's an enemy in the destination, hit it
 				elseif enemy then
 					active_sounds["bump"] = true
+          has_bumped = true
 					hit_target(enemy, 1, direction)
 					local here = pos_pix(tile(self))
 					local bump = {here[1] + direction[1] * 4, here[2] + direction[2] * 4}
@@ -1904,7 +1903,6 @@ end
 function hit_target(target, damage, direction)
 	target.health -= damage
 	if target.type == "enemy" then
-		has_bumped = true
     if target.health <= 0 then
       active_sounds["bump"] = true
     end
