@@ -18,12 +18,12 @@ __lua__
 -- [x] fix guide timing
 -- [x] clean up sprite sheet
 
+-- [x] only one grow enemy should pop during a merge
+-- [ ] communicate that pads turn into buttons
 -- [ ] allow multiple dash enemies to attack the same hero in the same turn
--- [ ] update game balance
 -- [ ] capture a new gif
+-- [ ] update game balance
 -- [ ] write new instructions for itch page
-
--- [ ] transitions for when a pad turns to a button
 
 function _init()
 
@@ -200,8 +200,8 @@ function _update60()
 		if next.health <= 0 and #next.pixels <= 1 then
 			next:kill()
 			local _s = pos_pix(tile(next))
-      new_pop(_s, true)
-		end
+      if (not next.no_pop) new_pop(_s, true)
+    end
 	end
 
 	if btnp(4) then
@@ -1242,6 +1242,7 @@ function new_e_grow()
 			for next in all(board[self.x][self.y]) do
 				if next != self and next.sub_type == "grow" then
 					self.health = 0
+          self.no_pop = true
 					next.health = 0
 					set_tile(new_e_grown(), tile(self))
 				end
