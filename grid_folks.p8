@@ -16,17 +16,14 @@ __lua__
 -- [x] has_bumped should only happen when they actually bump
 -- [x] fixed starting places for pads (to help communicate how totems are created)?
 -- [x] fix guide timing
--- [ ] clean up sprite sheet
+-- [x] clean up sprite sheet
 
--- [ ] update game balance
--- [ ] write new instructions for itch page
--- [ ] capture a new gif
-
--- [ ] improve enemy death animations
--- [ ] grow enemies shouldn't trigger death animations when they grow
--- [ ] maybe the game can end earlier even though the board won't be filled with totems?
 -- [ ] allow multiple dash enemies to attack the same hero in the same turn
--- [ ] transitions between
+-- [ ] update game balance
+-- [ ] capture a new gif
+-- [ ] write new instructions for itch page
+
+-- [ ] transitions for when a pad turns to a button
 
 function _init()
 
@@ -203,7 +200,7 @@ function _update60()
 		if next.health <= 0 and #next.pixels <= 1 then
 			next:kill()
 			local _s = pos_pix(tile(next))
-			new_pop(_s, true)
+      new_pop(_s, true)
 		end
 	end
 
@@ -1192,7 +1189,7 @@ function new_e_grow()
 			local enemy = find_type("enemy", next)
 			if
 				find_type("hero", next) or
-				enemy and enemy.sub_type ~= "grow"
+				enemy and enemy.sub_type != "grow"
 			then
 				del(adjacent_tiles, next)
 			end
@@ -1243,7 +1240,7 @@ function new_e_grow()
 			end
 			-- grow, if possible
 			for next in all(board[self.x][self.y]) do
-				if next ~= self and next.sub_type == "grow" then
+				if next != self and next.sub_type == "grow" then
 					self.health = 0
 					next.health = 0
 					set_tile(new_e_grown(), tile(self))
@@ -1894,8 +1891,8 @@ function add_button()
 	local o_p
 	for next in all(pads) do
 		if
-			next ~= find_type("pad", tile(hero_a)) and
-			next ~= find_type("pad", tile(hero_b))
+			next != find_type("pad", tile(hero_a)) and
+			next != find_type("pad", tile(hero_b))
 		then
 			o_p = next
 		end
@@ -2537,58 +2534,20 @@ __music__
 02 07080106
 00 4748494c
 00 47484b4c
-04 02034040
-04 04050000
-00 00000000
-00 00000000
-00 00000000
-00 00000000
-00 00000000
-00 00000000
-00 00000000
-00 00000000
-00 00000000
-00 00000000
-00 00000000
-00 00000000
-00 00000000
-00 00000000
-00 00000000
-00 00000000
-00 00000000
-00 00000000
-00 00000000
-00 00000000
-00 00000000
-00 00000000
-00 00000000
-00 00000000
-00 00000000
-00 00000000
-00 00000000
-00 00000000
-00 00000000
-00 00000000
-00 00000000
-00 00000000
-00 00000000
-00 00000000
-00 00000000
-00 00000000
-00 00000000
-00 00000000
-00 00000000
-00 00000000
-00 00000000
-00 00000000
-00 00000000
-00 00000000
-00 00000000
-00 00000000
-00 00000000
-00 00000000
-00 00000000
-00 00000000
-00 00000000
-00 00000000
+04 42434040
+04 44454040
+00 40404040
+00 40404040
+00 40404040
+00 40404040
+00 40404040
+00 40404040
+00 40404040
+00 40404040
+00 40404040
+00 40404040
+00 40404040
+00 40404040
+00 40404040
+00 40404040
 
