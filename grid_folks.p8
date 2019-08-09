@@ -12,23 +12,22 @@ __lua__
 -- [x] explain totems
 -- [x] make sure everything is aligned
 -- [x] update style for num effects
--- [x] dash enemies should w totems they touch while dashing
+-- [x] dash enemies should fill totems they touch while dashing
 -- [x] has_bumped should only happen when they actually bump
 -- [x] fixed starting places for pads (to help communicate how totems are created)?
--- [ ] allow multiple dash enemies to attack the same hero in the same turn
--- [ ] update game balance
-
--- [ ] improve enemy death animations
+-- [x] fix guide timing
+    -- maybe heroes can keep track of whether their last step would trigger a guide or not
 -- [ ] clean up sprite sheet
--- [ ] add shine to health and score balls?
 
+-- [ ] update game balance
 -- [ ] write new instructions for itch page
 -- [ ] capture a new gif
--- [ ] maybe the game can end earlier even though the board won't be filled with totems?
 
--- future
--- [ ] playtest and consider evening out the potential distance of pads even more, maybe with a max distance?
--- [ ] remove instances of `for next in all()`?
+-- [ ] improve enemy death animations
+-- [ ] grow enemies shouldn't trigger death animations when they grow
+-- [ ] maybe the game can end earlier even though the board won't be filled with totems?
+-- [ ] allow multiple dash enemies to attack the same hero in the same turn
+-- [ ] transitions between
 
 function _init()
 
@@ -457,7 +456,7 @@ function _draw()
 		print(_b, _x + #_a * 4 + _space + 8 + _space, _y, has_advanced and 005 or 007)
 		-- return
 		pal()
-  elseif current_guide == 012 and not completed_guides[012] and (a_btn_clr == 012 or b_btn_clr == 012) then
+  elseif current_guide == 012 and not completed_guides[012] and (a_btn_clr == 012 and hero_a.took_guide_step == true or b_btn_clr == 012 and hero_b.took_guide_step == true) then
     -- messages
     local _a = small("when a hero stands on")
     local _b = small("the other hero can jump")
@@ -478,7 +477,7 @@ function _draw()
     pal(006,012)
     spr(018, xs, ys)
     pal()
-  elseif current_guide == 011 and not completed_guides[011] and (a_btn_clr == 011 or b_btn_clr == 011) then
+  elseif current_guide == 011 and not completed_guides[011] and (a_btn_clr == 011 and hero_a.took_guide_step == true or b_btn_clr == 011 and hero_b.took_guide_step == true) then
     -- messages
     local _a = small("when a hero stands on")
     local _b = small("the other hero can shoot")
@@ -499,7 +498,7 @@ function _draw()
     pal(006,011)
     spr(018, xs, ys)
     pal()
-  elseif current_guide == 008 and not completed_guides[008] and (a_btn_clr == 008 or b_btn_clr == 008) then
+  elseif current_guide == 008 and not completed_guides[008] and (a_btn_clr == 008 and hero_a.took_guide_step == true or b_btn_clr == 008 and hero_b.took_guide_step == true) then
     -- messages
     local _a = small("are refilled with health")
     local _b = small("when enemies step on them")
@@ -519,7 +518,7 @@ function _draw()
     pal(006,008)
     spr(017, xs, ys)
     pal()
-  elseif current_guide == 009 and not completed_guides[009] and (a_btn_clr == 009 or b_btn_clr == 009) then
+  elseif current_guide == 009 and not completed_guides[009] and (a_btn_clr == 009 and hero_a.took_guide_step == true or b_btn_clr == 009 and hero_b.took_guide_step == true) then
     -- messages
     local _a = small("are refilled with gold")
     local _b = small("when enemies step on them")
@@ -628,6 +627,7 @@ function new_hero()
 	_h.max_health = 3
 	_h.health = 3
 	_h.list = heroes
+  _h.took_guide_step = false
 
 	_h.act = function(self, direction)
 
@@ -1534,34 +1534,39 @@ function set_tile(thing, dest)
 		return
 	end
 
-  local _c = find_type("charge", dest)
+  -- local _c = find_type("charge", dest)
 
   -- trigger hero step sounds
 	-- checking for x because we don't want to make this sound if the hero is
   -- being deployed
 	if thing.type == "hero" and thing.x then
+    -- tracks whether the hero's last step triggered a guide so that stepping on
+    -- a filled totem won't later trigger a guide
+    thing.took_guide_step = false
     local _b = find_type("button", dest)
     local _p = find_type("pad", dest)
     if thing == hero_a then
 			active_sounds["a_step"] = true
-      local _f = find_type("button", tile(hero_b))
       -- if the friend is standing on a button that hasn't had its guide
       -- completed yet, then set the guide to that color
-      if (_f and not completed_guides[_f.color]) current_guide = _f.color
+      local _f = find_type("button", tile(hero_b))
+      if (_f and not completed_guides[_f.color] and hero_b.took_guide_step == true) current_guide = _f.color
     else
       active_sounds["b_step"] = true
       local _f = find_type("button", tile(hero_a))
-      if (_f and not completed_guides[_f.color]) current_guide = _f.color
+      if (_f and not completed_guides[_f.color] and hero_a.took_guide_step == true) current_guide = _f.color
 		end
 		if _p then
 			active_sounds["pad_step"] = true
     elseif _b then
-      -- green or blue
+      local _c = find_type("charge", dest) and true or false
+      -- make sound for green or blue buttons
       if _b.color == 011 or _b.color == 012 then
         active_sounds["button_step"] = true
       end
       -- set current guide
       if _b.color and not completed_guides[_b.color] and not _c then
+        thing.took_guide_step = true
         current_guide = _b.color
       end
     end
@@ -1593,7 +1598,7 @@ function set_tile(thing, dest)
 
 	-- trigger enemy buttons when they step or are deployed
 	if thing.type == "enemy" then
-		local _b = find_type("button", tile(thing))
+		local _b = find_type("button", tile(thing)) -- change these to dest?
 		local _c = find_type("charge", tile(thing))
 		if _b and _b.color == 008 and not _c then
       _b:charge()
@@ -1621,7 +1626,7 @@ function update_maps()
 	end
 end
 
--- todo: why am I not doing this is part of set_tile()?
+-- todo: why am I not doing this as part of set_tile()?
 function h_btns()
 	for hero in all(heroes) do
 		local _c = find_type("charge", tile(hero))
