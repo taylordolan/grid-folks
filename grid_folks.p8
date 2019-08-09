@@ -19,7 +19,7 @@ __lua__
 -- [x] clean up sprite sheet
 
 -- [x] only one grow enemy should pop during a merge
--- [ ] communicate that pads turn into buttons
+-- [x] communicate that pads turn into totems
 -- [ ] allow multiple dash enemies to attack the same hero in the same turn
 -- [ ] capture a new gif
 -- [ ] update game balance
@@ -64,13 +64,13 @@ function _init()
     "b_step",
 		"pad_step",
     "button_step",
-		"advance",
 		"bump",
 		"jump",
     "charge",
 		"health",
 		"score",
     "enemy_dash",
+		"advance",
 		"shoot",
 	}
 
@@ -103,7 +103,6 @@ function _init()
 	walls = {}
 	colors_bag = {}
 	o_dirs = {{-1,0},{1,0},{0,-1},{0,1}}
-	s_dirs = {{-1,0},{1,0},{0,-1},{0,1},{-1,-1},{-1,1},{1,-1},{1,1}}
 
 	-- log of recent user input
 	queue = {}
@@ -204,30 +203,30 @@ function _update60()
     end
 	end
 
-	if btnp(4) then
-		-- debug = not debug
-    -- new_num_effect(hero_a, small("+1 health"), 008, 007)
-		-- if depth > 2 then
-		-- 	local open_tiles = {}
-		-- 	for next in all(tiles) do
-		-- 		if
-		-- 			not find_type("button", next) and
-		-- 			not find_type("pad", next)
-		-- 		then
-		-- 			add(open_tiles, next)
-		-- 		end
-		-- 	end
-		-- 	shuff(open_tiles)
-    --   local _b = new_button(008)
-		-- 	set_tile(_b, open_tiles[1])
-    --   _b:charge()
-		-- 	depth -= 1
-		-- end
-    -- set_tile(new_button(011), {2,2})
-    -- set_tile(new_button(008), {3,2})
-    -- set_tile(new_charge(008), {3,2})
-    grid = not grid
-	end
+	-- if btnp(4) then
+	-- 	-- debug = not debug
+  --   -- new_num_effect(hero_a, small("+1 health"), 008, 007)
+	-- 	-- if depth > 2 then
+	-- 	-- 	local open_tiles = {}
+	-- 	-- 	for next in all(tiles) do
+	-- 	-- 		if
+	-- 	-- 			not find_type("button", next) and
+	-- 	-- 			not find_type("pad", next)
+	-- 	-- 		then
+	-- 	-- 			add(open_tiles, next)
+	-- 	-- 		end
+	-- 	-- 	end
+	-- 	-- 	shuff(open_tiles)
+  --   --   local _b = new_button(008)
+	-- 	-- 	set_tile(_b, open_tiles[1])
+  --   --   _b:charge()
+	-- 	-- 	depth -= 1
+	-- 	-- end
+  --   -- set_tile(new_button(011), {2,2})
+  --   -- set_tile(new_button(008), {3,2})
+  --   -- set_tile(new_charge(008), {3,2})
+  --   -- grid = not grid
+	-- end
 
 	if game_over then
 		if btnp(5) then
@@ -407,7 +406,7 @@ function _draw()
 		else
 			msg = small("you escaped! +100 gold")
 		end
-		local msg_x = 64 - (#msg * 4) / 2
+		local msg_x = 64 - #msg * 2
 		local msg_y = 99
 		print(msg, msg_x, msg_y, 007)
 		-- line 2
@@ -417,12 +416,12 @@ function _draw()
 		else
 			msg = small("final score: " .. score)
 		end
-		msg_x = 64 - (#msg * 4) / 2
+		msg_x = 64 - #msg * 2
 		msg_y += 10
 		print(msg, msg_x, msg_y, 007)
 		-- line 3
 		msg = small("press x to restart")
-		msg_x = 64 - (#msg * 4) / 2
+		msg_x = 64 - #msg * 2
 		msg_y += 10
 		print(msg, msg_x, msg_y, 005)
 	elseif not (has_switched and has_bumped and has_advanced) then
@@ -999,7 +998,7 @@ function new_e_timid()
 					local dir = get_direction(tile(self), step)
 					local _a = pos_pix(tile(self))
 					local _b = {_a[1] + dir[1] * 2, _a[2] + dir[2] * 2}
-					self.sprites = frames({027, 021}, ani_frames)
+					self.sprites = stretch({027, 021})
 				end
 			end
 		end
@@ -1402,7 +1401,7 @@ function new_shot(thing, dir)
 	add(effects, new_shot)
 end
 
-function frames(a, n)
+function stretch(a, n)
 	local n = n or ani_frames
 	local b = {}
 	for next in all(a) do
@@ -1698,7 +1697,7 @@ function new_num_effect(parent, string, color, outline)
       -- the screen position where the main color text gets drawn
 			local base = {self:_x() - #string * 2 + 4, self:_y() + self.offset}
       -- outline
-			for next in all(s_dirs) do
+			for next in all({{-1,0},{1,0},{0,-1},{0,1},{-1,-1},{-1,1},{1,-1},{1,1}}) do
 				local result = add_pairs(base, next)
 				print(string, result[1], result[2], outline)
 			end
@@ -2251,14 +2250,20 @@ function new_pad(color)
 	return _p
 end
 
-function new_charge(color, extra_delay)
+-- extra_delay is used when a dash enemy charges multiple buttons while dashing
+-- so that they appear to be charged in sequence
+-- when a charge is created along with a new button…
+  -- extra_delay is used to hide the charge until flashing is done
+  -- offset is set to 0 so the charge shows up in place
+function new_charge(color, extra_delay, offset)
 	local _c = new_thing()
   local _e = extra_delay or 0
+  local offset = offset or -8
 
 	_c.type = "charge"
 	_c.color = color
 	_c.list = charges
-	_c.offset = -8
+	_c.offset = offset
 	_c.delay = ani_frames + _e
 	_c.draw = function(self)
 		if self.delay > 0 then
@@ -2287,15 +2292,15 @@ function new_button(color)
 
   -- green or blue
   if color == 011 or color == 012 then
-    sprites =  {018}
-    charge = function(self, extra_delay)
+    sprites = stretch({016, 016, 018, 016, 018, 016, 018}, 4)
+    charge = function(self, extra_delay, offset)
       return
     end
   -- red or orange
   elseif color == 008 or color == 009 then
-    sprites = {017}
-    charge = function(self, extra_delay)
-      set_tile(new_charge(color, extra_delay), tile(self))
+    sprites = stretch({016, 016, 028, 016, 028, 016, 017}, 4)
+    charge = function(self, extra_delay, offset)
+      set_tile(new_charge(color, extra_delay, offset), tile(self))
     end
   end
 
@@ -2306,7 +2311,7 @@ function new_button(color)
   _b.charge = charge
   _b.deploy = function(self, tile)
     set_tile(self, tile)
-    self:charge()
+    self:charge(20, 0) -- cancel out delay, no offset
   end
 	_b.draw = function(self)
 		local sprite = self.sprites[1]
@@ -2333,14 +2338,14 @@ ff000fff0007000ffff6ffffff5565ffff565fffffffffffffffffff007007070007070007007070
 0007000ff07070fffffffffffff555fff55655fffff6ffffffffffff70070007070707070007000007000700ff666fff00000000000000000000000000000000
 f07070fff07070fffff6ffffffffffffffffffffffffffffffffffff00000707000000000070070700070007ffffffff00000000000000000000000000000000
 f00000fff00000fffff6ffffffffffffffffffffffffffffffffffff07007007777777770700700700000707ffffffff00000000000000000000000000000000
-fffffffffffffffffff65fffffffffffffffffffffffffffffffffffffffffffffffffff000000ffffffffffffffffff00000000000000000000000000000000
-fffffffffffffffffff65ffffff77fffeeeeeeee00000fffffffffffffffffff000000ff077770ffffffffffffffffff00000000000000000000000000000000
-fffffffffffffffffff65fffff7667ffeffffffe07070ffff0000fffffffffff077770ff007070ff000000ff00000fff00000000000000000000000000000000
-f66ff66ffffffffff666555ff767657fefeeeefe07070fff077770fff0000fff007070ff077770ff077770ff07070fff00000000000000000000000000000000
-f6ffff6ff6ffff5ffff66ffff766657fefeffefe077770ff077770ff077770ff077770ff007770ff007070ff07070fff00000000000000000000000000000000
-fffffffff666555ff666555fff7557ffefeeeefe007070ff007070ff007070ff0077770ff077770f0777770f077770ff00000000000000000000000000000000
-f6ffff6ffff66ffffff66ffffff77fffeffffffe077770ff0777770f077770fff070700ff070700f0707070f077770ff00000000000000000000000000000000
-f66ff66ff666555ff666555fffffffffeeeeeeee000000ff0000000f000000fff00000fff00000ff0000000f000000ff00000000000000000000000000000000
+fffffffffffffffffff65fffffffffffffffffffffffffffffffffffffffffffffffffff000000fffffffffffffffffffff66fff000000000000000000000000
+fffffffffffffffffff65ffffff77fffeeeeeeee00000fffffffffffffffffff000000ff077770ffffffffffffffffffff6765ff000000000000000000000000
+fffffffffffffffffff65fffff7667ffeffffffe07070ffff0000fffffffffff077770ff007070ff000000ff00000fffff6665ff000000000000000000000000
+f66ff66ffffffffff666555ff767657fefeeeefe07070fff077770fff0000fff007070ff077770ff077770ff07070ffffff55fff000000000000000000000000
+f6ffff6ff6ffff5ffff66ffff766657fefeffefe077770ff077770ff077770ff077770ff007770ff007070ff07070ffff6ffff5f000000000000000000000000
+fffffffff666555ff666555fff7557ffefeeeefe007070ff007070ff007070ff0077770ff077770f0777770f077770fff666555f000000000000000000000000
+f6ffff6ffff66ffffff66ffffff77fffeffffffe077770ff0777770f077770fff070700ff070700f0707070f077770fffff66fff000000000000000000000000
+f66ff66ff666555ff666555fffffffffeeeeeeee000000ff0000000f000000fff00000fff00000ff0000000f000000fff666555f000000000000000000000000
 00000000000000b30000000000000000000000000000000000000000000000000000000000000000009900000000000000000000000000000000000000000000
 00000000000000b30000000000000000000000000000000000000000000000000000000000000000097940000000000000000000000000000000000000000000
 00000000000000b300000000000b0000000000000000000000000000000000000000000000000000099940000000000000000000000000000000000000000000
@@ -2502,7 +2507,7 @@ __sfx__
 000800000f765027652670522705217052270526705227051f7052170522705217051f7052170522705217051a7051d705217051d7051a7051d705217051d705187051a7051b7051a705187051a7051b7051a705
 000800000c7650276500705007052f705177051770500705027050070500705007052f705007050070500705027050070500705007052f705007050070500705027050070500705007052f705007050070500705
 000400000c633076030c6330c62300003000030000300003000030000300003000030000300003000030000300003000030000300003000030000300003000030000300003000030000300003000030000300003
-00080000037140f7211b7312774133722337350000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+000c0000037140f7211b7312774133722337250000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 000800000306103065000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 00080000271201d121131210010300100001000010000100001000010000100001000010000100001000010000100001000010000100001000010000100001000010000100001000010000100001000010000100
 00080000000610006100065000000100003000040000a000090000100001000010000000000001000010000100001000010000100001000010000100001000010000100001000010000100001000010000100001
@@ -2515,7 +2520,7 @@ __sfx__
 000400000f715027150c715027150f715027150c71502715007050070500705007050070500705007050070500705007050070500705007050070500705007050070500705007050070500705007050070500705
 010400001c7150371518715037151c715037151871503715007050070500705007050070500705007050070500705007050070500705007050070500705007050070500705007050070500705007050070500705
 010c00000c7540f7341a7240f7040d7040b7040970407704067040570404704037040370402704017040170401704017040170401704017040170401704017040170401704017040170401704017040170401704
-01080000037140f7211b7312774133722337350000000001000010000100001000010000100001000010000100001000010000100001000010000100001000010000100001000010000100001000000000000000
+00200000037140f7211b7312774133722337250000000001000010000100001000010000100001000010000100001000010000100001000010000100001000010000100001000010000100001000000000000000
 000600000f0330c613130331f60300603006030060300603006030060300603006030060300603006030060300603006030060300603006030060300603006030060300603006030060300603006030060300000
 010c00002b15318133131130f1000d1040b1040910307103061030510304103031030310302103011030110301103011030110301103011030110301103011030110301103011030110301103011030110301103
 000800000503105031050000500004700007000070000700007000070000700007000070000700007000070000700007000070000700007000070000700007000070000700007000070000700007000070000700
