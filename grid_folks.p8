@@ -20,7 +20,7 @@ __lua__
 
 -- [x] only one grow enemy should pop during a merge
 -- [x] communicate that pads turn into totems
--- [ ] allow multiple dash enemies to attack the same hero in the same turn
+-- [x] allow multiple dash enemies to attack the same hero in the same turn
 -- [ ] capture a new gif
 -- [ ] update game balance
 -- [ ] write new instructions for itch page
@@ -1769,18 +1769,19 @@ function get_ranged_targets(thing, direction)
 	while true do
 		-- define the current target
 		local next_tile = {now_tile[1] + direction[1], now_tile[2] + direction[2]}
-		-- if `next_tile` is off the map, or there's a wall in the way, return false
+		local target = find_type(thing.target_type, next_tile)
+		-- if `next_tile` is off the map, or there's a wall in the way, or a thing
+    -- of the same type is in the way, then stop checking tiles
 		if
 			not location_exists(next_tile) or
 			is_wall_between(now_tile, next_tile) or
-			find_type(thing.type, next_tile)
+			find_type(thing.type, next_tile) and not target
 		then
 			return targets
 		end
-		-- if there's a target in the tile, return it
-		local target = find_type(thing.target_type, next_tile)
+		-- if there's a target in the tile, add it to the list of targets
 		if target then
-			add(targets,target)
+			add(targets, target)
 		end
 		-- set `current` to `next_tile` and keep going
 		now_tile = next_tile
