@@ -203,30 +203,31 @@ function _update60()
     end
 	end
 
-	-- if btnp(4) then
-	-- 	-- debug = not debug
-  --   -- new_num_effect(hero_a, small("+1 health"), 008, 007)
-	-- 	-- if depth > 2 then
-	-- 	-- 	local open_tiles = {}
-	-- 	-- 	for next in all(tiles) do
-	-- 	-- 		if
-	-- 	-- 			not find_type("button", next) and
-	-- 	-- 			not find_type("pad", next)
-	-- 	-- 		then
-	-- 	-- 			add(open_tiles, next)
-	-- 	-- 		end
-	-- 	-- 	end
-	-- 	-- 	shuff(open_tiles)
-  --   --   local _b = new_button(008)
-	-- 	-- 	set_tile(_b, open_tiles[1])
-  --   --   _b:charge()
-	-- 	-- 	depth -= 1
-	-- 	-- end
-  --   -- set_tile(new_button(011), {2,2})
-  --   -- set_tile(new_button(008), {3,2})
-  --   -- set_tile(new_charge(008), {3,2})
-  --   -- grid = not grid
-	-- end
+	if btnp(4) then
+		-- debug = not debug
+    -- new_num_effect(hero_a, small("+1 health"), 008, 007)
+		-- if depth > 2 then
+		-- 	local open_tiles = {}
+		-- 	for next in all(tiles) do
+		-- 		if
+		-- 			not find_type("button", next) and
+		-- 			not find_type("pad", next)
+		-- 		then
+		-- 			add(open_tiles, next)
+		-- 		end
+		-- 	end
+		-- 	shuff(open_tiles)
+    --   local _b = new_button(008)
+		-- 	set_tile(_b, open_tiles[1])
+    --   _b:charge()
+		-- 	depth -= 1
+		-- end
+    -- set_tile(new_button(011), {2,2})
+    -- set_tile(new_button(008), {3,2})
+    -- set_tile(new_charge(008), {3,2})
+    -- score += 1
+    -- grid = not grid
+	end
 
 	if game_over then
 		if btnp(5) then
@@ -407,8 +408,7 @@ function _draw()
 			msg = small("you escaped! +100 gold")
 		end
 		local msg_x = 64 - #msg * 2
-		local msg_y = 99
-		print(msg, msg_x, msg_y, 007)
+		print(msg, msg_x, 99, 007)
 		-- line 2
 		if depth != 0 then
 			local txt = depth == 1 and " depth" or " depths"
@@ -417,130 +417,70 @@ function _draw()
 			msg = small("final score: " .. score)
 		end
 		msg_x = 64 - #msg * 2
-		msg_y += 10
-		print(msg, msg_x, msg_y, 007)
+		print(msg, msg_x, 109, 007)
 		-- line 3
-		msg = small("press x to restart")
-		msg_x = 64 - #msg * 2
-		msg_y += 10
-		print(msg, msg_x, msg_y, 005)
+		print(small("press x to restart"), 28, 119, 005)
 	elseif not (has_switched and has_bumped and has_advanced) then
 		-- draw intro
-		local _space = 3
-
-		local _a = small("press x to switch heroes")
-		local _x = 64 - #_a*2
-		local _y = 99
-		print(_a, _x, _y, has_switched and 005 or 007)
-
-		local _a = small("bump to attack")
-		_y += 10
-		_x = 64 - #_a*2
-		print(_a, _x, _y, has_bumped and 005 or 007)
-
-		local _a = small("stand on 2")
-		_x = 19
-		_y += 10
-		print(_a, _x, _y, has_advanced and 005 or 007)
+		print(small("press x to switch heroes"), 16, 99, has_switched and 005 or 007)
+		print(small("bump to attack"), 36, 109, has_bumped and 005 or 007)
+		print(small("stand on 2"), 19, 119, has_advanced and 005 or 007)
 		palt(015, true)
 		pal(006, has_advanced and 005 or 007)
-		spr(016, _x + #_a * 4 + _space - 1, _y - 3)
-		local _b = small("to ascend")
-		print(_b, _x + #_a * 4 + _space + 8 + _space, _y, has_advanced and 005 or 007)
+		spr(016, 61, 116)
+		print(small("to ascend"), 73, 119, has_advanced and 005 or 007)
 		-- return
 		pal()
   elseif current_guide == 012 and not completed_guides[012] and (a_btn_clr == 012 and hero_a.took_guide_step == true or b_btn_clr == 012 and hero_b.took_guide_step == true) then
-    -- messages
-    local _a = small("when a hero stands on")
-    local _b = small("the other hero can jump")
-    -- coordinates
-    xa = 57 - #_a*2
-    ya = 99
-    xb = 64 - #_b*2
-    yb = ya + 10
-    xs = xa+#_a*4 + 3
-    ys = ya - 3
     -- print messages
-    print(_a, xa, ya, 007)
-    print(",", xs + 9, ya, 007)
-    print(_b, xb, yb, 007)
+    print(small("when a hero stands on"), 15, 99, 007)
+    print(",", 111, 99, 007)
+    print(small("the other hero can jump"), 18, 109, 007)
     -- print sprite
     palt(15,true)
     pal(005,001)
     pal(006,012)
-    spr(018, xs, ys)
+    spr(018, 102, 96)
     pal()
   elseif current_guide == 011 and not completed_guides[011] and (a_btn_clr == 011 and hero_a.took_guide_step == true or b_btn_clr == 011 and hero_b.took_guide_step == true) then
-    -- messages
-    local _a = small("when a hero stands on")
-    local _b = small("the other hero can shoot")
-    -- coordinates
-    xa = 57 - #_a*2
-    ya = 99
-    xb = 64 - #_b*2
-    yb = ya + 10
-    xs = xa+#_a*4 + 3
-    ys = ya - 3
     -- print messages
-    print(_a, xa, ya, 007)
-    print(",", xs + 9, ya, 007)
-    print(_b, xb, yb, 007)
+    print(small("when a hero stands on"), 15, 99, 007)
+    print(",", 111, 99, 007)
+    print(small("the other hero can shoot"), 16, 109, 007)
     -- print sprite
     palt(15,true)
     pal(005,003)
     pal(006,011)
-    spr(018, xs, ys)
+    spr(018, 102, 96)
     pal()
   elseif current_guide == 008 and not completed_guides[008] and (a_btn_clr == 008 and hero_a.took_guide_step == true or b_btn_clr == 008 and hero_b.took_guide_step == true) then
-    -- messages
-    local _a = small("are refilled with health")
-    local _b = small("when enemies step on them")
-    -- coordinates
-    xa = 70 - #_a*2
-    ya = 99
-    xb = 64 - #_b*2
-    yb = ya + 10
-    xs = xa - 12
-    ys = ya - 3
     -- print messages
-    print(_a, xa, ya, 007)
-    print(_b, xb, yb, 007)
+    print(small("are refilled with health"), 22, 99, 007)
+    print(small("when enemies step on them"), 14, 109, 007)
     -- print sprite
     palt(15,true)
     pal(005,002)
     pal(006,008)
-    spr(017, xs, ys)
+    spr(017, 10, 96)
     pal()
   elseif current_guide == 009 and not completed_guides[009] and (a_btn_clr == 009 and hero_a.took_guide_step == true or b_btn_clr == 009 and hero_b.took_guide_step == true) then
-    -- messages
-    local _a = small("are refilled with gold")
-    local _b = small("when enemies step on them")
-    -- coordinates
-    xa = 70 - #_a*2
-    ya = 99
-    xb = 64 - #_b*2
-    yb = ya + 10
-    xs = xa - 12
-    ys = ya - 3
     -- print messages
-    print(_a, xa, ya, 007)
-    print(_b, xb, yb, 007)
+    print(small("are refilled with gold"), 26, 99, 007)
+    print(small("when enemies step on them"), 14, 109, 007)
     -- print sprite
     palt(15,true)
     pal(005,004)
     pal(006,009)
-    spr(017, xs, ys)
+    spr(017, 14, 96)
     pal()
 	else
 		-- draw instructions area
 		-- depth
-		local msg = small("depth")
-		print(msg, 11, 99, 007)
+		print(small("depth"), 11, 99, 007)
 		print(depth, 34, 99, 007)
 		-- score
-		local text = small("gold")
 		local num = score .. ""
-		print(text, 118 - #text * 4, 99, 007)
+		print(small("gold"), 102, 99, 007)
 		print(num, 99 - #num * 4, 99, 007)
 		-- instructions
 		spr(032, 11, 106, 7, 1) -- green
@@ -552,19 +492,6 @@ function _draw()
 	for next in all(effects) do
 		next:draw()
 	end
-
-	-- if debug then
-	-- 	local x = 0
-	-- 	local y = 0
-	-- 	print("wip dev deets", x, y+1, 000)
-	-- 	print("wip dev deets", x, y, 008)
-	-- 	y += 10
-	-- 	print("turns: " .. turns, x, y+1, 000)
-	-- 	print("turns: " .. turns, x, y, 008)
-	-- 	y += 10
-	-- 	print("spawn rate: " .. spawn_rate, x, y+1, 000)
-	-- 	print("spawn rate: " .. spawn_rate, x, y, 008)
-	-- end
 
   -- draw grid
   -- if grid then
@@ -1410,6 +1337,16 @@ function stretch(a, n)
 		end
 	end
 	return b
+end
+
+function merge(lists)
+  local merged = {}
+  for list in all(lists) do
+    for next in all(list) do
+      add(merged, next)
+    end
+  end
+  return merged
 end
 
 function draw_health(x_pos, y_pos, current, threatened, offset)
@@ -2292,13 +2229,13 @@ function new_button(color)
 
   -- green or blue
   if color == 011 or color == 012 then
-    sprites = stretch({016, 016, 018, 016, 018, 016, 018}, 4)
+    sprites = merge({stretch({018}, 12), stretch({016}, 9), stretch({018}, 6), stretch({016}, 3), {018}})
     charge = function(self, extra_delay, offset)
       return
     end
   -- red or orange
   elseif color == 008 or color == 009 then
-    sprites = stretch({016, 016, 028, 016, 028, 016, 017}, 4)
+    sprites = merge({stretch({028}, 12), stretch({016}, 9), stretch({028}, 6), stretch({016}, 3), {017}})
     charge = function(self, extra_delay, offset)
       set_tile(new_charge(color, extra_delay, offset), tile(self))
     end
@@ -2311,7 +2248,7 @@ function new_button(color)
   _b.charge = charge
   _b.deploy = function(self, tile)
     set_tile(self, tile)
-    self:charge(20, 0) -- cancel out delay, no offset
+    self:charge(26, 0) -- cancel out delay, no offset
   end
 	_b.draw = function(self)
 		local sprite = self.sprites[1]
