@@ -89,6 +89,9 @@ function _init()
 	shakes = {{0,0}}
 	game_over = false
 	time = 0
+  has_advanced = false
+  has_bumped = false
+  has_switched = false
 
 	-- lists of `things`
 	heroes = {}
