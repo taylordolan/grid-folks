@@ -206,31 +206,31 @@ function _update60()
     end
 	end
 
-	if btnp(4) then
-		-- debug = not debug
-    -- new_num_effect(hero_a, small("+1 health"), 008, 007)
-		-- if depth > 2 then
-		-- 	local open_tiles = {}
-		-- 	for next in all(tiles) do
-		-- 		if
-		-- 			not find_type("button", next) and
-		-- 			not find_type("pad", next)
-		-- 		then
-		-- 			add(open_tiles, next)
-		-- 		end
-		-- 	end
-		-- 	shuff(open_tiles)
-    --   local _b = new_button(008)
-		-- 	set_tile(_b, open_tiles[1])
-    --   _b:charge()
-		-- 	depth -= 1
-		-- end
-    -- set_tile(new_button(011), {2,2})
-    -- set_tile(new_button(008), {3,2})
-    -- set_tile(new_charge(008), {3,2})
-    -- score += 1
-    -- grid = not grid
-	end
+	-- if btnp(4) then
+	-- 	-- debug = not debug
+  --   -- new_text_effect(hero_a, small("+1 health"), 008, 007)
+	-- 	-- if depth > 2 then
+	-- 	-- 	local open_tiles = {}
+	-- 	-- 	for next in all(tiles) do
+	-- 	-- 		if
+	-- 	-- 			not find_type("button", next) and
+	-- 	-- 			not find_type("pad", next)
+	-- 	-- 		then
+	-- 	-- 			add(open_tiles, next)
+	-- 	-- 		end
+	-- 	-- 	end
+	-- 	-- 	shuff(open_tiles)
+  --   --   local _b = new_button(008)
+	-- 	-- 	set_tile(_b, open_tiles[1])
+  --   --   _b:charge()
+	-- 	-- 	depth -= 1
+	-- 	-- end
+  --   -- set_tile(new_button(011), {2,2})
+  --   -- set_tile(new_button(008), {3,2})
+  --   -- set_tile(new_charge(008), {3,2})
+  --   -- score += 1
+  --   -- grid = not grid
+	-- end
 
 	if game_over then
 		if btnp(5) then
@@ -1568,14 +1568,14 @@ function h_btns()
 			if _c.color == 008 then
 				if hero.health < hero.max_health then
 					hero.health = min(hero.health + 1, hero.max_health)
-					new_num_effect(hero, small("+1 health"), 008, 007)
+					new_text_effect(hero, small("+1 health"), 008, 007)
 				else
-					new_num_effect(hero, small("+0 health"), 008, 007)
+					new_text_effect(hero, small("+0 health"), 008, 007)
 				end
         active_sounds["health"] = true
 			elseif _c.color == 009 then
 				score += 1
-				new_num_effect(hero, small("+1 gold"), 009, 007)
+				new_text_effect(hero, small("+1 gold"), 009, 007)
         active_sounds["score"] = true
 			end
 			_c:kill()
@@ -1622,7 +1622,7 @@ function deploy(thing, avoid_list)
 end
 
 -- todo: make this a `thing`?
-function new_num_effect(parent, string, color, outline)
+function new_text_effect(parent, string, color, outline)
 	local _n = {
 		parent = parent, -- hero to base position of effect on
 		_x = function(self)
@@ -1663,7 +1663,7 @@ end
 
 function new_pop(pix, should_move, particle_count, frames)
 	local particle_count = particle_count or 8
-	local frames = frames or 12
+	local frames = frames or 15
 	function new_particle(pix, frames, should_move)
 		local vel_x = should_move and {1,-1,1.5,-1.5,2,-2} or {0}
 		local vel_y = copy(vel_x)
