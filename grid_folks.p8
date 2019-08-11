@@ -4,27 +4,6 @@ __lua__
 -- grid folks
 -- taylor d
 
--- todo
--- [x] use different icons for player vs enemy buttons/totems
--- [x] enemy totems should be filled by default
--- [x] design player totems
--- [x] update instruction graphic (with plus signs and totems)
--- [x] explain totems
--- [x] make sure everything is aligned
--- [x] update style for num effects
--- [x] dash enemies should fill totems they touch while dashing
--- [x] has_bumped should only happen when they actually bump
--- [x] fixed starting places for pads (to help communicate how totems are created)?
--- [x] fix guide timing
--- [x] clean up sprite sheet
-
--- [x] only one grow enemy should pop during a merge
--- [x] communicate that pads turn into totems
--- [x] allow multiple dash enemies to attack the same hero in the same turn
--- [ ] capture a new gif
--- [ ] update game balance
--- [ ] write new instructions for itch page
-
 function _init()
 
 	-- board size
@@ -92,6 +71,7 @@ function _init()
   has_advanced = false
   has_bumped = false
   has_switched = false
+  border_color = 007
 
 	-- lists of `things`
 	heroes = {}
@@ -260,9 +240,11 @@ function _update60()
 		score += 100
 		depth = 0
 		game_over = true
+    border_color = 011
 	-- game lose
 	elseif hero_a.health <= 0 or hero_b.health <= 0 then
 		game_over = true
+    border_color = 008
 	-- player turn
 	elseif p_turn == true and #queue > 0 then
 		if queue[1] == 5 then
@@ -354,6 +336,7 @@ function _draw()
 	-- draw outlines
 	rect(12, 12, 115, 85, 000)
 	-- draw border
+  pal(006, border_color)
 	-- top and bottom
 	for x = 12, 115, 8 do
 		spr(008, x, 4)
@@ -399,6 +382,15 @@ function _draw()
   if (a_btn) a_btn_clr = a_btn.color
   if (b_btn) b_btn_clr = b_btn.color
 
+  -- for x = 12, 112, 4 do
+  --   for y = 12, 83, 4 do
+  --     pset(x + (y % 4), y + (time / 8) % 4, 0)
+  --     -- pset(y-x+2 + time/4, y, 0)
+  --     -- pset(x+1, y, 014)
+  --     -- pset(x, y+1, 014)
+  --     -- pset(x+1, y+1, 014)
+  --   end
+  -- end
 	if game_over then
 		-- draw game over state
 		local msg
@@ -408,7 +400,7 @@ function _draw()
 		if depth != 0 then
 			msg = small("you died with " .. score .. " gold")
 		else
-			msg = small("you escaped! +100 gold")
+			msg = small("+100 gold")
 		end
 		local msg_x = 64 - #msg * 2
 		print(msg, msg_x, 99, 007)
@@ -1401,6 +1393,8 @@ function dark(color)
   if (color == 008) return 002 -- red
   if (color == 011) return 003 -- green
   if (color == 009) return 004 -- orange
+  if (color == 014) return 002 -- pink
+  if (color == 013) return 001 -- pink
 end
 
 function small(s)
