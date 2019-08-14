@@ -7,7 +7,7 @@ __lua__
 -- todo
 -- [x] clearer game end states
 -- [x] don't show arrows and crosshairs on game over
--- [ ] input delay after game over
+-- [x] input delay after game over
 
 -- [ ] fix health text effect from going off the edge of the screen
 
@@ -231,7 +231,9 @@ function _update60()
 	-- end
 
 	if game_over then
-		if btnp(5) then
+		if delay > 0 then
+			delay -= 1
+		elseif btnp(5) then
 			_init()
 		end
 		return
@@ -240,7 +242,6 @@ function _update60()
 	-- for complicated reasons, this value should be set to one *less* than the
 	-- maximum allowed number of rapid player inputs
 	if #queue < 2 then
-		local input
 		for i=0, 3 do
 			if btnp(i) then
 				add(queue, o_dirs[i+1])
@@ -260,13 +261,13 @@ function _update60()
 		new_text_effect({41,53}, small("you escaped!"), 014, 007, true)
 		depth = 0
 		game_over = true
-		border_color = 011
+		delay = 20
 	-- game lose
 	elseif hero_a.health <= 0 or hero_b.health <= 0 then
 		add(overlays, new_overlay())
 		new_text_effect({46,53}, small("game over"), 014, 007, true)
 		game_over = true
-		border_color = 008
+		delay = 20
 	-- player turn
 	elseif p_turn == true and #queue > 0 then
 		if queue[1] == 5 then
