@@ -6,7 +6,7 @@ __lua__
 
 -- todo
 -- [x] clearer game end states
--- [ ] don't show arrows and crosshairs on game over
+-- [x] don't show arrows and crosshairs on game over
 -- [ ] input delay after game over
 
 -- [ ] fix health text effect from going off the edge of the screen
@@ -683,7 +683,7 @@ function new_hero()
 					elseif next[2] == -1 then
 						flip_y = true
 					end
-					if #get_ranged_targets(self, next) > 0 then
+					if #get_ranged_targets(self, next) > 0 and not game_over then
 						spr(sprite, ax + next[1] * 8, ay + next[2] * 8, 1, 1, flip_x, flip_y)
 					end
 				end
@@ -705,8 +705,9 @@ function new_hero()
 						flip_y = true
 					end
 					if
-						find_type("enemy", _b) or
-						location_exists(_b) and is_wall_between(_a, _b) and not find_type("hero", _b)
+						not game_over and
+						(find_type("enemy", _b) or
+						location_exists(_b) and is_wall_between(_a, _b) and not find_type("hero", _b))
 					then
 						spr(sprite, ax + next[1] * 8, ay + next[2] * 8, 1, 1, flip_x, flip_y)
 					end
@@ -899,7 +900,7 @@ function new_e()
 		draw_health(sx, sy, self.health, _t, 8)
 
 		-- draw crosshairs
-		if self.health >= 1 and self.is_target > 006 then
+		if self.health >= 1 and self.is_target > 006 and not game_over then
 			pal(006, self.is_target)
 			spr(002, sx, sy)
 		end
