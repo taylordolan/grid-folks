@@ -4,6 +4,19 @@ __lua__
 -- grid folks
 -- taylor d
 
+-- todo
+-- [x] clearer game end states
+-- [ ] don't show arrows and crosshairs on game over
+-- [ ] input delay after game over
+
+-- [ ] fix health text effect from going off the edge of the screen
+
+-- [ ] clean up animations?
+		-- rather than using the first item in an array and deleting it each frame,
+		-- the arrays should persist unchanged, and things should track an index and
+		-- a rate at which they progress through the array. they could also have
+		-- "forward" and "loop" modes.
+
 function _init()
 
 	-- board size
@@ -24,37 +37,37 @@ function _init()
 	-- sounds dictionary
 	sounds = {
 		["a_step"] = 011,
-    ["b_step"] = 012,
+		["b_step"] = 012,
 		["pad_step"] = 013, -- stepping on a pad
-    ["button_step"] = 021, -- stepping on a button
+		["button_step"] = 021, -- stepping on a button
 		["advance"] = 014, -- creating new buttons
 		["bump"] = 015,
 		["shoot"] = 016,
 		["jump"] = 017,
-    ["charge"] = 021,
+		["charge"] = 021,
 		["health"] = 018, -- gaining health
 		["score"] = 019, -- gaining gold
-    ["enemy_dash"] = 020,
+		["enemy_dash"] = 020,
 	}
 
-  -- lower sounds are higher priority
-  sound_priorities = {
+	-- lower sounds are higher priority
+	sound_priorities = {
 		"a_step",
-    "b_step",
+		"b_step",
 		"pad_step",
-    "button_step",
+		"button_step",
 		"bump",
 		"jump",
-    "charge",
+		"charge",
 		"health",
 		"score",
-    "enemy_dash",
+		"enemy_dash",
 		"advance",
 		"shoot",
 	}
 
-  -- no need to list the actual sounds here since they're all false by default
-  active_sounds = {}
+	-- no need to list the actual sounds here since they're all false by default
+	active_sounds = {}
 
 	-- some game state
 	score = 0
@@ -62,16 +75,16 @@ function _init()
 	p_turn = true
 	debug = false
 	delay = 0
-  completed_guides = {}
+	completed_guides = {}
 	depth = 32
 	ani_frames = 4
 	shakes = {{0,0}}
 	game_over = false
 	time = 0
-  has_advanced = false
-  has_bumped = false
-  has_switched = false
-  border_color = 007
+	has_advanced = false
+	has_bumped = false
+	has_switched = false
+	border_color = 007
 
 	-- lists of `things`
 	heroes = {}
@@ -86,24 +99,25 @@ function _init()
 	walls = {}
 	colors_bag = {}
 	o_dirs = {{-1,0},{1,0},{0,-1},{0,1}}
+	overlays = {}
 
 	-- log of recent user input
 	queue = {}
 
 	-- initial walls
 	refresh_walls()
-  for next in all({{2,3},{3,3},{4,3},{5,3}}) do
-    local wall = find_type("wall_right", next)
-    if wall then
-      wall:kill()
-    end
-  end
-  for next in all({{2,3},{4,2},{6,3}}) do
-    local wall = find_type("wall_down", next)
-    if wall then
-      wall:kill()
-    end
-  end
+	for next in all({{2,3},{3,3},{4,3},{5,3}}) do
+		local wall = find_type("wall_right", next)
+		if wall then
+			wall:kill()
+		end
+	end
+	for next in all({{2,3},{4,2},{6,3}}) do
+		local wall = find_type("wall_down", next)
+		if wall then
+			wall:kill()
+		end
+	end
 
 	-- heroes
 	hero_a = new_hero()
@@ -118,20 +132,20 @@ function _init()
 
 	-- spawn stuff
 	function get_spawn_rates(base, starting_spawn_rate, offset)
-    local spawn_rates = {
-      [001] = starting_spawn_rate,
-    }
-    local previous = 1
-    local increase = base
-    for i=1, starting_spawn_rate - 1 do
-      increase += i + offset
-      local next = previous + flr(increase)
-      spawn_rates[next] = starting_spawn_rate - i
-      previous = next
-    end
-    return spawn_rates
-  end
-  spawn_rates = get_spawn_rates(12, 12, 4)
+		local spawn_rates = {
+			[001] = starting_spawn_rate,
+		}
+		local previous = 1
+		local increase = base
+		for i=1, starting_spawn_rate - 1 do
+			increase += i + offset
+			local next = previous + flr(increase)
+			spawn_rates[next] = starting_spawn_rate - i
+			previous = next
+		end
+		return spawn_rates
+	end
+	spawn_rates = get_spawn_rates(12, 12, 4)
 	spawn_bags = {
 		[001] = {"baby"},
 		[026] = {"baby", "dash"},
@@ -182,34 +196,38 @@ function _update60()
 		if next.health <= 0 and #next.pixels <= 1 then
 			next:kill()
 			local _s = pos_pix(tile(next))
-      if (not next.no_pop) new_pop(_s, true)
-    end
+			if (not next.no_pop) new_pop(_s, true)
+		end
 	end
 
 	-- if btnp(4) then
 	-- 	-- debug = not debug
-  --   -- new_text_effect(hero_a, small("+1 health"), 008, 007)
-	-- 	-- if depth > 2 then
-	-- 	-- 	local open_tiles = {}
-	-- 	-- 	for next in all(tiles) do
-	-- 	-- 		if
-	-- 	-- 			not find_type("button", next) and
-	-- 	-- 			not find_type("pad", next)
-	-- 	-- 		then
-	-- 	-- 			add(open_tiles, next)
-	-- 	-- 		end
-	-- 	-- 	end
-	-- 	-- 	shuff(open_tiles)
-  --   --   local _b = new_button(008)
-	-- 	-- 	set_tile(_b, open_tiles[1])
-  --   --   _b:charge()
-	-- 	-- 	depth -= 1
-	-- 	-- end
-  --   -- set_tile(new_button(011), {2,2})
-  --   -- set_tile(new_button(008), {3,2})
-  --   -- set_tile(new_charge(008), {3,2})
-  --   -- score += 1
-  --   -- grid = not grid
+	--   -- new_text_effect({39,53}, small("you survived!"), 007, 006, game_end_effects)
+	--   -- for i = 1, 30 do
+	--   --   if depth > 2 then
+	--   --     local open_tiles = {}
+	--   --     for next in all(tiles) do
+	--   --       if
+	--   --         not find_type("button", next) and
+	--   --         not find_type("pad", next)
+	--   --       then
+	--   --         add(open_tiles, next)
+	--   --       end
+	--   --     end
+	--   --     shuff(open_tiles)
+	--   --     local colors = {008, 009, 011, 012}
+	--   --     shuff(colors)
+	--   --     local _b = new_button(colors[1])
+	--   --     set_tile(_b, open_tiles[1])
+	--   --     _b:charge()
+	--   --     depth -= 1
+	--   --   end
+	--   -- end
+	--   -- set_tile(new_button(011), {2,2})
+	--   -- set_tile(new_button(008), {3,2})
+	--   -- set_tile(new_charge(008), {3,2})
+	--   -- score += 1
+	--   -- grid = not grid
 	-- end
 
 	if game_over then
@@ -238,13 +256,17 @@ function _update60()
 	-- game win
 	elseif find_type("exit", tile(hero_a)) and find_type("exit", tile(hero_b)) then
 		score += 100
+		add(overlays, new_overlay())
+		new_text_effect({41,53}, small("you escaped!"), 014, 007, true)
 		depth = 0
 		game_over = true
-    border_color = 011
+		border_color = 011
 	-- game lose
 	elseif hero_a.health <= 0 or hero_b.health <= 0 then
+		add(overlays, new_overlay())
+		new_text_effect({46,53}, small("game over"), 014, 007, true)
 		game_over = true
-    border_color = 008
+		border_color = 008
 	-- player turn
 	elseif p_turn == true and #queue > 0 then
 		if queue[1] == 5 then
@@ -297,16 +319,16 @@ function _update60()
 	end
 	h_btns()
 
-  local active_sound = false
-  for next in all(sound_priorities) do
-    if active_sounds[next] then
-      active_sound = next
-    end
-    active_sounds[next] = false
-  end
-  if active_sound then
-    sfx(sounds[active_sound], 3)
-  end
+	local active_sound = false
+	for next in all(sound_priorities) do
+		if active_sounds[next] then
+			active_sound = next
+		end
+		active_sounds[next] = false
+	end
+	if active_sound then
+		sfx(sounds[active_sound], 3)
+	end
 
 	if stat(1) > 1 then printh(stat(1)) end
 end
@@ -336,7 +358,7 @@ function _draw()
 	-- draw outlines
 	rect(12, 12, 115, 85, 000)
 	-- draw border
-  pal(006, border_color)
+	pal(006, border_color)
 	-- top and bottom
 	for x = 12, 115, 8 do
 		spr(008, x, 4)
@@ -368,6 +390,7 @@ function _draw()
 		charges,
 		heroes,
 		enemies,
+		overlays,
 		effects,
 	}) do
 		for next in all(list) do
@@ -375,24 +398,16 @@ function _draw()
 		end
 	end
 
-  local a_btn = find_type("button",  tile(hero_a))
-  local b_btn = find_type("button",  tile(hero_b))
-  local a_btn_clr = false
-  local b_btn_clr = false
-  if (a_btn) a_btn_clr = a_btn.color
-  if (b_btn) b_btn_clr = b_btn.color
+	local a_btn = find_type("button",  tile(hero_a))
+	local b_btn = find_type("button",  tile(hero_b))
+	local a_btn_clr = false
+	local b_btn_clr = false
+	if (a_btn) a_btn_clr = a_btn.color
+	if (b_btn) b_btn_clr = b_btn.color
 
-  -- for x = 12, 112, 4 do
-  --   for y = 12, 83, 4 do
-  --     pset(x + (y % 4), y + (time / 8) % 4, 0)
-  --     -- pset(y-x+2 + time/4, y, 0)
-  --     -- pset(x+1, y, 014)
-  --     -- pset(x, y+1, 014)
-  --     -- pset(x+1, y+1, 014)
-  --   end
-  -- end
+	-- game over
 	if game_over then
-		-- draw game over state
+		-- lower messages
 		local msg
 		local msg_x
 		local msg_y
@@ -400,7 +415,7 @@ function _draw()
 		if depth != 0 then
 			msg = small("you died with " .. score .. " gold")
 		else
-			msg = small("+100 gold")
+			msg = small("+100 gold for escaping")
 		end
 		local msg_x = 64 - #msg * 2
 		print(msg, msg_x, 99, 007)
@@ -409,12 +424,13 @@ function _draw()
 			local txt = depth == 1 and " depth" or " depths"
 			msg = small(depth .. txt .. " from the surface")
 		else
-			msg = small("final score: " .. score)
+			msg = small("total gold: " .. score)
 		end
 		msg_x = 64 - #msg * 2
 		print(msg, msg_x, 109, 007)
 		-- line 3
 		print(small("press x to restart"), 28, 119, 005)
+	-- intro guide
 	elseif not (has_switched and has_bumped and has_advanced) then
 		-- draw intro
 		print(small("press x to switch heroes"), 16, 99, has_switched and 005 or 007)
@@ -424,52 +440,55 @@ function _draw()
 		pal(006, has_advanced and 005 or 007)
 		spr(016, 61, 116)
 		print(small("to ascend"), 73, 119, has_advanced and 005 or 007)
-		-- return
 		pal()
-  elseif current_guide == 012 and not completed_guides[012] and (a_btn_clr == 012 and hero_a.took_guide_step == true or b_btn_clr == 012 and hero_b.took_guide_step == true) then
-    -- print messages
-    print(small("when a hero stands on"), 15, 99, 007)
-    print(",", 111, 99, 007)
-    print(small("the other hero can jump"), 18, 109, 007)
-    -- print sprite
-    palt(15,true)
-    pal(005,001)
-    pal(006,012)
-    spr(018, 102, 96)
-    pal()
-  elseif current_guide == 011 and not completed_guides[011] and (a_btn_clr == 011 and hero_a.took_guide_step == true or b_btn_clr == 011 and hero_b.took_guide_step == true) then
-    -- print messages
-    print(small("when a hero stands on"), 15, 99, 007)
-    print(",", 111, 99, 007)
-    print(small("the other hero can shoot"), 16, 109, 007)
-    -- print sprite
-    palt(15,true)
-    pal(005,003)
-    pal(006,011)
-    spr(018, 102, 96)
-    pal()
-  elseif current_guide == 008 and not completed_guides[008] and (a_btn_clr == 008 and hero_a.took_guide_step == true or b_btn_clr == 008 and hero_b.took_guide_step == true) then
-    -- print messages
-    print(small("are refilled with health"), 22, 99, 007)
-    print(small("when enemies step on them"), 14, 109, 007)
-    -- print sprite
-    palt(15,true)
-    pal(005,002)
-    pal(006,008)
-    spr(017, 10, 96)
-    pal()
-  elseif current_guide == 009 and not completed_guides[009] and (a_btn_clr == 009 and hero_a.took_guide_step == true or b_btn_clr == 009 and hero_b.took_guide_step == true) then
-    -- print messages
-    print(small("are refilled with gold"), 26, 99, 007)
-    print(small("when enemies step on them"), 14, 109, 007)
-    -- print sprite
-    palt(15,true)
-    pal(005,004)
-    pal(006,009)
-    spr(017, 14, 96)
-    pal()
+	-- jump guide
+	elseif current_guide == 012 and not completed_guides[012] and (a_btn_clr == 012 and hero_a.took_guide_step == true or b_btn_clr == 012 and hero_b.took_guide_step == true) then
+		-- print messages
+		print(small("when a hero stands on"), 15, 99, 007)
+		print(",", 111, 99, 007)
+		print(small("the other hero can jump"), 18, 109, 007)
+		-- print sprite
+		palt(15,true)
+		pal(005,001)
+		pal(006,012)
+		spr(018, 102, 96)
+		pal()
+	-- shoot guide
+	elseif current_guide == 011 and not completed_guides[011] and (a_btn_clr == 011 and hero_a.took_guide_step == true or b_btn_clr == 011 and hero_b.took_guide_step == true) then
+		-- print messages
+		print(small("when a hero stands on"), 15, 99, 007)
+		print(",", 111, 99, 007)
+		print(small("the other hero can shoot"), 16, 109, 007)
+		-- print sprite
+		palt(15,true)
+		pal(005,003)
+		pal(006,011)
+		spr(018, 102, 96)
+		pal()
+	-- health guide
+	elseif current_guide == 008 and not completed_guides[008] and (a_btn_clr == 008 and hero_a.took_guide_step == true or b_btn_clr == 008 and hero_b.took_guide_step == true) then
+		-- print messages
+		print(small("are refilled with health"), 22, 99, 007)
+		print(small("when enemies step on them"), 14, 109, 007)
+		-- print sprite
+		palt(15,true)
+		pal(005,002)
+		pal(006,008)
+		spr(017, 10, 96)
+		pal()
+	-- gold guide
+	elseif current_guide == 009 and not completed_guides[009] and (a_btn_clr == 009 and hero_a.took_guide_step == true or b_btn_clr == 009 and hero_b.took_guide_step == true) then
+		-- print messages
+		print(small("are refilled with gold"), 26, 99, 007)
+		print(small("when enemies step on them"), 14, 109, 007)
+		-- print sprite
+		palt(15,true)
+		pal(005,004)
+		pal(006,009)
+		spr(017, 14, 96)
+		pal()
+	-- main hud
 	else
-		-- draw instructions area
 		-- depth
 		print(small("depth"), 11, 99, 007)
 		print(depth, 34, 99, 007)
@@ -479,16 +498,16 @@ function _draw()
 		print(num, 99 - #num * 4, 99, 007)
 		-- instructions
 		spr(032, 11, 106, 7, 1) -- green
-    spr(048, 11, 116, 7, 1) -- blue
+		spr(048, 11, 116, 7, 1) -- blue
 		spr(039, 70, 106, 6, 1) -- orange
-    spr(055, 70, 116, 6, 1) -- red
+		spr(055, 70, 116, 6, 1) -- red
 	end
 
 	for next in all(effects) do
 		next:draw()
 	end
 
-  -- draw grid
+	-- draw grid
   -- if grid then
   --   for x = -1, 128, 8 do
   --     for y = -1, 128, 8 do
@@ -499,6 +518,20 @@ function _draw()
   --     end
   --   end
   -- end
+end
+
+function new_overlay()
+	local _o = {
+		draw = function(self)
+			for _x = 14, 114, 3 do
+				for _y = 14, 84, 3 do
+					local _x = _x + (_y % 2 * 2)
+					if (_x < 114) pset(_x, _y, 006)
+				end
+			end
+		end
+	}
+	return _o
 end
 
 function copy(_a)
@@ -542,7 +575,7 @@ function new_hero()
 	_h.max_health = 3
 	_h.health = 3
 	_h.list = heroes
-  _h.took_guide_step = false
+	_h.took_guide_step = false
 
 	_h.act = function(self, direction)
 
@@ -557,8 +590,8 @@ function new_hero()
 
 			-- if jump is enabled
 			if self.jump then
-        if (enemy or wall) completed_guides[012] = true
-        if (enemy) hit_target(enemy, 3, direction)
+				if (enemy or wall) completed_guides[012] = true
+				if (enemy) hit_target(enemy, 3, direction)
 				local _here = pos_pix(tile(self))
 				local _next = pos_pix(next_tile)
 				local _half = {(_here[1] + _next[1]) / 2, _here[2]-4}
@@ -577,7 +610,7 @@ function new_hero()
 						hit_target(next, 1, {-direction[1],-direction[2]})
 					end
 					new_shot(self, direction)
-          completed_guides[011] = true
+					completed_guides[011] = true
 					active_sounds["shoot"] = true
 					delay = ani_frames
 					p_turn = false
@@ -585,7 +618,7 @@ function new_hero()
 				-- otherwise, if there's an enemy in the destination, hit it
 				elseif enemy then
 					active_sounds["bump"] = true
-          has_bumped = true
+					has_bumped = true
 					hit_target(enemy, 1, direction)
 					local here = pos_pix(tile(self))
 					local bump = {here[1] + direction[1] * 4, here[2] + direction[2] * 4}
@@ -880,8 +913,8 @@ function new_e()
 			if
 				not find_type("hero", next) and
 				not find_type("enemy", next) and
-        distance_by_map(hero_a.dmap_ideal, next) >= 3 and
-        distance_by_map(hero_b.dmap_ideal, next) >= 3
+				distance_by_map(hero_a.dmap_ideal, next) >= 3 and
+				distance_by_map(hero_b.dmap_ideal, next) >= 3
 			then
 				add(valid_tiles, next)
 			end
@@ -982,11 +1015,11 @@ function new_e_dash()
 				add(_tiles, _n)
 			end
 			for i=1, #_tiles do
-        local _b = find_type("button", _tiles[i])
-        local _c = find_type("charge", _tiles[i])
-        if _b and (_b.color == 009 or _b.color == 008) and not _c then
-          _b:charge(i*2)
-        end
+				local _b = find_type("button", _tiles[i])
+				local _c = find_type("charge", _tiles[i])
+				if _b and (_b.color == 009 or _b.color == 008) and not _c then
+					_b:charge(i*2)
+				end
 				new_pop(pos_pix(_tiles[i]), false, 1, 4+i*8)
 			end
 			set_tile(self, _t)
@@ -1163,7 +1196,7 @@ function new_e_grow()
 			for next in all(board[self.x][self.y]) do
 				if next != self and next.sub_type == "grow" then
 					self.health = 0
-          self.no_pop = true
+					self.no_pop = true
 					next.health = 0
 					set_tile(new_e_grown(), tile(self))
 				end
@@ -1335,21 +1368,21 @@ function stretch(a, n)
 end
 
 function merge(lists)
-  local merged = {}
-  for list in all(lists) do
-    for next in all(list) do
-      add(merged, next)
-    end
-  end
-  return merged
+	local merged = {}
+	for list in all(lists) do
+		for next in all(list) do
+			add(merged, next)
+		end
+	end
+	return merged
 end
 
 function draw_health(x_pos, y_pos, current, threatened, offset)
 	-- draw current amount of health in dark red
-  for i = 1, current do
-    pset(x_pos + offset, y_pos + 10 - i * 3, not game_over and flr(time/24) % 2 == 0 and 002 or 008)
-    pset(x_pos + offset, y_pos + 9 - i * 3, not game_over and flr(time/24) % 2 == 0 and 002 or 008)
-  end
+	for i = 1, current do
+		pset(x_pos + offset, y_pos + 10 - i * 3, not game_over and flr(time/24) % 2 == 0 and 002 or 008)
+		pset(x_pos + offset, y_pos + 9 - i * 3, not game_over and flr(time/24) % 2 == 0 and 002 or 008)
+	end
 	-- draw current - threatened amount of health in light red
 	for i = 1, current - threatened do
 		pset(x_pos + offset, y_pos + 10 - i * 3, 008)
@@ -1389,12 +1422,11 @@ function active_hero()
 end
 
 function dark(color)
-  if (color == 012) return 001 -- blue
-  if (color == 008) return 002 -- red
-  if (color == 011) return 003 -- green
-  if (color == 009) return 004 -- orange
-  if (color == 014) return 002 -- pink
-  if (color == 013) return 001 -- pink
+	if (color == 012) return 001 -- blue
+	if (color == 008) return 002 -- red
+	if (color == 011) return 003 -- green
+	if (color == 009) return 004 -- orange
+	if (color == 014) return 002 -- pink
 end
 
 function small(s)
@@ -1462,42 +1494,42 @@ function set_tile(thing, dest)
 		return
 	end
 
-  -- local _c = find_type("charge", dest)
+	-- local _c = find_type("charge", dest)
 
-  -- trigger hero step sounds
+	-- trigger hero step sounds
 	-- checking for x because we don't want to make this sound if the hero is
-  -- being deployed
+	-- being deployed
 	if thing.type == "hero" and thing.x then
-    -- tracks whether the hero's last step triggered a guide so that stepping on
-    -- a filled totem won't later trigger a guide
-    thing.took_guide_step = false
-    local _b = find_type("button", dest)
-    local _p = find_type("pad", dest)
-    if thing == hero_a then
+		-- tracks whether the hero's last step triggered a guide so that stepping on
+		-- a filled totem won't later trigger a guide
+		thing.took_guide_step = false
+		local _b = find_type("button", dest)
+		local _p = find_type("pad", dest)
+		if thing == hero_a then
 			active_sounds["a_step"] = true
-      -- if the friend is standing on a button that hasn't had its guide
-      -- completed yet, then set the guide to that color
-      local _f = find_type("button", tile(hero_b))
-      if (_f and not completed_guides[_f.color] and hero_b.took_guide_step == true) current_guide = _f.color
-    else
-      active_sounds["b_step"] = true
-      local _f = find_type("button", tile(hero_a))
-      if (_f and not completed_guides[_f.color] and hero_a.took_guide_step == true) current_guide = _f.color
+			-- if the friend is standing on a button that hasn't had its guide
+			-- completed yet, then set the guide to that color
+			local _f = find_type("button", tile(hero_b))
+			if (_f and not completed_guides[_f.color] and hero_b.took_guide_step == true) current_guide = _f.color
+		else
+			active_sounds["b_step"] = true
+			local _f = find_type("button", tile(hero_a))
+			if (_f and not completed_guides[_f.color] and hero_a.took_guide_step == true) current_guide = _f.color
 		end
 		if _p then
 			active_sounds["pad_step"] = true
-    elseif _b then
-      local _c = find_type("charge", dest) and true or false
-      -- make sound for green or blue buttons
-      if _b.color == 011 or _b.color == 012 then
-        active_sounds["button_step"] = true
-      end
-      -- set current guide
-      if _b.color and not completed_guides[_b.color] and not _c then
-        thing.took_guide_step = true
-        current_guide = _b.color
-      end
-    end
+		elseif _b then
+			local _c = find_type("charge", dest) and true or false
+			-- make sound for green or blue buttons
+			if _b.color == 011 or _b.color == 012 then
+				active_sounds["button_step"] = true
+			end
+			-- set current guide
+			if _b.color and not completed_guides[_b.color] and not _c then
+				thing.took_guide_step = true
+				current_guide = _b.color
+			end
+		end
 	end
 
 	-- remove it from its current tile
@@ -1529,13 +1561,13 @@ function set_tile(thing, dest)
 		local _b = find_type("button", tile(thing)) -- change these to dest?
 		local _c = find_type("charge", tile(thing))
 		if _b and _b.color == 008 and not _c then
-      _b:charge()
-      completed_guides[008] = true
-      active_sounds["charge"] = true
+			_b:charge()
+			completed_guides[008] = true
+			active_sounds["charge"] = true
 		elseif _b and _b.color == 009 and not _c then
-      _b:charge()
-      completed_guides[009] = true
-      active_sounds["charge"] = true
+			_b:charge()
+			completed_guides[009] = true
+			active_sounds["charge"] = true
 		end
 	end
 end
@@ -1566,11 +1598,11 @@ function h_btns()
 				else
 					new_text_effect(hero, small("+0 health"), 008, 007)
 				end
-        active_sounds["health"] = true
+				active_sounds["health"] = true
 			elseif _c.color == 009 then
 				score += 1
 				new_text_effect(hero, small("+1 gold"), 009, 007)
-        active_sounds["score"] = true
+				active_sounds["score"] = true
 			end
 			_c:kill()
 		end
@@ -1616,36 +1648,37 @@ function deploy(thing, avoid_list)
 end
 
 -- todo: make this a `thing`?
-function new_text_effect(parent, string, color, outline)
+function new_text_effect(ref, string, text_color, outline_color, persistent)
 	local _n = {
-		parent = parent, -- hero to base position of effect on
+		ref = ref,
 		_x = function(self)
-			return self.parent.pixels[1][1]
+			return #ref == 2 and self.ref[1] or self.ref.pixels[1][1]
 		end,
 		_y = function(self)
-			return self.parent.pixels[1][2]
+			return #ref == 2 and self.ref[2] or self.ref.pixels[1][2]
 		end,
-		offset = 0,
+		y_offset = 0,
 		t = 0,
 		draw = function(self)
-      -- the screen position where the main color text gets drawn
-			local base = {self:_x() - #string * 2 + 4, self:_y() + self.offset}
-      -- outline
-			for next in all({{-1,0},{1,0},{0,-1},{0,1},{-1,-1},{-1,1},{1,-1},{1,1}}) do
-				local result = add_pairs(base, next)
-				print(string, result[1], result[2], outline)
+			local x_offset = #ref == 2 and 0 or -(#string * 2 + 4)
+			-- the screen position where the main color text gets drawn
+			local base = {self:_x() + x_offset, self:_y() + self.y_offset}
+			-- outline
+			for _x in all({-1,0,1}) do
+				for _y in all({-1,0,1,2}) do
+					local next = {_x,_y}
+					local result = add_pairs(base, next)
+					print(string, result[1], result[2], outline_color)
+				end
 			end
-      print(string, base[1], base[2] + 2, outline)
-      print(string, base[1] - 1, base[2] + 2, outline)
-      print(string, base[1] + 1, base[2] + 2, outline)
-      -- dark color
-      print(string, base[1], base[2] + 1, dark(color))
-      -- main color
-			print(string, base[1], base[2], color)
+			-- dark color
+			print(string, base[1], base[2] + 1, dark(text_color))
+			-- main color
+			print(string, base[1], base[2], text_color)
 			if self.t < 96 then
 				self.t += 1
-				self.offset = max(-8, self.offset - 1)
-			else
+				self.y_offset = max(-8, self.y_offset - 1)
+			elseif not persistent then
 				del(effects, self)
 			end
 			pal()
@@ -1768,7 +1801,7 @@ function get_ranged_targets(thing, direction)
 		local next_tile = {now_tile[1] + direction[1], now_tile[2] + direction[2]}
 		local target = find_type(thing.target_type, next_tile)
 		-- if `next_tile` is off the map, or there's a wall in the way, or a thing
-    -- of the same type is in the way, then stop checking tiles
+		-- of the same type is in the way, then stop checking tiles
 		if
 			not location_exists(next_tile) or
 			is_wall_between(now_tile, next_tile) or
@@ -1834,7 +1867,7 @@ function add_button()
 	end
 
 	-- put a button in its position
-  new_button(o_p.color):deploy({o_p.x, o_p.y})
+	new_button(o_p.color):deploy({o_p.x, o_p.y})
 
 	-- make the advance sound
 	active_sounds["advance"] = true
@@ -1843,9 +1876,9 @@ end
 function hit_target(target, damage, direction)
 	target.health -= damage
 	if target.type == "enemy" then
-    if target.health <= 0 then
-      active_sounds["bump"] = true
-    end
+		if target.health <= 0 then
+			active_sounds["bump"] = true
+		end
 	end
 	local r = {000,008}
 	local y = {010,010}
@@ -2067,7 +2100,7 @@ end
 
 function refresh_pads(preset_tiles)
 
-  local preset_tiles = preset_tiles or {}
+	local preset_tiles = preset_tiles or {}
 	if #colors_bag == 0 then
 		colors_bag = {008,008,008,009,011,012}
 		shuff(colors_bag)
@@ -2107,62 +2140,62 @@ function refresh_pads(preset_tiles)
 
 	-- place new pads
 	local pads = {new_pad(pad_colors[1]), new_pad(pad_colors[2]), new_pad(pad_colors[3])}
-  if #preset_tiles > 0 then
-    shuff(preset_tiles)
-    for i=1, #pads do
-      set_tile(pads[i], preset_tiles[i])
-    end
-  else
-    local open_tiles = {}
-    for next in all(tiles) do
-      if
-        not find_type("pad", next) and
-        not find_type("button", next) and
-        not find_type("hero", next)
-      then
-        add(open_tiles, next)
-      end
-    end
-    -- find open tiles that are > 3 tiles away from heroes
-    local dist_3_tiles = {}
-    for next in all(open_tiles) do
-      if
-        distance_by_map(hero_a.dmap_ideal, next) >= 3 and
-        distance_by_map(hero_b.dmap_ideal, next) >= 3
-      then
-        add(dist_3_tiles, next)
-        del(open_tiles, next)
-      end
-    end
-    -- find open tiles that are > 2 tiles away from heroes
-    local dist_2_tiles = {}
-    for next in all(open_tiles) do
-      if
-        distance_by_map(hero_a.dmap_ideal, next) >= 2 and
-        distance_by_map(hero_b.dmap_ideal, next) >= 2
-      then
-        add(dist_2_tiles, next)
-        del(open_tiles, next)
-      end
-    end
+	if #preset_tiles > 0 then
+		shuff(preset_tiles)
+		for i=1, #pads do
+			set_tile(pads[i], preset_tiles[i])
+		end
+	else
+		local open_tiles = {}
+		for next in all(tiles) do
+			if
+				not find_type("pad", next) and
+				not find_type("button", next) and
+				not find_type("hero", next)
+			then
+				add(open_tiles, next)
+			end
+		end
+		-- find open tiles that are > 3 tiles away from heroes
+		local dist_3_tiles = {}
+		for next in all(open_tiles) do
+			if
+				distance_by_map(hero_a.dmap_ideal, next) >= 3 and
+				distance_by_map(hero_b.dmap_ideal, next) >= 3
+			then
+				add(dist_3_tiles, next)
+				del(open_tiles, next)
+			end
+		end
+		-- find open tiles that are > 2 tiles away from heroes
+		local dist_2_tiles = {}
+		for next in all(open_tiles) do
+			if
+				distance_by_map(hero_a.dmap_ideal, next) >= 2 and
+				distance_by_map(hero_b.dmap_ideal, next) >= 2
+			then
+				add(dist_2_tiles, next)
+				del(open_tiles, next)
+			end
+		end
 
-    shuff(dist_3_tiles)
-    shuff(dist_2_tiles)
-    shuff(open_tiles)
+		shuff(dist_3_tiles)
+		shuff(dist_2_tiles)
+		shuff(open_tiles)
 
-    for i=1, #pads do
-      if dist_3_tiles[1] then
-        set_tile(pads[i], dist_3_tiles[1])
-        del(dist_3_tiles, dist_3_tiles[1])
-      elseif dist_2_tiles[1] then
-        set_tile(pads[i], dist_2_tiles[1])
-        del(dist_2_tiles, dist_2_tiles[1])
-      else
-        set_tile(pads[i], open_tiles[1])
-        del(open_tiles, open_tiles[1])
-      end
-    end
-  end
+		for i=1, #pads do
+			if dist_3_tiles[1] then
+				set_tile(pads[i], dist_3_tiles[1])
+				del(dist_3_tiles, dist_3_tiles[1])
+			elseif dist_2_tiles[1] then
+				set_tile(pads[i], dist_2_tiles[1])
+				del(dist_2_tiles, dist_2_tiles[1])
+			else
+				set_tile(pads[i], open_tiles[1])
+				del(open_tiles, open_tiles[1])
+			end
+		end
+	end
 end
 
 function new_pad(color)
@@ -2188,12 +2221,12 @@ end
 -- extra_delay is used when a dash enemy charges multiple buttons while dashing
 -- so that they appear to be charged in sequence
 -- when a charge is created along with a new button…
-  -- extra_delay is used to hide the charge until flashing is done
-  -- offset is set to 0 so the charge shows up in place
+	-- extra_delay is used to hide the charge until flashing is done
+	-- offset is set to 0 so the charge shows up in place
 function new_charge(color, extra_delay, offset)
 	local _c = new_thing()
-  local _e = extra_delay or 0
-  local offset = offset or -8
+	local _e = extra_delay or 0
+	local offset = offset or -8
 
 	_c.type = "charge"
 	_c.color = color
@@ -2207,7 +2240,7 @@ function new_charge(color, extra_delay, offset)
 			palt(015, true)
 			palt(000, false)
 			pal(006, color)
-      pal(005, dark(color))
+			pal(005, dark(color))
 			local sx = self.pixels[1][1]
 			local sy = self.pixels[1][2] - 2
 			spr(019,sx,sy + self.offset)
@@ -2222,32 +2255,32 @@ end
 
 function new_button(color)
 	local _b = new_thing()
-  local sprites
-  local charge
+	local sprites
+	local charge
 
-  -- green or blue
-  if color == 011 or color == 012 then
-    sprites = merge({stretch({018}, 12), stretch({016}, 9), stretch({018}, 6), stretch({016}, 3), {018}})
-    charge = function(self, extra_delay, offset)
-      return
-    end
-  -- red or orange
-  elseif color == 008 or color == 009 then
-    sprites = merge({stretch({028}, 12), stretch({016}, 9), stretch({028}, 6), stretch({016}, 3), {017}})
-    charge = function(self, extra_delay, offset)
-      set_tile(new_charge(color, extra_delay, offset), tile(self))
-    end
-  end
+	-- green or blue
+	if color == 011 or color == 012 then
+		sprites = merge({stretch({018}, 12), stretch({016}, 9), stretch({018}, 6), stretch({016}, 3), {018}})
+		charge = function(self, extra_delay, offset)
+			return
+		end
+	-- red or orange
+	elseif color == 008 or color == 009 then
+		sprites = merge({stretch({028}, 12), stretch({016}, 9), stretch({028}, 6), stretch({016}, 3), {017}})
+		charge = function(self, extra_delay, offset)
+			set_tile(new_charge(color, extra_delay, offset), tile(self))
+		end
+	end
 
-  _b.sprites = sprites
+	_b.sprites = sprites
 	_b.type = "button"
 	_b.color = color
 	_b.list = buttons
-  _b.charge = charge
-  _b.deploy = function(self, tile)
-    set_tile(self, tile)
-    self:charge(26, 0) -- cancel out delay, no offset
-  end
+	_b.charge = charge
+	_b.deploy = function(self, tile)
+		set_tile(self, tile)
+		self:charge(26, 0) -- cancel out delay, no offset
+	end
 	_b.draw = function(self)
 		local sprite = self.sprites[1]
 		local sx = self.pixels[1][1]
@@ -2255,7 +2288,7 @@ function new_button(color)
 		palt(015, true)
 		palt(000, false)
 		pal(006, color)
-    pal(005, dark(self.color))
+		pal(005, dark(self.color))
 		spr(sprite, sx, sy)
 		self:end_draw()
 	end
