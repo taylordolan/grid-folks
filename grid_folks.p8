@@ -715,7 +715,7 @@ function new_hero()
 					elseif next[2] == -1 then
 						flip_y = true
 					end
-					if not is_wall_between(_a, _b) and find_type("enemy", _b) then
+					if not game_over and not is_wall_between(_a, _b) and find_type("enemy", _b) then
 						spr(sprite, ax + next[1] * 8, ay + next[2] * 8, 1, 1, flip_x, flip_y)
 					end
 				end
