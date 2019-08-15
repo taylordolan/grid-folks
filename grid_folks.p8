@@ -4,19 +4,6 @@ __lua__
 -- grid folks
 -- taylor d
 
--- todo
--- [x] clearer game end states
--- [x] don't show arrows and crosshairs on game over
--- [x] input delay after game over
-
--- [ ] fix health text effect from going off the edge of the screen
-
--- [ ] clean up animations?
-		-- rather than using the first item in an array and deleting it each frame,
-		-- the arrays should persist unchanged, and things should track an index and
-		-- a rate at which they progress through the array. they could also have
-		-- "forward" and "loop" modes.
-
 function _init()
 
 	-- board size
@@ -1654,7 +1641,7 @@ function new_text_effect(ref, string, text_color, outline_color, persistent)
 	local _n = {
 		ref = ref,
 		_x = function(self)
-			return #ref == 2 and self.ref[1] or self.ref.pixels[1][1]
+			return #ref == 2 and self.ref[1] or self.ref.pixels[1][1] - #string * 2 + 4
 		end,
 		_y = function(self)
 			return #ref == 2 and self.ref[2] or self.ref.pixels[1][2]
@@ -1662,9 +1649,8 @@ function new_text_effect(ref, string, text_color, outline_color, persistent)
 		y_offset = 0,
 		t = 0,
 		draw = function(self)
-			local x_offset = #ref == 2 and 0 or -(#string * 2 + 4)
-			-- the screen position where the main color text gets drawn
-			local base = {self:_x() + x_offset, self:_y() + self.y_offset}
+		-- the screen position where the main color text gets drawn
+			local base = {self:_x(), self:_y() + self.y_offset}
 			-- outline
 			for _x in all({-1,0,1}) do
 				for _y in all({-1,0,1,2}) do
