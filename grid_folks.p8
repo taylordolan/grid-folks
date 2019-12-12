@@ -2,7 +2,7 @@ pico-8 cartridge // http://www.pico-8.com
 version 18
 __lua__
 -- grid folks
--- taylor d
+-- coyboy
 
 function _init()
 
@@ -532,8 +532,8 @@ end
 
 function new_thing()
 	local new_thing = {
-		x = null,
-		y = null,
+		x = nil,
+		y = nil,
 		-- a sequence of screen positions
 		pixels = {},
 		-- a sequence of palette modifications
@@ -1440,17 +1440,7 @@ function small(s)
 end
 
 function location_exists(tile)
-	local tile_x = tile[1]
-	local tile_y = tile[2]
-	if
-		tile_x < 1 or
-		tile_x > cols or
-		tile_y < 1 or
-		tile_y > rows
-	then
-		return false
-	end
-	return true
+	return tile[1] >= 1 and tile[1] <= cols and tile[2] >= 1 and tile[2] <= rows
 end
 
 function ani_to(thing, dests, frames, wait)
@@ -1482,8 +1472,6 @@ function set_tile(thing, dest)
 	if not location_exists(dest) then
 		return
 	end
-
-	-- local _c = find_type("charge", dest)
 
 	-- trigger hero step sounds
 	-- checking for x because we don't want to make this sound if the hero is
@@ -1995,8 +1983,8 @@ end
 
 function new_wall(type)
 	local _w = {
-			x = null,
-			y = null,
+			x = nil,
+			y = nil,
 			type = type,
 			draw = function(self)
 				palt(0, false)
@@ -2104,8 +2092,8 @@ function refresh_pads(preset_tiles)
 	if #buttons == rows * cols - 4 then
 		for i = 1, 2 do
 			local exit = {
-				x = null,
-				y = null,
+				x = nil,
+				y = nil,
 				pixels = {},
 				type = "exit",
 				draw = function(self)
